@@ -10,6 +10,8 @@ use App\Http\Controllers\Customers\CustomerDocumentController;
 use App\Http\Controllers\Customers\CustomerRelationController;
 use App\Http\Controllers\Customers\GroupController;
 use App\Http\Controllers\Customers\KycController;
+use App\Http\Controllers\Expenses\ExpenseCategoryController;
+use App\Http\Controllers\Expenses\ExpenseRequestController;
 use App\Http\Controllers\Hr\CommissionController;
 use App\Http\Controllers\Hr\PayrollController;
 use App\Http\Controllers\Hr\StaffController;
@@ -295,6 +297,28 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/float-transfers/{transfer}', [FloatTransferController::class, 'destroy'])
         ->name('float-transfers.destroy');
 
+    /*
+     * Expenses (sidebar → Expenses, Headquarters Expenses, and Settings →
+     * Expense Categories). Reads behind treasury.view; the register is
+     * administrator work and decisions are treasury.manage, all enforced by
+     * ExpensePolicy. See docs/modules/expenses.md.
+     */
+    Route::apiResource('expense-categories', ExpenseCategoryController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->parameters(['expense-categories' => 'category']);
+
+    Route::get('/expense-requests', [ExpenseRequestController::class, 'index'])
+        ->name('expense-requests.index');
+    Route::post('/expense-requests', [ExpenseRequestController::class, 'store'])
+        ->name('expense-requests.store');
+    Route::get('/expense-requests/{expenseRequest}', [ExpenseRequestController::class, 'show'])
+        ->name('expense-requests.show');
+    Route::post('/expense-requests/{expenseRequest}/decide', [ExpenseRequestController::class, 'decide'])
+        ->name('expense-requests.decide');
+    Route::patch('/expense-requests/{expenseRequest}/comment', [ExpenseRequestController::class, 'comment'])
+        ->name('expense-requests.comment');
+    Route::delete('/expense-requests/{expenseRequest}', [ExpenseRequestController::class, 'destroy'])
+        ->name('expense-requests.destroy');
 
     // Declared before the {loan} routes so it is not captured as a loan id.
     Route::post('/loans/check-eligibility', [LoanController::class, 'checkEligibility'])

@@ -157,4 +157,19 @@ enum AuditAction: string
     case FloatTransferApproved = 'FLOAT_TRANSFER_APPROVED';
     case FloatTransferRejected = 'FLOAT_TRANSFER_REJECTED';
     case FloatTransferDeleted = 'FLOAT_TRANSFER_DELETED';
+
+    /*
+     * Expenses (§Expenses module). Creating a category mints a ledger account,
+     * and approving a request moves cash out of a till — the two events an
+     * expense audit is actually about. The comment is recorded too, because it
+     * is where the reason for a decision is written and it stays editable.
+     */
+    case ExpenseCategoryCreated = 'EXPENSE_CATEGORY_CREATED';
+    case ExpenseCategoryUpdated = 'EXPENSE_CATEGORY_UPDATED';
+    case ExpenseCategoryDeleted = 'EXPENSE_CATEGORY_DELETED';
+    case ExpenseRequested = 'EXPENSE_REQUESTED';
+    case ExpenseApproved = 'EXPENSE_APPROVED';
+    case ExpenseRejected = 'EXPENSE_REJECTED';
+    case ExpenseCommented = 'EXPENSE_COMMENTED';
+    case ExpenseWithdrawn = 'EXPENSE_WITHDRAWN';
 }

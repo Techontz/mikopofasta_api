@@ -63,6 +63,11 @@ class DatabaseSeeder extends Seeder
             // standalone transcription and depends on no other seed.
             HqAccountSeeder::class,
 
+            // Expense registers and a queue of requests. After the chart,
+            // because approving one posts through LedgerService; after
+            // OrganizationSeeder, because a request names the branch bearing
+            // the cost.
+            ExpenseSeeder::class,
         ]);
     }
 }
