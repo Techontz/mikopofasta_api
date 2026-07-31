@@ -8,6 +8,7 @@ use App\Domain\Auth\Enums\RoleName;
 use App\Domain\Hr\DTOs\PayrollComputation;
 use App\Domain\Hr\Enums\AllowanceType;
 use App\Domain\Hr\Enums\DeductionType;
+use App\Models\StaffAdvance;
 use App\Models\StaffProfile;
 use App\Support\Money;
 use App\Support\Percentage;
@@ -38,13 +39,18 @@ final class PayrollCalculator
     public const string STAFF_FUND_CONTRIBUTION_RATE = '10.000';
 
     /**
-     * The flat monthly recovery against an outstanding staff loan or advance
-     * (the frontend's RECOVERY_PER_PERIOD).
+     * The flat monthly recovery against an outstanding staff **loan** (the
+     * frontend's RECOVERY_PER_PERIOD).
      *
-     * Flat rather than proportional, and the same figure for both: §11 says an
-     * advance is "recovered automatically from payroll" without giving a
-     * schedule, and the frontend picked one number. Inventing an amortisation
-     * would be inventing a lending policy.
+     * Still flat, and still admittedly arbitrary: §11 says a loan is recovered
+     * from payroll without giving a schedule, and the frontend picked a number.
+     *
+     * **Salary advances no longer use this.** They carry their own terms —
+     * interest, charge fee and a recovery period count, snapshotted from the
+     * category they were priced by — and SalaryAdvanceCalculator derives the
+     * instalment from those and caps it at what is still owed. See
+     * docs/modules/salary-advance.md. Staff loans have no equivalent category
+     * yet, so they keep this figure until they get one.
      */
     public const string RECOVERY_PER_PERIOD = '50000.00';
 
@@ -68,6 +74,8 @@ final class PayrollCalculator
         RoleName::Auditor,
     ];
 
+    public function __construct(private readonly SalaryAdvanceCalculator $advances) {}
+
     /**
      * Computes one payroll line.
      *
@@ -81,12 +89,12 @@ final class PayrollCalculator
         Money $commissionAmount,
         bool $isBranchBased,
         bool $hasActiveLoan,
-        bool $hasOutstandingAdvance,
+        ?StaffAdvance $outstandingAdvance,
     ): PayrollComputation {
         $allowances = $this->allowancesFor($isBranchBased);
         $allowancesTotal = Money::sum(array_map(static fn (array $a): Money => $a['amount'], $allowances));
 
-        $deductions = $this->deductionsFor($staff, $hasActiveLoan, $hasOutstandingAdvance);
+        $deductions = $this->deductionsFor($staff, $hasActiveLoan, $outstandingAdvance);
         $deductionsTotal = Money::sum(array_map(static fn (array $d): Money => $d['amount'], $deductions));
 
         $base = $staff->baseSalary();
@@ -134,7 +142,7 @@ final class PayrollCalculator
     /**
      * @return list<array{type: DeductionType, amount: Money}>
      */
-    private function deductionsFor(StaffProfile $staff, bool $hasActiveLoan, bool $hasOutstandingAdvance): array
+    private function deductionsFor(StaffProfile $staff, bool $hasActiveLoan, ?StaffAdvance $advance): array
     {
         // The Staff Fund contribution is a percentage of BASE salary, not of
         // gross — commission and allowances do not increase what an employee
@@ -148,8 +156,22 @@ final class PayrollCalculator
             $deductions[] = ['type' => DeductionType::Loan, 'amount' => Money::of(self::RECOVERY_PER_PERIOD)];
         }
 
-        if ($hasOutstandingAdvance) {
-            $deductions[] = ['type' => DeductionType::Advance, 'amount' => Money::of(self::RECOVERY_PER_PERIOD)];
+        if ($advance !== null) {
+            /*
+             * From the advance's own terms, not a constant: the total repayable
+             * spread over the periods it was agreed for, capped at what is
+             * still owed.
+             *
+             * The cap is what makes the last instalment exact and what stops an
+             * almost-cleared advance being over-recovered — the flat figure
+             * this replaced would happily deduct 50,000 against a balance of
+             * 3,000, and nothing closed the advance afterwards either.
+             */
+            $recovery = $this->advances->recoveryFor($advance);
+
+            if ($recovery->isPositive()) {
+                $deductions[] = ['type' => DeductionType::Advance, 'amount' => $recovery];
+            }
         }
 
         return $deductions;

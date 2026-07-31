@@ -17,6 +17,7 @@ use App\Http\Requests\Hr\RecordPerformanceRequest;
 use App\Http\Requests\Hr\RegisterStaffRequest;
 use App\Http\Requests\Hr\StaffAdvanceRequest;
 use App\Http\Requests\Hr\UpdateStaffRequest;
+use App\Http\Resources\StaffAdvanceDetailResource;
 use App\Http\Resources\StaffAdvanceResource;
 use App\Http\Resources\StaffLoanResource;
 use App\Http\Resources\StaffPerformanceRecordResource;
@@ -195,7 +196,7 @@ final class StaffController extends Controller
         );
 
         return ApiResponse::data(
-            new StaffAdvanceResource($advance->load('staffProfile.user')),
+            new StaffAdvanceDetailResource($advance->load(StaffAdvance::LIST_RELATIONS)),
             status: Response::HTTP_CREATED,
         );
     }
@@ -209,7 +210,7 @@ final class StaffController extends Controller
 
         $advance = $action->approve($this->advance($request), $this->actor($request));
 
-        return ApiResponse::data(new StaffAdvanceResource($advance->load('staffProfile.user')));
+        return ApiResponse::data(new StaffAdvanceDetailResource($advance->load(StaffAdvance::LIST_RELATIONS)));
     }
 
     /**
@@ -221,7 +222,7 @@ final class StaffController extends Controller
 
         $advance = $action->reject($this->advance($request), $this->actor($request));
 
-        return ApiResponse::data(new StaffAdvanceResource($advance->load('staffProfile.user')));
+        return ApiResponse::data(new StaffAdvanceDetailResource($advance->load(StaffAdvance::LIST_RELATIONS)));
     }
 
     /**
@@ -237,7 +238,7 @@ final class StaffController extends Controller
 
         $advance = $action->disburse($this->advance($request), $this->actor($request));
 
-        return ApiResponse::data(new StaffAdvanceResource($advance->load('staffProfile.user')));
+        return ApiResponse::data(new StaffAdvanceDetailResource($advance->load(StaffAdvance::LIST_RELATIONS)));
     }
 
     /**

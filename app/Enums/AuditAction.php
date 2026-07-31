@@ -120,6 +120,12 @@ enum AuditAction: string
     case StaffAdvanceApproved = 'STAFF_ADVANCE_APPROVED';
     case StaffAdvanceRejected = 'STAFF_ADVANCE_REJECTED';
     case StaffAdvanceDisbursed = 'STAFF_ADVANCE_DISBURSED';
+    /* Recovery from payroll: one per instalment, plus a final closing event. */
+    case StaffAdvanceRepaid = 'STAFF_ADVANCE_REPAID';
+    case StaffAdvanceRecovered = 'STAFF_ADVANCE_RECOVERED';
+    case SalaryAdvanceCategoryCreated = 'SALARY_ADVANCE_CATEGORY_CREATED';
+    case SalaryAdvanceCategoryUpdated = 'SALARY_ADVANCE_CATEGORY_UPDATED';
+    case SalaryAdvanceCategoryDeleted = 'SALARY_ADVANCE_CATEGORY_DELETED';
     case CommissionPoolsGenerated = 'COMMISSION_POOLS_GENERATED';
     case PerformanceRecorded = 'PERFORMANCE_RECORDED';
 

@@ -16,6 +16,7 @@ use App\Enums\AuditAction;
 use App\Models\CommissionDistribution;
 use App\Models\PayrollLine;
 use App\Models\PayrollRun;
+use App\Models\StaffAdvance;
 use App\Models\StaffProfile;
 use App\Models\User;
 use App\Models\ZoneCommissionDistribution;
@@ -171,12 +172,20 @@ final class GeneratePayrollAction
     {
         $eligibleCommission = $staff->commission_eligible ? $commission : Money::zero();
 
+        /*
+         * The advance itself, not a boolean. The recovery instalment comes from
+         * its own terms — see SalaryAdvanceCalculator — so the calculator needs
+         * the record, and passing a flag was what forced the flat figure this
+         * replaced.
+         */
+        $outstandingAdvance = $this->outstandingAdvanceFor($staff);
+
         $computation = $this->payroll->compute(
             staff: $staff,
             commissionAmount: $eligibleCommission,
             isBranchBased: $this->payroll->isBranchBased($staff->user->roleName(), $staff->branch_id),
             hasActiveLoan: $staff->hasActiveLoan(),
-            hasOutstandingAdvance: $staff->hasOutstandingAdvance(),
+            outstandingAdvance: $outstandingAdvance,
         );
 
         /** @var PayrollLine $line */
@@ -201,6 +210,21 @@ final class GeneratePayrollAction
     }
 
     /**
+     * The advance payroll should recover against this period, if any.
+     *
+     * The oldest disbursed one, so a member of staff with two runs them down in
+     * the order they were taken rather than in whichever order the relation
+     * happened to load.
+     */
+    private function outstandingAdvanceFor(StaffProfile $staff): ?StaffAdvance
+    {
+        return $staff->advances
+            ->filter(fn (StaffAdvance $a): bool => $a->status === StaffAdvanceStatus::Disbursed)
+            ->sortBy('id')
+            ->first();
+    }
+
+    /**
      * The debt a recovery deduction is paying down, if any.
      */
     private function referenceFor(StaffProfile $staff, DeductionType $type): ?int
@@ -209,8 +233,9 @@ final class GeneratePayrollAction
             DeductionType::Loan => $staff->loans
                 ->first(fn ($l): bool => $l->status === StaffLoanStatus::Active)?->getKey(),
 
-            DeductionType::Advance => $staff->advances
-                ->first(fn ($a): bool => $a->status === StaffAdvanceStatus::Disbursed)?->getKey(),
+            // The same advance the deduction was computed from, so the
+            // reference cannot point at a different one than was recovered.
+            DeductionType::Advance => $this->outstandingAdvanceFor($staff)?->getKey(),
 
             default => null,
         };

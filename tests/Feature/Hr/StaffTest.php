@@ -208,11 +208,19 @@ describe('staff advances', function (): void {
         actingAsFinance();
         $this->postJson('/api/v1/staff/advance/disburse', ['advanceId' => $advanceId])
             ->assertOk()
-            ->assertJsonPath('data.status', 'disbursed');
+            /*
+             * `active`, not `disbursed`. These endpoints now return the same
+             * record the six Salary Advance screens read, and that resource
+             * speaks the frontend's vocabulary — `active` and `repaid` where
+             * §11 and the enum say `disbursed` and `recovered`. The stored
+             * status is unchanged and asserted below.
+             */
+            ->assertJsonPath('data.status', 'active');
 
         $advance = StaffAdvance::query()->findOrFail($advanceId);
 
-        expect($advance->journal_entry_id)->not->toBeNull()
+        expect($advance->status)->toBe(StaffAdvanceStatus::Disbursed)
+            ->and($advance->journal_entry_id)->not->toBeNull()
             ->and($advance->disbursed_at)->not->toBeNull();
     });
 
@@ -302,8 +310,26 @@ describe('staff advances', function (): void {
 
         $recovery = $line->deductions()->where('type', 'advance')->sole();
 
-        expect($recovery->amount)->toBe('50000.00')
+        /*
+         * Derived from the advance's own terms, not a constant.
+         *
+         * 200,000 falls in the Small Advance band (10,000–200,000, bounds
+         * inclusive): 5% interest = 10,000, a 2,000 charge fee, recovered over
+         * one period. So the whole 212,000 comes off this payslip.
+         */
+        $advance = StaffAdvance::query()->findOrFail($advanceId);
+
+        expect($recovery->amount)->toBe('212000.00')
             ->and($recovery->reference_id)->toBe((int) $advanceId);
+
+        /*
+         * And the advance is finished. Nothing used to set this: a disbursed
+         * advance stayed outstanding for ever and payroll kept deducting
+         * against it every month.
+         */
+        expect($advance->status)->toBe(StaffAdvanceStatus::Recovered)
+            ->and($advance->amount_recovered)->toBe('212000.00')
+            ->and($advance->recovered_at)->not->toBeNull();
     });
 
     it('refuses a second advance while one is in progress', function (): void {

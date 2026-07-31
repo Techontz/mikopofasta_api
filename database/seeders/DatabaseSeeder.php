@@ -60,6 +60,10 @@ class DatabaseSeeder extends Seeder
             // zone), and payroll last of all: a commission pool is computed
             // from branch profit, which is not known until the loan book has
             // earned some.
+            // Bands before staff: a seeded advance is priced by the band its
+            // amount falls into, and one seeded first would carry no terms.
+            SalaryAdvanceCategorySeeder::class,
+
             StaffSeeder::class,
             PayrollSeeder::class,
 

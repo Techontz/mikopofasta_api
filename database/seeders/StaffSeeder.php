@@ -12,8 +12,11 @@ use App\Domain\Hr\Enums\StaffLoanStatus;
 use App\Domain\Hr\Enums\StaffPaymentMethod;
 use App\Domain\Hr\Services\EmployeeNumberGenerator;
 use App\Domain\Hr\Services\PayrollPostingBuilder;
+use App\Domain\Hr\Services\SalaryAdvanceCalculator;
+use App\Domain\Hr\Services\StaffAdvanceReferenceGenerator;
 use App\Domain\Ledger\Enums\JournalSourceType;
 use App\Domain\Ledger\Services\LedgerService;
+use App\Models\SalaryAdvanceCategory;
 use App\Models\StaffAdvance;
 use App\Models\StaffLoan;
 use App\Models\StaffPerformanceRecord;
@@ -141,19 +144,30 @@ final class StaffSeeder extends Seeder
     }
 
     /**
-     * A disbursed advance, walked through the real workflow states.
+     * Two disbursed advances, walked through the real workflow states.
+     *
+     * Two sizes on purpose, so the Salary Advance screens are not all one
+     * shape. The first falls in the Small Advance band and is recovered over a
+     * single period, so PayrollSeeder's run clears it and the Paid List has a
+     * row. The second is a Large Advance over three periods, so one run leaves
+     * it part-recovered and the Active screen has a row with a real remaining
+     * balance rather than an empty table.
      */
     private function seedStaffAdvance(): void
     {
-        $staff = $this->staffFor('0754000010');
+        $this->advanceFor('0754000010', Money::of('150000.00'));
+        $this->advanceFor('0754000011', Money::of('600000.00'));
+    }
+
+    private function advanceFor(string $phone, Money $amount): void
+    {
+        $staff = $this->staffFor($phone);
         $hr = User::query()->where('phone', '0754000007')->first();
         $finance = User::query()->where('phone', '0754000003')->first();
 
         if ($staff === null || $hr === null || $finance === null || $staff->advances()->exists()) {
             return;
         }
-
-        $amount = Money::of('150000.00');
 
         $entry = app(LedgerService::class)->post(
             description: sprintf('Staff salary advance — %s', $staff->displayName()),
@@ -168,14 +182,32 @@ final class StaffSeeder extends Seeder
             entryDate: Date::now()->subDays(20)->toImmutable(),
         );
 
+        /*
+         * Priced by the band the amount falls into, and the terms snapshotted
+         * onto the advance exactly as RequestStaffAdvanceAction does it — so a
+         * seeded advance recovers through the same arithmetic a real one does
+         * rather than being a shape payroll cannot process.
+         */
+        $category = SalaryAdvanceCategory::covering($amount);
+        $calculator = app(SalaryAdvanceCalculator::class);
+        $periods = $category === null ? 1 : $category->recovery_periods;
+
         StaffAdvance::query()->create([
+            'reference' => app(StaffAdvanceReferenceGenerator::class)->next(),
             'staff_profile_id' => $staff->getKey(),
+            'salary_advance_category_id' => $category?->getKey(),
             'amount' => $amount->toDecimalString(),
+            'interest_amount' => $category === null
+                ? '0.00'
+                : $calculator->interestOn($amount, $category)->toDecimalString(),
+            'charge_fee' => $category === null ? '0.00' : $category->charge_fee,
+            'recovery_periods' => $periods,
             'status' => StaffAdvanceStatus::Disbursed,
             'requested_at' => Date::now()->subDays(25),
             'approved_by' => $hr->getKey(),
             'approved_at' => Date::now()->subDays(22),
             'disbursed_at' => Date::now()->subDays(20),
+            'due_date' => Date::now()->subDays(20)->addMonths($periods)->toDateString(),
             'journal_entry_id' => $entry->getKey(),
         ]);
     }

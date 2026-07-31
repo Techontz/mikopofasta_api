@@ -62,7 +62,12 @@ describe('generation', function (): void {
                 commissionAmount: $line->commissionAmount(),
                 isBranchBased: $calculator->isBranchBased($staff->user?->roleName(), $staff->branch_id),
                 hasActiveLoan: $staff->hasActiveLoan(),
-                hasOutstandingAdvance: $staff->hasOutstandingAdvance(),
+                // The advance itself, not a flag: the recovery instalment is
+                // derived from its own terms.
+                outstandingAdvance: $staff->advances
+                    ->filter(fn ($a): bool => $a->status === App\Domain\Hr\Enums\StaffAdvanceStatus::Disbursed)
+                    ->sortBy('id')
+                    ->first(),
             );
 
             // The runtime path and the engine must agree exactly — one
@@ -184,11 +189,50 @@ describe('finalization', function (): void {
         $creditOn = fn (SystemAccountCode $c): string => $entry->lines
             ->firstWhere('account_id', $accounts->systemId($c))?->credit_amount ?? '0.00';
 
+        // The advance this payslip recovered, read before asserting against it.
+        $advance = $advanceStaff->advances()->orderBy('id')->firstOrFail();
+
         expect($entry->lines->firstWhere('account_id', $accounts->systemId(SystemAccountCode::StaffPayable))?->debit_amount)
             ->toBe($line->deductions_total)
-            ->and($creditOn(SystemAccountCode::StaffAdvanceReceivable))->toBe('50000.00')
+            /*
+             * The advance's own instalment, not a flat figure: total repayable
+             * (principal + interest + charge fee) over its agreed recovery
+             * periods, capped at what is still owed.
+             */
+            /*
+             * An advance instalment splits across two accounts, and this is
+             * where that is pinned.
+             *
+             * 7020 Staff Advance Receivable is credited with the PRINCIPAL
+             * portion only — the part that clears what disbursement debited.
+             * Crediting the whole instalment there drove the receivable
+             * negative by exactly the advance's interest and charge fee, and
+             * recognised those charges nowhere; the trial balance still
+             * balanced, which is why it went unnoticed.
+             */
+            ->and($creditOn(SystemAccountCode::StaffAdvanceReceivable))
+            ->toBe($advance->amountMoney()->toDecimalString())
+            /*
+             * 7000 Staff Fund takes the fund contribution AND the advance's
+             * charges — §12's revolving fund earns its own profit. One line,
+             * not two: this builder promises a reader the total against an
+             * account.
+             */
             ->and($creditOn(SystemAccountCode::StaffFund))
-            ->toBe($advanceStaff->baseSalary()->percentage(App\Support\Percentage::of('10.000'))->toDecimalString())
+            ->toBe(
+                $advanceStaff->baseSalary()->percentage(App\Support\Percentage::of('10.000'))
+                    ->add($advance->interestMoney())
+                    ->add($advance->chargeFeeMoney())
+                    ->toDecimalString(),
+            )
+            // And the two portions still sum to the instalment that was taken.
+            ->and(
+                $advance->amountMoney()
+                    ->add($advance->interestMoney())
+                    ->add($advance->chargeFeeMoney())
+                    ->toDecimalString(),
+            )
+            ->toBe($line->deductions->firstWhere('type', DeductionType::Advance)?->amount)
             ->and($entry->isBalanced())->toBeTrue();
     });
 

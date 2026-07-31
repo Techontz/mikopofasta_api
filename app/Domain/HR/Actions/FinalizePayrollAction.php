@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Domain\Hr\Actions;
 
 use App\Domain\Auth\Enums\RoleName;
+use App\Domain\Hr\Enums\DeductionType;
 use App\Domain\Hr\Enums\PayrollRunStatus;
+use App\Domain\Hr\Enums\StaffAdvanceStatus;
 use App\Domain\Hr\Exceptions\PayrollStateException;
 use App\Domain\Hr\Services\PayrollPostingBuilder;
 use App\Domain\Ledger\Enums\JournalSourceType;
@@ -13,6 +15,7 @@ use App\Domain\Ledger\Services\LedgerService;
 use App\Enums\AuditAction;
 use App\Models\PayrollLine;
 use App\Models\PayrollRun;
+use App\Models\StaffAdvance;
 use App\Models\User;
 use App\Models\ZoneCommissionDistribution;
 use App\Services\AuditLogger;
@@ -44,6 +47,7 @@ final class FinalizePayrollAction
     public function __construct(
         private readonly PayrollPostingBuilder $postings,
         private readonly LedgerService $ledger,
+        private readonly RecoverStaffAdvanceAction $advances,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -132,7 +136,48 @@ final class FinalizePayrollAction
         // id, and a line can only carry one reference.
         $line->update(['journal_entry_id' => $recognition->getKey()]);
 
+        /*
+         * Only now, with the deduction posted, is the advance credited with it.
+         *
+         * Finalisation is the point of no return — it is what writes the
+         * journal entries — so recording recovery here means an advance's
+         * balance can never run ahead of the ledger that recovered it. Doing it
+         * at generation would have decremented a debt against a payroll run
+         * that might still be regenerated.
+         */
+        $this->recoverAdvances($line, $actor);
+
         return $line->grossPay();
+    }
+
+    /**
+     * Credits each advance with what this payslip recovered, and closes it if
+     * that clears the balance.
+     *
+     * Reads `deductions` rather than recomputing: the deduction row is what was
+     * actually posted, and recomputing here could differ from it if anything
+     * changed between generation and finalisation.
+     *
+     * `reference_id` is deliberately not a foreign key (§2.9 defines it as
+     * pointing at either table, carried by `type`), so the advance is looked up
+     * and skipped if it has gone — a deleted advance should not stop a payroll
+     * run finalising.
+     */
+    private function recoverAdvances(PayrollLine $line, User $actor): void
+    {
+        foreach ($line->deductions as $deduction) {
+            if ($deduction->type !== DeductionType::Advance || $deduction->reference_id === null) {
+                continue;
+            }
+
+            $advance = StaffAdvance::query()->find($deduction->reference_id);
+
+            if ($advance === null || $advance->status !== StaffAdvanceStatus::Disbursed) {
+                continue;
+            }
+
+            $this->advances->recover($advance, $deduction->amountMoney(), $actor);
+        }
     }
 
     /**

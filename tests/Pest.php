@@ -501,6 +501,12 @@ function seedStaffBook(): void
     seedLedgerFoundation();
     seedLedgerActivity();
 
+    /*
+     * Bands before staff. An advance is priced by the band its amount falls
+     * into, so a seeded advance created without one would carry no terms and
+     * payroll would have nothing to recover against.
+     */
+    test()->seed(Database\Seeders\SalaryAdvanceCategorySeeder::class);
     test()->seed(Database\Seeders\StaffSeeder::class);
 
     forgetAuthGuards();

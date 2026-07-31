@@ -35,6 +35,45 @@ enum StaffAdvanceStatus: string
         return $this === self::Disbursed;
     }
 
+    /**
+     * The frontend's word for this state.
+     *
+     * types/salary-advance.ts declares `requested | approved | active | repaid
+     * | rejected`; §11 and this enum say `disbursed` and `recovered` for the
+     * middle two. Both vocabularies are right for their own side — the backend
+     * describes what happened to the money, the screens describe what the
+     * employee sees — so they are mapped rather than one being made to give way.
+     */
+    public function frontendValue(): string
+    {
+        return match ($this) {
+            self::Disbursed => 'active',
+            self::Recovered => 'repaid',
+            default => $this->value,
+        };
+    }
+
+    /** The backend state a frontend word refers to. */
+    public static function fromFrontend(string $value): self
+    {
+        return match ($value) {
+            'active' => self::Disbursed,
+            'repaid' => self::Recovered,
+            default => self::from($value),
+        };
+    }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Requested => 'Requested',
+            self::Approved => 'Approved',
+            self::Disbursed => 'Active',
+            self::Recovered => 'Repaid',
+            self::Rejected => 'Rejected',
+        };
+    }
+
     /** @return list<string> */
     public static function values(): array
     {

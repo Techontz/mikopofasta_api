@@ -14,6 +14,7 @@ use App\Http\Controllers\Expenses\ExpenseCategoryController;
 use App\Http\Controllers\Expenses\ExpenseRequestController;
 use App\Http\Controllers\Hr\CommissionController;
 use App\Http\Controllers\Hr\PayrollController;
+use App\Http\Controllers\Hr\SalaryAdvanceController;
 use App\Http\Controllers\Hr\StaffController;
 use App\Http\Controllers\Ledger\LedgerController;
 use App\Http\Controllers\Loans\ChargeRegisterController;
@@ -497,6 +498,31 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     // Declared before /staff/{staffProfile} so these are not read as ids.
     Route::get('/staff/advances', [StaffController::class, 'advances'])->name('staff.advances');
+
+    /*
+     * Salary Advance (sidebar → Salary Advance, and HRM → Staff salary advance
+     * category, which reaches the same register).
+     *
+     * The lifecycle endpoints stay on /staff/advance/* where §15.5 put them;
+     * these are the bands and the five list screens. Behind the HR policy —
+     * reads on `hr.view`, band management on `hr.manage`.
+     * See docs/modules/salary-advance.md.
+     */
+    Route::get('/salary-advance-categories', [SalaryAdvanceController::class, 'categories'])
+        ->name('salary-advance-categories.index');
+    Route::post('/salary-advance-categories', [SalaryAdvanceController::class, 'storeCategory'])
+        ->name('salary-advance-categories.store');
+    Route::put('/salary-advance-categories/{category}', [SalaryAdvanceController::class, 'updateCategory'])
+        ->name('salary-advance-categories.update');
+    Route::delete('/salary-advance-categories/{category}', [SalaryAdvanceController::class, 'destroyCategory'])
+        ->name('salary-advance-categories.destroy');
+
+    // Declared before the collection route so "repayments" is not read as a
+    // filter value on it.
+    Route::get('/salary-advances/repayments', [SalaryAdvanceController::class, 'repayments'])
+        ->name('salary-advances.repayments');
+    Route::get('/salary-advances', [SalaryAdvanceController::class, 'index'])
+        ->name('salary-advances.index');
     Route::get('/staff/loans', [StaffController::class, 'loans'])->name('staff.loans');
     Route::get('/staff/performance', [StaffController::class, 'performance'])->name('staff.performance.index');
     Route::post('/staff/performance', [StaffController::class, 'recordPerformance'])->name('staff.performance.store');

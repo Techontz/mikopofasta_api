@@ -15,9 +15,15 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class StaffAdvanceStateException extends DomainException
 {
-    private function __construct(string $message, ErrorCode $code)
+    /**
+     * Conflict by default, because most of these are "the advance is not at
+     * that step" — a state problem rather than a bad request. The status is a
+     * parameter rather than fixed so a genuine validation failure can say 422;
+     * see noCategoryForAmount.
+     */
+    private function __construct(string $message, ErrorCode $code, int $status = Response::HTTP_CONFLICT)
     {
-        parent::__construct($message, $code, Response::HTTP_CONFLICT);
+        parent::__construct($message, $code, $status);
     }
 
     public static function alreadyInProgress(): self
@@ -41,6 +47,23 @@ final class StaffAdvanceStateException extends DomainException
         return new self(
             'Only an approved advance can be disbursed.',
             ErrorCode::InvalidAdvanceState,
+        );
+    }
+
+    /**
+     * No band covers the amount asked for.
+     *
+     * Refused rather than defaulted to some band: an advance priced by a
+     * category that does not cover it would carry terms nobody agreed, and
+     * silently applying the nearest one would misprice it in whichever
+     * direction the gap happened to fall.
+     */
+    public static function noCategoryForAmount(string $amount): self
+    {
+        return new self(
+            "No salary advance category covers {$amount}. Add a band that includes it before requesting.",
+            ErrorCode::ValidationFailed,
+            Response::HTTP_UNPROCESSABLE_ENTITY,
         );
     }
 }

@@ -11,6 +11,7 @@ use App\Domain\Ledger\Services\AccountResolver;
 use App\Models\ChartOfAccount;
 use App\Models\Deduction;
 use App\Models\PayrollLine;
+use App\Models\StaffAdvance;
 use App\Support\Money;
 use Illuminate\Support\Collection;
 
@@ -130,19 +131,65 @@ final class PayrollPostingBuilder
         ];
 
         /*
-         * Grouped by type rather than one line per deduction: two deductions
-         * of the same type credit the same account, and a reader of the ledger
-         * wants the total against that account, not the itemisation. The
-         * itemisation lives in `deductions`, which is where a payslip reads it
-         * from.
+         * Accumulated by ACCOUNT, then emitted one line per account.
+         *
+         * Grouping by deduction type was enough until an advance recovery
+         * started crediting two accounts: the staff fund contribution and an
+         * advance's charges both land on 7000, and emitting per type would put
+         * two credit lines on the same account in one entry. That is not wrong
+         * arithmetically, but it contradicts what this builder promises a
+         * reader of the ledger — the total against an account, with the
+         * itemisation left to `deductions`, which is where a payslip reads it.
          */
+        $credits = [];
+
         foreach ($this->totalsByType($deductions) as $typeValue => $amount) {
             if (! $amount->isPositive()) {
                 continue;
             }
 
+            $type = DeductionType::from($typeValue);
+
+            /*
+             * A salary advance recovery is not all one thing, and crediting it
+             * as though it were is wrong in a way the trial balance cannot see.
+             *
+             * Disbursement debited 7020 Staff Advance Receivable with the
+             * PRINCIPAL. An instalment recovers principal plus the interest and
+             * charge fee the advance was priced with — so crediting the whole
+             * instalment to 7020 drives it below zero by exactly the charges,
+             * asserting the company owes the employee money it does not, and
+             * recognising the charges as income nowhere at all.
+             *
+             * The principal portion clears the receivable it created. The
+             * charges credit 7000 Staff Fund, which is where §12 puts them: the
+             * fund is an internal revolving one that "inazalisha faida ndani
+             * yake" — generates its profit within itself — so what an advance
+             * earns returns to the fund the staff collectively own rather than
+             * to company income they have no claim on.
+             *
+             * Both sides still sum to the same instalment, so the entry
+             * balances exactly as before; what changes is which account is
+             * credited with which part.
+             */
+            $portions = $type === DeductionType::Advance
+                ? $this->splitAdvanceRecovery($deductions, $amount)
+                : [[$type->creditAccount(), $amount]];
+
+            foreach ($portions as [$code, $portion]) {
+                if (! $portion->isPositive()) {
+                    continue;
+                }
+
+                $credits[$code->name] = isset($credits[$code->name])
+                    ? [$code, $credits[$code->name][1]->add($portion)]
+                    : [$code, $portion];
+            }
+        }
+
+        foreach ($credits as [$code, $amount]) {
             $lines[] = JournalLine::credit(
-                $this->accounts->systemId(DeductionType::from($typeValue)->creditAccount()),
+                $this->accounts->systemId($code),
                 $amount,
                 $branchId,
                 staffProfileId: $staffId,
@@ -226,6 +273,59 @@ final class PayrollPostingBuilder
                 $branchId,
                 staffProfileId: $staffProfileId,
             ),
+        ];
+    }
+
+    /**
+     * Splits an advance instalment into the principal it clears and the
+     * charges it earns.
+     *
+     * Principal first: an instalment pays down the receivable until it is
+     * clear, and only what is left over is interest and fee. That ordering is
+     * chosen because it keeps 7020 monotonically decreasing towards zero and
+     * never negative, which is the property that made the bug visible.
+     *
+     * The split is computed from the advance's own cumulative recovery rather
+     * than per-instalment, so rounding cannot accumulate: across the whole term
+     * the principal portions sum to exactly the principal.
+     *
+     * Returned as pairs rather than a map keyed by account code: PHP coerces
+     * a numeric string array key to an int, so '7020' would arrive back as
+     * 7020 and no longer match the enum it came from.
+     *
+     * @param Collection<int, Deduction> $deductions
+     * @return list<array{SystemAccountCode, Money}>
+     */
+    private function splitAdvanceRecovery(Collection $deductions, Money $instalment): array
+    {
+        $principalPortion = Money::zero();
+
+        foreach ($deductions as $deduction) {
+            if ($deduction->type !== DeductionType::Advance || $deduction->reference_id === null) {
+                continue;
+            }
+
+            $advance = StaffAdvance::query()->find($deduction->reference_id);
+
+            if ($advance === null) {
+                continue;
+            }
+
+            /*
+             * What this instalment moves the cumulative principal recovery by.
+             * `amount_recovered` is still the figure from BEFORE this
+             * deduction — RecoverStaffAdvanceAction runs after the posting.
+             */
+            $principal = $advance->amountMoney();
+            $before = $advance->recoveredMoney()->min($principal);
+            $after = $advance->recoveredMoney()->add($deduction->amountMoney())->min($principal);
+
+            $principalPortion = $principalPortion->add($after->subtract($before));
+        }
+
+        return [
+            [SystemAccountCode::StaffAdvanceReceivable, $principalPortion],
+            [SystemAccountCode::StaffFund, $instalment->subtract($principalPortion)],
         ];
     }
 

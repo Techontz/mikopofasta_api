@@ -7,9 +7,12 @@ namespace App\Domain\Hr\Actions;
 use App\Domain\Hr\Enums\StaffAdvanceStatus;
 use App\Domain\Hr\Exceptions\StaffAdvanceStateException;
 use App\Domain\Hr\Services\PayrollPostingBuilder;
+use App\Domain\Hr\Services\SalaryAdvanceCalculator;
+use App\Domain\Hr\Services\StaffAdvanceReferenceGenerator;
 use App\Domain\Ledger\Enums\JournalSourceType;
 use App\Domain\Ledger\Services\LedgerService;
 use App\Enums\AuditAction;
+use App\Models\SalaryAdvanceCategory;
 use App\Models\StaffAdvance;
 use App\Models\StaffProfile;
 use App\Models\User;
@@ -39,6 +42,8 @@ final class StaffAdvanceAction
     public function __construct(
         private readonly PayrollPostingBuilder $postings,
         private readonly LedgerService $ledger,
+        private readonly SalaryAdvanceCalculator $calculator,
+        private readonly StaffAdvanceReferenceGenerator $references,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -46,13 +51,17 @@ final class StaffAdvanceAction
      * Step 1 — HR raises the request. Nothing is posted: an advance that has
      * been asked for is not money that has moved.
      */
-    public function request(StaffProfile $staff, Money $amount, User $actor): StaffAdvance
-    {
+    public function request(
+        StaffProfile $staff,
+        Money $amount,
+        User $actor,
+        ?SalaryAdvanceCategory $category = null,
+    ): StaffAdvance {
         /*
-         * One advance at a time. Two concurrent advances would both be
-         * recovered at the flat rate, which could take an employee's salary
-         * below zero — and the frontend refuses a second request for the same
-         * reason.
+         * One advance at a time. Two concurrent advances would each be
+         * recovered on their own schedule, and together they could take an
+         * employee's salary below zero — the frontend refuses a second request
+         * for the same reason.
          */
         $inProgress = $staff->advances()
             ->whereIn('status', [
@@ -66,10 +75,43 @@ final class StaffAdvanceAction
             throw StaffAdvanceStateException::alreadyInProgress();
         }
 
-        return DB::transaction(function () use ($staff, $amount, $actor): StaffAdvance {
+        /*
+         * The band is found from the amount rather than chosen by the
+         * requester. Letting someone pick their own category would let them
+         * pick their own interest rate, and two people borrowing the same
+         * amount would be on different terms.
+         */
+        $category ??= SalaryAdvanceCategory::covering($amount);
+
+        if ($category === null) {
+            throw StaffAdvanceStateException::noCategoryForAmount($amount->toDecimalString());
+        }
+
+        return DB::transaction(function () use ($staff, $amount, $actor, $category): StaffAdvance {
+            /*
+             * Terms snapshotted here, at request — the same rule loans follow.
+             * Re-pricing the band later must not rewrite an advance already
+             * agreed with an employee.
+             */
+            $interest = $this->calculator->interestOn($amount, $category);
+
             $advance = StaffAdvance::query()->create([
+                'reference' => $this->references->next(),
                 'staff_profile_id' => $staff->getKey(),
+                'salary_advance_category_id' => $category->getKey(),
                 'amount' => $amount->toDecimalString(),
+                'interest_amount' => $interest->toDecimalString(),
+                'charge_fee' => $category->chargeFee()->toDecimalString(),
+                'recovery_periods' => $category->recovery_periods,
+
+                /*
+                 * Explicit, not left to the column default. The default applies
+                 * on read; the model returned from create() still holds null
+                 * for anything not passed, and every caller that asks this
+                 * advance what it owes would hit that null first.
+                 */
+                'amount_recovered' => '0.00',
+
                 'status' => StaffAdvanceStatus::Requested,
                 'requested_at' => Date::now(),
             ]);
@@ -78,13 +120,18 @@ final class StaffAdvanceAction
                 AuditAction::StaffAdvanceRequested,
                 $advance,
                 after: [
+                    'reference' => $advance->reference,
                     'staff_profile_id' => $staff->getKey(),
                     'amount' => $amount->toDecimalString(),
+                    'category' => $category->name,
+                    'interest_amount' => $interest->toDecimalString(),
+                    'charge_fee' => $advance->charge_fee,
+                    'recovery_periods' => $advance->recovery_periods,
                 ],
                 actor: $actor,
             );
 
-            return $advance;
+            return $advance->load('category');
         });
     }
 
@@ -114,15 +161,16 @@ final class StaffAdvanceAction
         });
     }
 
-    public function reject(StaffAdvance $advance, User $actor): StaffAdvance
+    public function reject(StaffAdvance $advance, User $actor, ?string $reason = null): StaffAdvance
     {
         $this->guardAwaitingDecision($advance);
 
-        return DB::transaction(function () use ($advance, $actor): StaffAdvance {
+        return DB::transaction(function () use ($advance, $actor, $reason): StaffAdvance {
             $advance->update([
                 'status' => StaffAdvanceStatus::Rejected,
                 'approved_by' => $actor->getKey(),
                 'approved_at' => Date::now(),
+                'rejection_reason' => $reason,
             ]);
 
             $this->audit->log(
@@ -165,9 +213,17 @@ final class StaffAdvanceAction
                 postedBy: $actor,
             );
 
+            $disbursedAt = Date::now();
+
             $advance->update([
                 'status' => StaffAdvanceStatus::Disbursed,
-                'disbursed_at' => Date::now(),
+                'disbursed_at' => $disbursedAt,
+                /*
+                 * The recovery clock starts when the money leaves, not when the
+                 * advance was asked for — an advance approved quickly and
+                 * disbursed late is not already overdue.
+                 */
+                'due_date' => $disbursedAt->copy()->addMonths(max(1, $advance->recovery_periods))->toDateString(),
                 'journal_entry_id' => $entry->getKey(),
             ]);
 
