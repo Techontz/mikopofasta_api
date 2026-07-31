@@ -172,4 +172,13 @@ enum AuditAction: string
     case ExpenseRejected = 'EXPENSE_REJECTED';
     case ExpenseCommented = 'EXPENSE_COMMENTED';
     case ExpenseWithdrawn = 'EXPENSE_WITHDRAWN';
+
+    /*
+     * Headquarters transactions. The seven head-office pots are outside the §5
+     * ledger, so there is no journal entry recording a movement between them —
+     * which makes the audit trail the only record of who moved what.
+     */
+    case HqTransactionRequested = 'HQ_TRANSACTION_REQUESTED';
+    case HqTransactionApproved = 'HQ_TRANSACTION_APPROVED';
+    case HqTransactionRejected = 'HQ_TRANSACTION_REJECTED';
 }

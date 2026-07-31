@@ -11,7 +11,6 @@ use App\Models\Shareholder;
 /**
  * Capital → Share Holders. See docs/modules/capital.md.
  */
-
 beforeEach(function (): void {
     seedCustomerFoundation();
 });

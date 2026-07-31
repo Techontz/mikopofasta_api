@@ -11,8 +11,8 @@ use App\Enums\AuditAction;
 use App\Models\FloatTransfer;
 use App\Models\User;
 use App\Services\AuditLogger;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Approves or rejects a pending branch-to-branch transfer.

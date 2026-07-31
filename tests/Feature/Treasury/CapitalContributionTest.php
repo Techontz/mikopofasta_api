@@ -12,7 +12,6 @@ use App\Models\JournalEntry;
 use App\Models\Shareholder;
 
 /** Capital → Add Capitals. See docs/modules/capital.md. */
-
 beforeEach(function (): void {
     seedLedgerFoundation();
 });

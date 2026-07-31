@@ -6,6 +6,7 @@ namespace App\Domain\Treasury\Policies;
 
 use App\Domain\Auth\Enums\PermissionName;
 use App\Models\FloatTransfer;
+use App\Models\HqAccountTransfer;
 use App\Models\User;
 
 /**
@@ -36,6 +37,23 @@ final class CapitalPolicy
      * different people's jobs, the same rule loan approval follows.
      */
     public function decide(User $actor, FloatTransfer $transfer): bool
+    {
+        return $this->manage($actor) && $transfer->requested_by !== $actor->getKey();
+    }
+
+    /**
+     * The same rule for headquarters movements.
+     *
+     * A separate method rather than a union type on `decide`, because the two
+     * are different records and a policy that accepts either invites a caller
+     * to pass the wrong one to the wrong screen's check.
+     *
+     * `requested_by` is null on rows imported from the legacy system, which
+     * recorded only a staff name. Those cannot fail the self-approval test, and
+     * that is correct — an imported row was raised by someone who is not the
+     * current user by definition.
+     */
+    public function decideHqTransaction(User $actor, HqAccountTransfer $transfer): bool
     {
         return $this->manage($actor) && $transfer->requested_by !== $actor->getKey();
     }

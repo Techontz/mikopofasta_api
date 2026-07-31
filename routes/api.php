@@ -32,6 +32,7 @@ use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Treasury\CapitalContributionController;
 use App\Http\Controllers\Treasury\FloatTransferController;
+use App\Http\Controllers\Treasury\HqTransactionController;
 use App\Http\Controllers\Treasury\ShareholderController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\JsonResponse;
@@ -319,6 +320,22 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('expense-requests.comment');
     Route::delete('/expense-requests/{expenseRequest}', [ExpenseRequestController::class, 'destroy'])
         ->name('expense-requests.destroy');
+
+    /*
+     * Headquarters Transaction (sidebar → Headquarters Transaction). The seven
+     * head-office pots and the movements between them — outside the §5 chart of
+     * accounts by design. Same treasury.view / treasury.manage pair as Capital,
+     * enforced by CapitalPolicy. See docs/modules/headquarters.md.
+     */
+    Route::get('/hq-accounts', [HqTransactionController::class, 'accounts'])
+        ->name('hq-accounts.index');
+
+    Route::get('/hq-transactions', [HqTransactionController::class, 'index'])
+        ->name('hq-transactions.index');
+    Route::post('/hq-transactions', [HqTransactionController::class, 'store'])
+        ->name('hq-transactions.store');
+    Route::post('/hq-transactions/{transaction}/decide', [HqTransactionController::class, 'decide'])
+        ->name('hq-transactions.decide');
 
     // Declared before the {loan} routes so it is not captured as a loan id.
     Route::post('/loans/check-eligibility', [LoanController::class, 'checkEligibility'])

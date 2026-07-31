@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Domain\Auth\Enums\RoleName;
 use App\Domain\Ledger\Services\AccountResolver;
-use App\Domain\Treasury\Enums\FloatTransferStatus;
 use App\Enums\AuditAction;
 use App\Models\AuditLog;
 use App\Models\Branch;
@@ -12,7 +11,6 @@ use App\Models\FloatTransfer;
 use App\Models\JournalEntry;
 
 /** Capital → Float / Float Branch To Branch / Aproved Float / Float Ac-Ac. */
-
 beforeEach(function (): void {
     seedLedgerFoundation();
 });
