@@ -7,6 +7,7 @@ namespace App\Domain\Loans\Actions;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Exceptions\LoanNotEligibleException;
 use App\Domain\Loans\Services\LoanEligibilityChecker;
+use App\Domain\Loans\Services\LoanFeeCalculator;
 use App\Domain\Loans\Services\LoanNumberGenerator;
 use App\Domain\Loans\Services\LoanStateMachine;
 use App\Enums\AuditAction;
@@ -34,6 +35,7 @@ final class ApplyForLoanAction
         private readonly LoanEligibilityChecker $eligibility,
         private readonly LoanNumberGenerator $numbers,
         private readonly LoanStateMachine $states,
+        private readonly LoanFeeCalculator $fees,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -84,6 +86,18 @@ final class ApplyForLoanAction
                 'penalty_rate_snapshot' => $product->penalty_rate,
                 'tenure_days' => $tenureDays,
                 'requires_mandate_snapshot' => $product->requires_mandate,
+
+                /*
+                 * The loan fee, snapshotted here for the same reason as the
+                 * rates above: a borrower quoted a 5% fee is owed a 5% fee,
+                 * whatever Settings says by the time the money moves.
+                 *
+                 * Spread, so a product with no `loan_fees` row contributes
+                 * nothing and the three columns stay null — which says "no fee
+                 * was agreed" where zero would say "a fee of nothing was".
+                 * Nothing is charged until disbursement either way.
+                 */
+                ...($this->fees->snapshotFor($product) ?? []),
 
                 'status' => LoanStatus::Draft,
                 'created_by' => $officer->getKey(),

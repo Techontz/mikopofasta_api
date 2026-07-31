@@ -68,15 +68,14 @@ So it does not override. It is the **default offered when a new loan product is
 created** and nothing more. Existing products, existing loans and every figure
 the overdue job produces are untouched.
 
-The same boundary applies to `loan_fees`: the configuration is stored and
-served, but **nothing consumes it yet**. Charging a fee at disbursement would
-post to `2100 Fee Income Account` and change disbursement accounting, which is a
-change to the Loans module, not this one. When that is wanted it needs:
-
-1. `DisburseLoanAction` to read the product's `loan_fees` row,
-2. a fee leg added to the disbursement journal entry,
-3. the fee snapshotted onto the loan, as the penalty rate already is,
-4. the §5 trial-balance tests re-baselined.
+~~The same boundary applies to `loan_fees`: the configuration is stored and
+served, but nothing consumes it yet.~~ **Superseded.** `loan_fees` is now
+charged at disbursement — see docs/modules/penalties-and-fees.md. All four steps
+this section listed are done: the fee is snapshotted onto the loan at
+application (not at disbursement, so a mid-term Settings edit cannot re-price an
+agreed loan), `SettleDisbursementAction` adds the fee leg, `loans.fee_charged`
+records what was withheld, and the trial-balance tests needed no re-baselining
+because they assert balance rather than fixed figures.
 
 `reserve_settings.percentage` is likewise stored and served; the reserve figure
 the dashboard shows still reads `3000 Reserve Account` from the ledger.

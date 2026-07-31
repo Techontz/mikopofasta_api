@@ -10,6 +10,7 @@ use App\Domain\Loans\Enums\DisbursementStatus;
 use App\Domain\Loans\Enums\EMandateStatus;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Enums\TelcoVerificationStatus;
+use App\Domain\Loans\Services\LoanFeeCalculator;
 use App\Domain\Loans\Services\LoanNumberGenerator;
 use App\Domain\Loans\Services\LoanScheduleGenerator;
 use App\Models\CategoryProductEligibility;
@@ -116,6 +117,17 @@ final class LoanSeeder extends Seeder
                 'penalty_rate_snapshot' => $product->penalty_rate,
                 'tenure_days' => $tenureDays,
                 'requires_mandate_snapshot' => $product->requires_mandate,
+
+                /*
+                 * The fee snapshot, taken the same way ApplyForLoanAction takes
+                 * it. This seeder builds loans directly rather than through
+                 * that action, so the snapshot has to be repeated here — and it
+                 * goes through LoanFeeCalculator rather than reading the
+                 * `loan_fees` row inline, so there is still one definition of
+                 * what a snapshot is.
+                 */
+                ...(app(LoanFeeCalculator::class)->snapshotFor($product) ?? []),
+
                 'status' => LoanStatus::Draft,
                 'created_by' => $officer->getKey(),
                 'created_at' => $appliedAt,

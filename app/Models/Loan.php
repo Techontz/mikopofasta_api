@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Domain\Loans\Enums\ChargeValueType;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Support\Money;
 use App\Support\Percentage;
@@ -56,6 +57,7 @@ class Loan extends Model
         'loan_number', 'customer_id', 'loan_product_id', 'repayment_schedule_id', 'group_id',
         'branch_id', 'officer_id', 'principal_amount',
         'interest_rate_snapshot', 'penalty_rate_snapshot', 'tenure_days', 'requires_mandate_snapshot',
+        'fee_type_snapshot', 'fee_amount_snapshot', 'insurance_amount_snapshot', 'fee_charged',
         'status', 'disbursement_date', 'expected_completion_date',
         'approved_by', 'approved_at', 'rejected_reason', 'closed_at', 'frozen_until', 'created_by',
     ];
@@ -156,6 +158,18 @@ class Loan extends Model
         return $this->hasMany(DisbursementBatch::class);
     }
 
+    /**
+     * What was withheld from the payout as fee income.
+     *
+     * Zero rather than null for a loan that has not disbursed or whose product
+     * charges nothing — callers are summing money, and the distinction between
+     * "no fee agreed" and "no fee yet" is on the snapshot columns, not here.
+     */
+    public function feeCharged(): Money
+    {
+        return $this->fee_charged === null ? Money::zero() : Money::of((string) $this->fee_charged);
+    }
+
     public function principal(): Money
     {
         return Money::of($this->principal_amount);
@@ -215,6 +229,10 @@ class Loan extends Model
         return [
             'status' => LoanStatus::class,
             'requires_mandate_snapshot' => 'boolean',
+            'fee_type_snapshot' => ChargeValueType::class,
+            'fee_amount_snapshot' => 'decimal:3',
+            'insurance_amount_snapshot' => 'decimal:2',
+            'fee_charged' => 'decimal:2',
             'tenure_days' => 'integer',
             'disbursement_date' => 'date',
             'expected_completion_date' => 'date',

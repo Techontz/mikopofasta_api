@@ -43,6 +43,11 @@ class DatabaseSeeder extends Seeder
             // Products reference categories (the §2.3 eligibility pivot);
             // loans reference both, plus the customers and users above.
             LoanProductSeeder::class,
+
+            // Fees before loans: a loan snapshots its product's fee at
+            // application, so a loan seeded first would carry none.
+            LoanFeeSeeder::class,
+
             LoanSeeder::class,
 
             // The chart must exist before anything can post to it; the
@@ -62,6 +67,14 @@ class DatabaseSeeder extends Seeder
             // system shows. Independent of everything above — it is a
             // standalone transcription and depends on no other seed.
             HqAccountSeeder::class,
+
+            /*
+             * Overdue installments, their penalties, and one collected. After
+             * LedgerActivitySeeder because it ages loans that seeder has
+             * already disbursed, and because collecting a penalty posts to the
+             * ledger through the ordinary repayment path.
+             */
+            PenaltySeeder::class,
 
             // Expense registers and a queue of requests. After the chart,
             // because approving one posts through LedgerService; after

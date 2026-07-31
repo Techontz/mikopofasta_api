@@ -12,6 +12,7 @@ use App\Domain\Ledger\Services\LedgerService;
 use App\Domain\Loans\Enums\DisbursementStatus;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Exceptions\LoanStateException;
+use App\Domain\Loans\Services\LoanFeeCalculator;
 use App\Domain\Loans\Services\LoanStateMachine;
 use App\Enums\AuditAction;
 use App\Models\DisbursementBatch;
@@ -47,6 +48,7 @@ final class SettleDisbursementAction
         private readonly LedgerService $ledger,
         private readonly AccountResolver $accounts,
         private readonly LoanStateMachine $states,
+        private readonly LoanFeeCalculator $fees,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -59,27 +61,62 @@ final class SettleDisbursementAction
         return DB::transaction(function () use ($loan, $batch, $actor): Loan {
             $principal = $loan->principal();
 
-            // §5: Dr Loan Receivable · Cr Principal Account.
+            /*
+             * The loan fee, withheld from the payout — Loan Fee → Deducted
+             * Income, and the fourth of the steps docs/modules/loan-charges.md
+             * named as needed to wire `loan_fees` in.
+             *
+             * The borrower owes the full principal either way: the fee is
+             * deducted from what they receive, not from what they owe. So Loan
+             * Receivable is still debited in full, and the credit splits.
+             *
+             * §5: Dr Loan Receivable · Cr Principal Account, plus, when a fee
+             * was agreed:
+             *
+             *   Dr Loan Receivable      principal
+             *     Cr Principal Account  principal − fee
+             *     Cr 2100 Fee Income    fee
+             *
+             * Principal Account is credited only with what actually left as
+             * capital, which keeps its meaning — a running measure of capital
+             * deployed into the loan book — true. Crediting it in full and
+             * debiting the fee back would report capital that never left.
+             */
+            $fee = $this->fees->totalDeducted($loan);
+            $lines = [
+                JournalLine::debit(
+                    $this->accounts->systemId(SystemAccountCode::LoanReceivable),
+                    $principal,
+                    $loan->branch_id,
+                    $loan->customer_id,
+                    (int) $loan->getKey(),
+                ),
+                JournalLine::credit(
+                    $this->accounts->systemId(SystemAccountCode::Principal),
+                    $principal->subtract($fee),
+                    $loan->branch_id,
+                    $loan->customer_id,
+                    (int) $loan->getKey(),
+                ),
+            ];
+
+            // Only when there is one: LedgerService rejects a zero-amount line,
+            // and a loan on a product with no fee configured has none.
+            if ($fee->isPositive()) {
+                $lines[] = JournalLine::credit(
+                    $this->accounts->systemId(SystemAccountCode::FeeIncome),
+                    $fee,
+                    $loan->branch_id,
+                    $loan->customer_id,
+                    (int) $loan->getKey(),
+                );
+            }
+
             $entry = $this->ledger->post(
                 description: sprintf('Disbursement of %s', $loan->loan_number),
                 sourceType: JournalSourceType::LoanDisbursement,
                 sourceId: (int) $loan->getKey(),
-                lines: [
-                    JournalLine::debit(
-                        $this->accounts->systemId(SystemAccountCode::LoanReceivable),
-                        $principal,
-                        $loan->branch_id,
-                        $loan->customer_id,
-                        (int) $loan->getKey(),
-                    ),
-                    JournalLine::credit(
-                        $this->accounts->systemId(SystemAccountCode::Principal),
-                        $principal,
-                        $loan->branch_id,
-                        $loan->customer_id,
-                        (int) $loan->getKey(),
-                    ),
-                ],
+                lines: $lines,
                 postedBy: $actor,
             );
 
@@ -99,6 +136,14 @@ final class SettleDisbursementAction
             $loan->update([
                 'disbursement_date' => Date::now()->toDateString(),
                 'expected_completion_date' => Date::now()->addDays($loan->tenure_days)->toDateString(),
+
+                /*
+                 * What was actually withheld, in shillings. Recorded rather
+                 * than recomputed later: this is the figure the entry above
+                 * posted, and the Deducted Income screen must show the same
+                 * number the Fee Income account holds.
+                 */
+                'fee_charged' => $fee->toDecimalString(),
             ]);
 
             $this->audit->log(
@@ -108,6 +153,8 @@ final class SettleDisbursementAction
                     'batch_reference' => $batch->batch_reference,
                     'journal_entry' => $entry->entry_number,
                     'principal' => $principal->toDecimalString(),
+                    'fee_charged' => $fee->toDecimalString(),
+                    'net_disbursed' => $principal->subtract($fee)->toDecimalString(),
                 ],
                 actor: $actor,
             );

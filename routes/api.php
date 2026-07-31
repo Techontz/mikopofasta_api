@@ -16,6 +16,7 @@ use App\Http\Controllers\Hr\CommissionController;
 use App\Http\Controllers\Hr\PayrollController;
 use App\Http\Controllers\Hr\StaffController;
 use App\Http\Controllers\Ledger\LedgerController;
+use App\Http\Controllers\Loans\ChargeRegisterController;
 use App\Http\Controllers\Loans\DisbursementCallbackController;
 use App\Http\Controllers\Loans\LoanChargeController;
 use App\Http\Controllers\Loans\LoanConfigurationController;
@@ -273,6 +274,27 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('penalty-settings.store');
     Route::delete('/penalty-settings/{penaltySetting}', [LoanChargeController::class, 'deletePenaltySetting'])
         ->name('penalty-settings.destroy');
+
+    /*
+     * The charge registers — sidebar → Penalty (Penalty List, Paid Penalty)
+     * and Loan Fee (Deducted Income).
+     *
+     * Read-only, behind loans.view OR repayments.view via ChargeRegisterPolicy:
+     * a penalty is both a term of the loan and money to be collected, and
+     * requiring both grants would shut out each role from something it owns.
+     *
+     * `/loan-fees/income` does not collide with `/loan-fees/{product}` above:
+     * that parameterised route is PUT and DELETE only, and there is no GET
+     * form of it, so "income" can never be read as a product id. Should a
+     * GET `/loan-fees/{product}` ever be added it must be declared after this
+     * line. See docs/modules/penalties-and-fees.md.
+     */
+    Route::get('/penalties', [ChargeRegisterController::class, 'penalties'])
+        ->name('penalties.index');
+    Route::get('/penalties/paid', [ChargeRegisterController::class, 'paidPenalties'])
+        ->name('penalties.paid');
+    Route::get('/loan-fees/income', [ChargeRegisterController::class, 'deductedIncome'])
+        ->name('loan-fees.income');
 
     Route::get('/reserve-setting', [LoanChargeController::class, 'reserveSetting'])
         ->name('reserve-setting.show');
