@@ -1,0 +1,160 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Enums;
+
+/**
+ * Audit vocabulary.
+ *
+ * `audit_logs.action` is a VARCHAR, not a DB ENUM — spec §2.1 calls for an
+ * extensible vocabulary, and the frontend's types/audit.ts says the same
+ * ("intentionally free-text ... but the common ones are collected here so
+ * call sites don't invent slightly different strings for the same event").
+ * This enum plays that same role on the backend: a shared vocabulary, not a
+ * closed set. Later phases add their own cases.
+ *
+ * Only the Phase 2 (identity & access) actions are defined here.
+ */
+enum AuditAction: string
+{
+    case UserLoggedIn = 'USER_LOGGED_IN';
+    case UserLoginFailed = 'USER_LOGIN_FAILED';
+    case UserLoggedOut = 'USER_LOGGED_OUT';
+    case UserCreated = 'USER_CREATED';
+    case UserUpdated = 'USER_UPDATED';
+    case UserStatusChanged = 'USER_STATUS_CHANGED';
+    case UserDeleted = 'USER_DELETED';
+    case PasswordChanged = 'PASSWORD_CHANGED';
+    case PasswordResetRequested = 'PASSWORD_RESET_REQUESTED';
+    case PasswordReset = 'PASSWORD_RESET';
+    case RolePermissionsUpdated = 'ROLE_PERMISSIONS_UPDATED';
+
+    // Organization (Phase 3)
+    case BranchCreated = 'BRANCH_CREATED';
+    case BranchUpdated = 'BRANCH_UPDATED';
+    case BranchDeleted = 'BRANCH_DELETED';
+    case HeadOfficeChanged = 'HEAD_OFFICE_CHANGED';
+    case ZoneCreated = 'ZONE_CREATED';
+    case ZoneUpdated = 'ZONE_UPDATED';
+    case ZoneDeleted = 'ZONE_DELETED';
+    case RegionCreated = 'REGION_CREATED';
+    case RegionUpdated = 'REGION_UPDATED';
+    case RegionDeleted = 'REGION_DELETED';
+    case CompanyProfileUpdated = 'COMPANY_PROFILE_UPDATED';
+
+    /** Spec §13 — cross-branch snooping is itself auditable. */
+    case BranchScopeViolation = 'BRANCH_SCOPE_VIOLATION';
+
+    /*
+     * Customers & KYC (Phase 4). These values match the frontend's
+     * AUDIT_ACTIONS map in types/audit.ts exactly — the customer profile's
+     * timeline renders off these strings.
+     */
+    case CustomerRegistered = 'CUSTOMER_REGISTERED';
+    case CustomerApproved = 'CUSTOMER_APPROVED';
+    case CustomerRejected = 'CUSTOMER_REJECTED';
+    case CustomerFrozen = 'CUSTOMER_FROZEN';
+    case CustomerUnfrozen = 'CUSTOMER_UNFROZEN';
+    case CustomerSuspended = 'CUSTOMER_SUSPENDED';
+    case CustomerReactivated = 'CUSTOMER_REACTIVATED';
+
+    // Not in the frontend's map; the vocabulary is extensible by design.
+    case CustomerUpdated = 'CUSTOMER_UPDATED';
+    case CustomerCategoryAssigned = 'CUSTOMER_CATEGORY_ASSIGNED';
+    case CustomerKycVerified = 'CUSTOMER_KYC_VERIFIED';
+    case CustomerDocumentUploaded = 'CUSTOMER_DOCUMENT_UPLOADED';
+    case CustomerDocumentRemoved = 'CUSTOMER_DOCUMENT_REMOVED';
+    case CustomerCategoryCreated = 'CUSTOMER_CATEGORY_CREATED';
+    case CustomerCategoryUpdated = 'CUSTOMER_CATEGORY_UPDATED';
+    case CustomerCategoryDeleted = 'CUSTOMER_CATEGORY_DELETED';
+
+    /*
+     * Loans (Phase 5). The first five match the frontend's AUDIT_ACTIONS map
+     * in types/audit.ts exactly — the loan timeline renders off these strings.
+     */
+    case LoanApplied = 'LOAN_APPLIED';
+    case LoanApproved = 'LOAN_APPROVED';
+    case LoanRejected = 'LOAN_REJECTED';
+    case LoanDisbursed = 'LOAN_DISBURSED';
+    case DisbursementRetried = 'RETRY_DISBURSEMENT';
+
+    // Beyond the frontend's map; the vocabulary is extensible by design.
+    case LoanCancelled = 'LOAN_CANCELLED';
+    case LoanMandateVerified = 'LOAN_MANDATE_VERIFIED';
+    case LoanMandateFailed = 'LOAN_MANDATE_FAILED';
+    case LoanTelcoVerified = 'LOAN_TELCO_VERIFIED';
+    case LoanDisbursementPrepared = 'LOAN_DISBURSEMENT_PREPARED';
+    case LoanProductCreated = 'LOAN_PRODUCT_CREATED';
+    case LoanProductUpdated = 'LOAN_PRODUCT_UPDATED';
+    case LoanProductDeleted = 'LOAN_PRODUCT_DELETED';
+    case LoanProductEligibilityUpdated = 'LOAN_PRODUCT_ELIGIBILITY_UPDATED';
+
+    /*
+     * Repayments & ledger (Phase 6). The first three match the frontend's
+     * AUDIT_ACTIONS map exactly.
+     */
+    case PaymentAllocated = 'PAYMENT_ALLOCATED';
+    case PaymentReversed = 'PAYMENT_REVERSED';
+    case LedgerEntryReversed = 'LEDGER_ENTRY_REVERSED';
+
+    // Beyond the frontend's map; the vocabulary is extensible by design.
+    case PaymentReceived = 'PAYMENT_RECEIVED';
+    case PaymentUnmatched = 'PAYMENT_UNMATCHED';
+    case PaymentConfirmed = 'PAYMENT_CONFIRMED';
+    case SuspenseResolved = 'SUSPENSE_RESOLVED';
+    case CashDepositRecorded = 'CASH_DEPOSIT_RECORDED';
+    case CashDepositReconciled = 'CASH_DEPOSIT_RECONCILED';
+    case PenaltyRunExecuted = 'PENALTY_RUN_EXECUTED';
+    case ReversalRequested = 'REVERSAL_REQUESTED';
+    case ReversalRejected = 'REVERSAL_REJECTED';
+    case LoanClosedByRepayment = 'LOAN_CLOSED_BY_REPAYMENT';
+
+    // HR, payroll and commission (§11).
+    case StaffRegistered = 'STAFF_REGISTERED';
+    case StaffUpdated = 'STAFF_UPDATED';
+    case PayrollGenerated = 'PAYROLL_GENERATED';
+    case PayrollFinalized = 'PAYROLL_FINALIZED';
+    case PayrollPaid = 'PAYROLL_PAID';
+    case StaffAdvanceRequested = 'STAFF_ADVANCE_REQUESTED';
+    case StaffAdvanceApproved = 'STAFF_ADVANCE_APPROVED';
+    case StaffAdvanceRejected = 'STAFF_ADVANCE_REJECTED';
+    case StaffAdvanceDisbursed = 'STAFF_ADVANCE_DISBURSED';
+    case CommissionPoolsGenerated = 'COMMISSION_POOLS_GENERATED';
+    case PerformanceRecorded = 'PERFORMANCE_RECORDED';
+
+    /*
+     * Customer relations. Removing a guarantor changes loan eligibility — §6
+     * requires at least one — so it is a decision worth recording even though
+     * the frontend's own audit vocabulary has no entry for it.
+     */
+    case GuarantorAdded = 'GUARANTOR_ADDED';
+    case GuarantorRemoved = 'GUARANTOR_REMOVED';
+    case NextOfKinAdded = 'NEXT_OF_KIN_ADDED';
+    case NextOfKinRemoved = 'NEXT_OF_KIN_REMOVED';
+
+    /*
+     * Loan charges configuration (Settings → Loan Fee / Penalty / Reserve).
+     * These change what future borrowers are quoted, so who changed a fee and
+     * when is exactly the question an auditor asks first.
+     */
+    case LoanFeeConfigured = 'LOAN_FEE_CONFIGURED';
+    case LoanFeeCleared = 'LOAN_FEE_CLEARED';
+    case PenaltySettingCreated = 'PENALTY_SETTING_CREATED';
+    case PenaltySettingDeleted = 'PENALTY_SETTING_DELETED';
+    case ReserveSettingUpdated = 'RESERVE_SETTING_UPDATED';
+
+    /*
+     * Capital (§Capital module). Who holds equity, who put money in, and who
+     * moved cash between tills are all questions an auditor asks by name.
+     */
+    case ShareholderRegistered = 'SHAREHOLDER_REGISTERED';
+    case ShareholderUpdated = 'SHAREHOLDER_UPDATED';
+    case ShareholderDeleted = 'SHAREHOLDER_DELETED';
+    case CapitalRecorded = 'CAPITAL_RECORDED';
+    case CapitalDeleted = 'CAPITAL_DELETED';
+    case FloatTransferRequested = 'FLOAT_TRANSFER_REQUESTED';
+    case FloatTransferApproved = 'FLOAT_TRANSFER_APPROVED';
+    case FloatTransferRejected = 'FLOAT_TRANSFER_REJECTED';
+    case FloatTransferDeleted = 'FLOAT_TRANSFER_DELETED';
+}

@@ -1,0 +1,31 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Level 6 is the highest level that does not require exhaustive generic
+    # annotations on every Eloquent relation. Raise to 8 once the domain
+    # models exist and their return types are settled.
+    level: 6
+
+    paths:
+        - app
+        - config
+        - database
+        - routes
+
+    # Pest binds test closures to Tests\TestCase at runtime via pest()->extend().
+    # PHPStan cannot see that binding, so every $this->getJson() in a Pest file
+    # reports as an undefined method on PHPUnit\Framework\TestCase. Analysing
+    # tests would therefore require blanket-ignoring method.notFound across
+    # tests/, which would also mask genuine typos — so the suite is verified by
+    # running it, not by static analysis.
+    excludePaths:
+        - bootstrap/cache
+        - storage
+        - tests
+        - vendor
+
+    # Money and ledger handling must never silently coerce types.
+    checkModelProperties: true
+    checkOctaneCompatibility: false
+    treatPhpDocTypesAsCertain: false
