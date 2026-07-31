@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -30,6 +31,20 @@ class RepaymentSchedule extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(LoanProduct::class, 'loan_product_repayment_schedules');
+    }
+
+    /**
+     * Loans running on this cadence.
+     *
+     * What makes a schedule in use: its `frequency_days` generated every
+     * installment date on each of these, so Settings → Repayment Schedules
+     * refuses to change the frequency or retire the row while any exist.
+     *
+     * @return HasMany<Loan, $this>
+     */
+    public function loans(): HasMany
+    {
+        return $this->hasMany(Loan::class);
     }
 
     /**

@@ -25,10 +25,16 @@ use Illuminate\Support\Facades\DB;
  * The remaining §2.3 configuration: interest formulas, repayment schedules and
  * the category → product eligibility pivot.
  *
- * Formulas and schedules are read-only reference data. Their codes are what
- * LoanScheduleGenerator switches on, so creating a fourth formula through an
- * API would produce a row no calculation knows how to honour — adding one is a
- * code change, not a configuration change.
+ * Formulas and schedules are read here. What may be *changed* about them, and
+ * by whom, lives in Admin\SystemConfigurationController — Settings → Interest
+ * Formulas and Settings → Repayment Schedules. Reading stays here because the
+ * loan application form is the main caller and these are its lookups.
+ *
+ * A formula's `code` is what LoanScheduleGenerator switches on, so a fourth
+ * formula would be a row no calculation knows how to honour: only its name and
+ * description are editable, and there is no create or delete. A schedule's
+ * `frequency_days` is a number the generator divides by rather than a branch,
+ * so schedules are open — see ManageRepaymentScheduleAction.
  */
 final class LoanConfigurationController extends Controller
 {
@@ -40,7 +46,11 @@ final class LoanConfigurationController extends Controller
         $this->authorize('viewAny', LoanProduct::class);
 
         return ApiResponse::data(
-            InterestFormulaResource::collection(InterestFormula::query()->orderBy('id')->get()),
+            InterestFormulaResource::collection(
+                // Counted for the settings screen, which shows what each
+                // formula is carrying. The application form ignores it.
+                InterestFormula::query()->withCount('products')->orderBy('id')->get(),
+            ),
         );
     }
 
@@ -52,7 +62,15 @@ final class LoanConfigurationController extends Controller
         $this->authorize('viewAny', LoanProduct::class);
 
         return ApiResponse::data(
-            RepaymentScheduleResource::collection(RepaymentSchedule::query()->orderBy('frequency_days')->get()),
+            RepaymentScheduleResource::collection(
+                // `loans` and `products` are what the settings screen's guards
+                // are about: a schedule with either cannot change frequency or
+                // be retired, and the screen needs to say why.
+                RepaymentSchedule::query()
+                    ->withCount(['loans', 'products'])
+                    ->orderBy('frequency_days')
+                    ->get(),
+            ),
         );
     }
 

@@ -26,6 +26,11 @@ final class InterestFormulaResource extends JsonResource
             'code' => $this->code->value,
             'description' => $this->description,
             'deletedAt' => $this->deleted_at?->toIso8601String(),
+
+            // How many products compute interest this way. Settings → Interest
+            // Formulas shows it so an edit to a description carries the weight
+            // of what it is describing.
+            'productCount' => $this->whenCounted('products'),
         ];
     }
 }

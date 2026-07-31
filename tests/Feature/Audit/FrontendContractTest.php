@@ -17,6 +17,11 @@ use App\Domain\Auth\Enums\RoleName;
 beforeEach(function (): void {
     seedStaffBook();
     finalizedPayrollRun();
+
+    // Templates are reference data nothing else seeds, and the schema below
+    // cannot be checked against an empty table.
+    test()->seed(Database\Seeders\NotificationTemplateSeeder::class);
+
     forgetAuthGuards();
 });
 
@@ -121,6 +126,16 @@ function contractSchemas(): array
         'ReversalRequestSchema' => ['id', 'journalEntryId', 'requestedBy', 'reason', 'approvedBy', 'status'],
         'ZoneSchema' => ['id', 'name', 'zoneManagerId', 'deletedAt'],
         'RegionSchema' => ['id', 'name'],
+        'InterestFormulaSchema' => ['id', 'name', 'code', 'description', 'deletedAt'],
+        'RepaymentScheduleSchema' => ['id', 'name', 'code', 'frequencyDays', 'deletedAt'],
+        'NotificationTemplateSchema' => [
+            'id', 'name', 'triggerEvent', 'channel', 'subject', 'body', 'active', 'updatedBy',
+            'updatedAt',
+        ],
+        'AuditLogSchema' => [
+            'id', 'userId', 'action', 'auditableType', 'auditableId', 'beforeJson', 'afterJson',
+            'ipAddress', 'userAgent', 'createdAt',
+        ],
     ];
 }
 
@@ -150,6 +165,10 @@ function contractEndpoints(): array
         'CustomerCategorySchema' => ['uri' => '/api/v1/customer-categories', 'path' => 'data.0'],
         'ZoneSchema' => ['uri' => '/api/v1/zones', 'path' => 'data.0'],
         'RegionSchema' => ['uri' => '/api/v1/regions', 'path' => 'data.0'],
+        'InterestFormulaSchema' => ['uri' => '/api/v1/interest-formulas', 'path' => 'data.0'],
+        'RepaymentScheduleSchema' => ['uri' => '/api/v1/repayment-schedules', 'path' => 'data.0'],
+        'NotificationTemplateSchema' => ['uri' => '/api/v1/notification-templates', 'path' => 'data.0'],
+        'AuditLogSchema' => ['uri' => '/api/v1/audit-logs', 'path' => 'data.0'],
     ];
 }
 

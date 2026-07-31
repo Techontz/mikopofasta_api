@@ -126,6 +126,20 @@ enum AuditAction: string
     case SalaryAdvanceCategoryCreated = 'SALARY_ADVANCE_CATEGORY_CREATED';
     case SalaryAdvanceCategoryUpdated = 'SALARY_ADVANCE_CATEGORY_UPDATED';
     case SalaryAdvanceCategoryDeleted = 'SALARY_ADVANCE_CATEGORY_DELETED';
+
+    /*
+     * System configuration (§Administration). Changing an interest formula's
+     * name or a schedule's frequency alters what future borrowers are quoted,
+     * and a notification template is the wording customers actually receive —
+     * all three are things an auditor asks "who changed this, and when" about.
+     */
+    case InterestFormulaUpdated = 'INTEREST_FORMULA_UPDATED';
+    case RepaymentScheduleCreated = 'REPAYMENT_SCHEDULE_CREATED';
+    case RepaymentScheduleUpdated = 'REPAYMENT_SCHEDULE_UPDATED';
+    case RepaymentScheduleDeleted = 'REPAYMENT_SCHEDULE_DELETED';
+    case NotificationTemplateCreated = 'NOTIFICATION_TEMPLATE_CREATED';
+    case NotificationTemplateUpdated = 'NOTIFICATION_TEMPLATE_UPDATED';
+    case NotificationTemplateDeleted = 'NOTIFICATION_TEMPLATE_DELETED';
     case CommissionPoolsGenerated = 'COMMISSION_POOLS_GENERATED';
     case PerformanceRecorded = 'PERFORMANCE_RECORDED';
 

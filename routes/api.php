@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\SystemConfigurationController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Customers\CustomerCategoryController;
@@ -248,6 +249,27 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('interest-formulas.index');
     Route::get('/repayment-schedules', [LoanConfigurationController::class, 'repaymentSchedules'])
         ->name('repayment-schedules.index');
+
+    /*
+     * Settings → Interest Formulas / Repayment Schedules.
+     *
+     * The reads are the two lookups above — the loan application form is their
+     * main caller. The writes sit behind `admin.org_settings`, enforced by
+     * SystemConfigurationPolicy. See docs/modules/administration.md.
+     *
+     * A formula has no store and no destroy: its `code` is what the interest
+     * engine branches on, so a fourth one is a code change. Schedules are open,
+     * because `frequency_days` is a number the generator divides by.
+     */
+    Route::put('/interest-formulas/{formula}', [SystemConfigurationController::class, 'updateInterestFormula'])
+        ->name('interest-formulas.update');
+
+    Route::post('/repayment-schedules', [SystemConfigurationController::class, 'storeRepaymentSchedule'])
+        ->name('repayment-schedules.store');
+    Route::put('/repayment-schedules/{schedule}', [SystemConfigurationController::class, 'updateRepaymentSchedule'])
+        ->name('repayment-schedules.update');
+    Route::delete('/repayment-schedules/{schedule}', [SystemConfigurationController::class, 'destroyRepaymentSchedule'])
+        ->name('repayment-schedules.destroy');
 
     Route::get('/customer-categories/{category}/eligibility', [LoanConfigurationController::class, 'eligibility'])
         ->name('customer-categories.eligibility');
@@ -553,6 +575,38 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/commission', [CommissionController::class, 'index'])->name('commission.index');
     Route::post('/commission/generate', [CommissionController::class, 'generate'])->name('commission.generate');
     Route::get('/commission/branches/{branch}', [CommissionController::class, 'branch'])->name('commission.branch');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Administration & System Configuration (Settings)
+    |--------------------------------------------------------------------------
+    |
+    | Notification templates and the audit trail. Interest formulas and
+    | repayment schedules are the other two Settings screens and sit with the
+    | loan configuration they are lookups for.
+    |
+    | Templates read open and write behind `admin.org_settings`. The audit trail
+    | is read-only in the strongest sense — there is no store, update or destroy
+    | route for it anywhere, because §2 makes it append-only and an endpoint
+    | that could rewrite a row would defeat the only thing it is for. Reading it
+    | needs `audit.view`, or `admin.org_settings` for an administrator who has
+    | not been granted the narrower one.
+    |
+    | See docs/modules/administration.md.
+    |
+    */
+    Route::get('/notification-templates', [SystemConfigurationController::class, 'notificationTemplates'])
+        ->name('notification-templates.index');
+    Route::post('/notification-templates', [SystemConfigurationController::class, 'storeNotificationTemplate'])
+        ->name('notification-templates.store');
+    Route::put('/notification-templates/{template}', [SystemConfigurationController::class, 'updateNotificationTemplate'])
+        ->name('notification-templates.update');
+    Route::delete(
+        '/notification-templates/{template}',
+        [SystemConfigurationController::class, 'destroyNotificationTemplate'],
+    )->name('notification-templates.destroy');
+
+    Route::get('/audit-logs', [SystemConfigurationController::class, 'auditLogs'])->name('audit-logs.index');
 
     /*
     |--------------------------------------------------------------------------

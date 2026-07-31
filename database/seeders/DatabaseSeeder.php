@@ -85,6 +85,15 @@ class DatabaseSeeder extends Seeder
             // OrganizationSeeder, because a request names the branch bearing
             // the cost.
             ExpenseSeeder::class,
+
+            /*
+             * The messages sent on loan events. Last, and dependent on nothing:
+             * a template is reference data keyed to an enum, not to any row
+             * seeded above. It is here rather than first only because reading
+             * the list in the order the business happens is easier than reading
+             * it in dependency order.
+             */
+            NotificationTemplateSeeder::class,
         ]);
     }
 }
