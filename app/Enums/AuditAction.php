@@ -128,6 +128,31 @@ enum AuditAction: string
     case SalaryAdvanceCategoryDeleted = 'SALARY_ADVANCE_CATEGORY_DELETED';
 
     /*
+     * HR approving the figures — §16.1's "salary haiwezi kubadilishwa baada ya
+     * approval" needs a recorded moment for "after approval" to mean anything.
+     */
+    case PayrollApproved = 'PAYROLL_APPROVED';
+
+    /* Staff loans, on the same lifecycle as advances (§14, §16.7–16.8). */
+    case StaffLoanRequested = 'STAFF_LOAN_REQUESTED';
+    case StaffLoanApproved = 'STAFF_LOAN_APPROVED';
+    case StaffLoanRejected = 'STAFF_LOAN_REJECTED';
+    case StaffLoanDisbursed = 'STAFF_LOAN_DISBURSED';
+    /* Recovery from payroll: one per instalment, plus a final closing event. */
+    case StaffLoanRepaid = 'STAFF_LOAN_REPAID';
+    case StaffLoanClosed = 'STAFF_LOAN_CLOSED';
+
+    /*
+     * What an employee draws and what is withheld. Both are decisions about
+     * somebody's pay, which is the definition of a thing an auditor asks about.
+     */
+    case StaffAllowanceGranted = 'STAFF_ALLOWANCE_GRANTED';
+    case StaffAllowanceUpdated = 'STAFF_ALLOWANCE_UPDATED';
+    case StaffAllowanceRevoked = 'STAFF_ALLOWANCE_REVOKED';
+    case StaffDeductionRecorded = 'STAFF_DEDUCTION_RECORDED';
+    case StaffDeductionCancelled = 'STAFF_DEDUCTION_CANCELLED';
+
+    /*
      * System configuration (§Administration). Changing an interest formula's
      * name or a schedule's frequency alters what future borrowers are quoted,
      * and a notification template is the wording customers actually receive —

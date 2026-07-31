@@ -7,15 +7,20 @@ namespace App\Http\Controllers\Hr;
 use App\Domain\Hr\Actions\RecordPerformanceAction;
 use App\Domain\Hr\Actions\RegisterStaffAction;
 use App\Domain\Hr\Actions\StaffAdvanceAction;
+use App\Domain\Hr\Actions\StaffLoanAction;
 use App\Domain\Hr\DTOs\RegisterStaffData;
 use App\Domain\Hr\Enums\PerformanceRating;
+use App\Domain\Hr\Enums\StaffLoanStatus;
+use App\Domain\Hr\Services\StaffLoanCalculator;
 use App\Enums\AuditAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\DecideStaffAdvanceRequest;
+use App\Http\Requests\Hr\DecideStaffLoanRequest;
 use App\Http\Requests\Hr\IndexStaffRequest;
 use App\Http\Requests\Hr\RecordPerformanceRequest;
 use App\Http\Requests\Hr\RegisterStaffRequest;
 use App\Http\Requests\Hr\StaffAdvanceRequest;
+use App\Http\Requests\Hr\StaffLoanRequest;
 use App\Http\Requests\Hr\UpdateStaffRequest;
 use App\Http\Resources\StaffAdvanceDetailResource;
 use App\Http\Resources\StaffAdvanceResource;
@@ -28,6 +33,7 @@ use App\Models\StaffPerformanceRecord;
 use App\Models\StaffProfile;
 use App\Support\ApiResponse;
 use App\Support\Money;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -165,19 +171,103 @@ final class StaffController extends Controller
     }
 
     /**
-     * GET /api/v1/staff/loans
+     * GET /api/v1/staff/loans?status=&staff_profile_id=
      *
-     * Read-only: no endpoint creates a staff loan, because neither §11 nor the
-     * frontend defines the terms one would be created on. See the Phase 7
-     * notes in the README.
+     * No longer read-only. §14 of the HR document defines the flow — request,
+     * HR approval, Finance disbursement, recovery from payroll — and the four
+     * endpoints below implement it. Before Module 7 only the seeder could
+     * create a staff loan, and nothing could ever end one.
      */
     public function loans(Request $request): JsonResponse
     {
         $this->authorize('viewAny', StaffProfile::class);
 
-        $loans = StaffLoan::query()->with('staffProfile.user')->latest('id')->get();
+        $loans = StaffLoan::query()
+            ->with(['staffProfile.user', 'approver'])
+            ->when(
+                $request->filled('status'),
+                fn (Builder $q) => $q->where('status', $request->string('status')),
+            )
+            ->when(
+                $request->filled('staff_profile_id'),
+                fn (Builder $q) => $q->where('staff_profile_id', $request->integer('staff_profile_id')),
+            )
+            ->latest('id')
+            ->get();
 
-        return ApiResponse::data(StaffLoanResource::collection($loans), ['total' => $loans->count()]);
+        return ApiResponse::data(StaffLoanResource::collection($loans), [
+            'total' => $loans->count(),
+            'totalOutstanding' => Money::sum(
+                $loans->filter(fn (StaffLoan $l): bool => $l->status === StaffLoanStatus::Active)
+                    ->map(fn (StaffLoan $l): Money => app(StaffLoanCalculator::class)->outstanding($l))
+                    ->all(),
+            )->toDecimalString(),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/staff/loan/request — §14.
+     *
+     * Nothing posts: a loan that has been asked for is not money that has
+     * moved.
+     */
+    public function requestLoan(StaffLoanRequest $request, StaffLoanAction $action): JsonResponse
+    {
+        $this->authorize('manage', StaffProfile::class);
+
+        $staff = StaffProfile::query()->findOrFail($request->validated('staffProfileId'));
+
+        $loan = $action->request(
+            $staff,
+            Money::of((string) $request->validated('amount')),
+            (int) $request->validated('recoveryPeriods'),
+            $this->actor($request),
+        );
+
+        return ApiResponse::data(
+            new StaffLoanResource($loan->load(['staffProfile.user', 'approver'])),
+            status: Response::HTTP_CREATED,
+        );
+    }
+
+    /** POST /api/v1/staff/loan/approve — §16.7, HR's decision. */
+    public function approveLoan(DecideStaffLoanRequest $request, StaffLoanAction $action): JsonResponse
+    {
+        $this->authorize('manage', StaffProfile::class);
+
+        $loan = $action->approve($this->staffLoan($request), $this->actor($request));
+
+        return ApiResponse::data(new StaffLoanResource($loan->load(['staffProfile.user', 'approver'])));
+    }
+
+    /** POST /api/v1/staff/loan/reject */
+    public function rejectLoan(DecideStaffLoanRequest $request, StaffLoanAction $action): JsonResponse
+    {
+        $this->authorize('manage', StaffProfile::class);
+
+        $loan = $action->reject(
+            $this->staffLoan($request),
+            $request->validated('reason'),
+            $this->actor($request),
+        );
+
+        return ApiResponse::data(new StaffLoanResource($loan->load(['staffProfile.user', 'approver'])));
+    }
+
+    /**
+     * POST /api/v1/staff/loan/disburse — Finance only.
+     *
+     * §16.8: "disbursement zote zitafanyika finance". The authorization check
+     * is the same `disburseAdvance` ability an advance uses — it is the Finance
+     * money-movement grant, and this is the same kind of act on the same fund.
+     */
+    public function disburseLoan(DecideStaffLoanRequest $request, StaffLoanAction $action): JsonResponse
+    {
+        $this->authorize('disburseAdvance', \App\Models\PayrollRun::class);
+
+        $loan = $action->disburse($this->staffLoan($request), $this->actor($request));
+
+        return ApiResponse::data(new StaffLoanResource($loan->load(['staffProfile.user', 'approver'])));
     }
 
     /**
@@ -249,7 +339,7 @@ final class StaffController extends Controller
         $this->authorize('viewAny', StaffProfile::class);
 
         $records = StaffPerformanceRecord::query()
-            ->with('staffProfile.user')
+            ->with(['staffProfile.user', 'recorder'])
             ->when($request->filled('period'), fn ($q) => $q->where('period', $request->string('period')))
             ->latest('period')
             ->get();
@@ -283,6 +373,11 @@ final class StaffController extends Controller
             new StaffPerformanceRecordResource($record->load('staffProfile.user')),
             status: Response::HTTP_CREATED,
         );
+    }
+
+    private function staffLoan(DecideStaffLoanRequest $request): StaffLoan
+    {
+        return StaffLoan::query()->findOrFail($request->validated('loanId'));
     }
 
     private function advance(DecideStaffAdvanceRequest $request): StaffAdvance

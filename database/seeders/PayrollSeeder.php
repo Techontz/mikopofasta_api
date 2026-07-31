@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Domain\Hr\Actions\ApprovePayrollAction;
 use App\Domain\Hr\Actions\FinalizePayrollAction;
 use App\Domain\Hr\Actions\GenerateCommissionPoolsAction;
 use App\Domain\Hr\Actions\GeneratePayrollAction;
@@ -58,8 +59,12 @@ final class PayrollSeeder extends Seeder
         // HR produces the draft; nothing is posted yet.
         $run = app(GeneratePayrollAction::class)->handle($period, $hr);
 
+        // HR approves — §16.7, and §16.1's moment after which the figures can
+        // no longer change. Nothing posts here.
+        app(ApprovePayrollAction::class)->handle($run, $hr);
+
         // Finance finalizes — recognition and deduction entries — then pays.
-        app(FinalizePayrollAction::class)->handle($run, $finance);
+        app(FinalizePayrollAction::class)->handle($run->refresh(), $finance);
         app(PayPayrollAction::class)->handle($run->fresh(), $finance);
     }
 }

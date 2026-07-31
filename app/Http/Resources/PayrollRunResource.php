@@ -27,6 +27,30 @@ final class PayrollRunResource extends JsonResource
             'generatedBy' => (string) $this->generated_by,
             'finalizedAt' => $this->finalized_at?->toIso8601String(),
 
+            'approvedBy' => $this->approved_by === null ? null : (string) $this->approved_by,
+            'approvedAt' => $this->approved_at?->toIso8601String(),
+            'paidAt' => $this->paid_at?->toIso8601String(),
+
+            /*
+             * The actors by name, so the payroll screens need not fetch every
+             * user to render three columns — /users needs `users.manage`, which
+             * the roles that read payroll do not hold, so without these the
+             * screen could only print an id.
+             */
+            'generatedByName' => $this->whenLoaded(
+                'generatedBy',
+                fn (): ?string => $this->generatedBy?->name,
+            ),
+            'approvedByName' => $this->whenLoaded(
+                'approvedBy',
+                fn (): ?string => $this->approvedBy?->name,
+            ),
+            'finalizedByName' => $this->whenLoaded(
+                'finalizedBy',
+                fn (): ?string => $this->finalizedBy?->name,
+            ),
+            'paidByName' => $this->whenLoaded('paidBy', fn (): ?string => $this->paidBy?->name),
+
             'lines' => PayrollLineResource::collection($this->whenLoaded('lines')),
 
             // Summary figures the payroll list shows per run, computed here

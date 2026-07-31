@@ -60,10 +60,19 @@ describe('generation', function (): void {
             $expected = $calculator->compute(
                 staff: $staff,
                 commissionAmount: $line->commissionAmount(),
-                isBranchBased: $calculator->isBranchBased($staff->user?->roleName(), $staff->branch_id),
-                hasActiveLoan: $staff->hasActiveLoan(),
-                // The advance itself, not a flag: the recovery instalment is
-                // derived from its own terms.
+                /*
+                 * The entitlement ROWS, not a branch-based flag. Allowances
+                 * stopped being constants in Module 7 — every branch employee
+                 * drew the same transport figure and no bonus could exist.
+                 */
+                entitlements: $staff->allowanceEntitlements()->forPeriod(currentPeriod())->get(),
+                penalties: $staff->payDeductions()->forPeriod(currentPeriod())->get(),
+                // The debts themselves, not flags: each instalment is derived
+                // from the record's own terms.
+                outstandingLoan: $staff->loans
+                    ->filter(fn ($l): bool => $l->status === App\Domain\Hr\Enums\StaffLoanStatus::Active)
+                    ->sortBy('id')
+                    ->first(),
                 outstandingAdvance: $staff->advances
                     ->filter(fn ($a): bool => $a->status === App\Domain\Hr\Enums\StaffAdvanceStatus::Disbursed)
                     ->sortBy('id')
@@ -140,6 +149,9 @@ describe('finalization', function (): void {
         actingAsHr();
         $runId = $this->postJson('/api/v1/payroll/generate', ['period' => currentPeriod()])
             ->assertCreated()->json('data.id');
+
+        // HR approves first — §16.7, added in Module 7.
+        $this->postJson("/api/v1/payroll/{$runId}/approve")->assertOk();
 
         actingAsFinance();
         $this->postJson("/api/v1/payroll/{$runId}/finalize")
@@ -368,6 +380,9 @@ describe('separation of duties', function (): void {
         $runId = $this->postJson('/api/v1/payroll/generate', ['period' => currentPeriod()])
             ->assertCreated()->json('data.id');
 
+        // HR approves first — §16.7, added in Module 7.
+        $this->postJson("/api/v1/payroll/{$runId}/approve")->assertOk();
+
         actingAsFinance();
         $this->postJson("/api/v1/payroll/{$runId}/finalize")->assertOk();
         $this->postJson("/api/v1/payroll/{$runId}/pay")->assertOk();
@@ -414,6 +429,8 @@ describe('audit logging', function (): void {
         $hr = actingAsHr();
         $runId = $this->postJson('/api/v1/payroll/generate', ['period' => currentPeriod()])
             ->assertCreated()->json('data.id');
+
+        $this->postJson("/api/v1/payroll/{$runId}/approve")->assertOk();
 
         $finance = actingAsFinance();
         $this->postJson("/api/v1/payroll/{$runId}/finalize")->assertOk();

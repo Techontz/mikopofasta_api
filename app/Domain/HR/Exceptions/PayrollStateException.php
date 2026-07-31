@@ -32,7 +32,32 @@ final class PayrollStateException extends DomainException
 
     public static function notDraft(): self
     {
-        return new self('Only a draft run can be finalized.', ErrorCode::InvalidPayrollState);
+        return new self('Only a draft run can be regenerated.', ErrorCode::InvalidPayrollState);
+    }
+
+    /**
+     * §16.7: HR approves, then Finance posts.
+     *
+     * Finance finalizing a draft nobody had approved would make the approval
+     * step optional, which is the same as not having one.
+     */
+    public static function notApproved(): self
+    {
+        return new self('Only an approved run can be finalized.', ErrorCode::InvalidPayrollState);
+    }
+
+    /**
+     * §16.1: "Salary haiwezi kubadilishwa baada ya approval."
+     *
+     * The figures stop being editable at approval, so a run past that point
+     * cannot be approved again or regenerated.
+     */
+    public static function alreadyApproved(): self
+    {
+        return new self(
+            'This run has already been approved and its figures can no longer change.',
+            ErrorCode::InvalidPayrollState,
+        );
     }
 
     public static function notFinalized(): self

@@ -33,6 +33,13 @@ final class StaffPerformanceRecordResource extends JsonResource
             'recordedBy' => (string) $this->recorded_by,
 
             'staffName' => $this->whenLoaded('staffProfile', fn (): string => $this->staffProfile->displayName()),
+
+            /*
+             * The manager who recorded it, by name. /users needs `users.manage`
+             * and the roles that read performance do not hold it, so without
+             * this the screen could only print an id.
+             */
+            'recordedByName' => $this->whenLoaded('recorder', fn (): ?string => $this->recorder?->name),
         ];
     }
 }

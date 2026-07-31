@@ -26,8 +26,22 @@ const SPEC_REPORTS = [
     'repayment-behavior',
 ];
 
-/** Named by Phase 8, absent from §15.6's list. */
-const EXTRA_REPORTS = ['trial-balance', 'performance', 'executive-summary'];
+/**
+ * Absent from §15.6's list, and each named somewhere else.
+ *
+ * The first three are Phase 8's. The last four are §17 of the HR document,
+ * which lists six reports the module must produce — Payroll, Staff Payslip,
+ * Commission, Staff Loan, Staff Advance and Staff Fund Balance. Payroll and
+ * Commission were already in §15.6's twenty-one; these are the other four.
+ *
+ * Listed rather than derived, for the same reason SPEC_REPORTS is: adding a
+ * report should be a deliberate edit here, not something that appears.
+ */
+const EXTRA_REPORTS = [
+    'trial-balance', 'performance',
+    'staff-payslip', 'staff-loan', 'staff-advance', 'staff-fund',
+    'executive-summary',
+];
 
 describe('the catalogue', function (): void {
     it('publishes every report §15.6 names', function (): void {
@@ -50,7 +64,7 @@ describe('the catalogue', function (): void {
 
         $response = $this->getJson('/api/v1/reports')->assertOk();
 
-        expect($response->json('data'))->toHaveCount(24)
+        expect($response->json('data'))->toHaveCount(count(SPEC_REPORTS) + count(EXTRA_REPORTS))
             ->and($response->json('meta.generated_at'))->not->toBeNull()
             ->and(collect($response->json('data'))->pluck('slug'))->toContain('portfolio', 'trial-balance');
     });

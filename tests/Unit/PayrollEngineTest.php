@@ -3,13 +3,18 @@
 declare(strict_types=1);
 
 use App\Domain\Auth\Enums\RoleName;
+use App\Domain\Hr\Enums\AllowanceType;
 use App\Domain\Hr\Enums\DeductionType;
 use App\Domain\Hr\Services\CommissionCalculator;
 use App\Domain\Hr\Services\PayrollCalculator;
 use App\Domain\Hr\Services\SalaryAdvanceCalculator;
+use App\Domain\Hr\Services\StaffLoanCalculator;
 use App\Models\StaffAdvance;
+use App\Models\StaffAllowance;
+use App\Models\StaffLoan;
 use App\Models\StaffProfile;
 use App\Support\Money;
+use Illuminate\Support\Collection;
 
 /**
  * The payroll and commission engines in isolation — §11.
@@ -29,7 +34,52 @@ function staff(string $baseSalary, bool $commissionEligible = true): StaffProfil
 
 function payroll(): PayrollCalculator
 {
-    return new PayrollCalculator(new SalaryAdvanceCalculator);
+    return new PayrollCalculator(new SalaryAdvanceCalculator, new StaffLoanCalculator);
+}
+
+/**
+ * The entitlement rows an employee draws.
+ *
+ * Allowances stopped being class constants in Module 7 — every branch employee
+ * necessarily drew the same transport figure and `AllowanceType::Bonus` was
+ * unreachable — so a unit test now supplies the rows rather than a flag.
+ *
+ * @return Collection<int, StaffAllowance>
+ */
+function entitlements(bool $isBranchBased, string ...$extra): Collection
+{
+    $rows = collect();
+
+    if ($isBranchBased) {
+        $rows->push(new StaffAllowance(['type' => AllowanceType::Transport, 'amount' => '50000.00']));
+    }
+
+    $rows->push(new StaffAllowance(['type' => AllowanceType::Airtime, 'amount' => '20000.00']));
+
+    foreach ($extra as $bonus) {
+        $rows->push(new StaffAllowance(['type' => AllowanceType::Bonus, 'amount' => $bonus]));
+    }
+
+    return $rows;
+}
+
+/**
+ * An unsaved staff loan carrying real terms.
+ *
+ * Like the advance, the loan is now passed rather than a boolean: the
+ * instalment is the principal over the agreed periods, capped at what is owed.
+ * The flat 50,000 this replaced was never capped and the loan never closed.
+ */
+function staffLoan(string $principal, int $periods = 10, string $recovered = '0.00'): StaffLoan
+{
+    $loan = new StaffLoan([
+        'amount' => $principal,
+        'recovery_periods' => $periods,
+        'amount_recovered' => $recovered,
+    ]);
+    $loan->id = 1;
+
+    return $loan;
 }
 
 /**
@@ -63,8 +113,9 @@ describe('payroll', function (): void {
         $result = payroll()->compute(
             staff: staff('800000.00'),
             commissionAmount: Money::of('12345.67'),
-            isBranchBased: true,
-            hasActiveLoan: false,
+            entitlements: entitlements(true),
+            penalties: collect(),
+            outstandingLoan: null,
             outstandingAdvance: null,
         );
 
@@ -75,8 +126,8 @@ describe('payroll', function (): void {
     });
 
     it('gives branch staff a transport allowance and HQ staff none', function (): void {
-        $branch = payroll()->compute(staff('800000.00'), Money::zero(), true, false, null);
-        $hq = payroll()->compute(staff('800000.00'), Money::zero(), false, false, null);
+        $branch = payroll()->compute(staff('800000.00'), Money::zero(), entitlements(true), collect(), null, null);
+        $hq = payroll()->compute(staff('800000.00'), Money::zero(), entitlements(false), collect(), null, null);
 
         $types = fn ($c): array => array_map(
             static fn (array $a): string => $a['type']->value,
@@ -95,25 +146,34 @@ describe('payroll', function (): void {
             staff: staff('1000000.00'),
             // A large commission must not increase the fund contribution.
             commissionAmount: Money::of('500000.00'),
-            isBranchBased: true,
-            hasActiveLoan: false,
+            entitlements: entitlements(true),
+            penalties: collect(),
+            outstandingLoan: null,
             outstandingAdvance: null,
         );
 
         expect($result->deductionOf(DeductionType::StaffFund)->toDecimalString())->toBe('100000.00');
     });
 
-    it('recovers a loan at the flat rate and an advance on its own terms', function (): void {
+    it('recovers both a loan and an advance on their own terms', function (): void {
         /*
-         * 300,000 + 22,500 interest + 5,000 fee = 327,500 over two periods, so
-         * 163,750 this month. The loan still recovers at the flat 50,000 — it
-         * has no category to derive terms from, which is why the constant
-         * survives for loans and not for advances.
+         * The advance: 300,000 + 22,500 interest + 5,000 fee = 327,500 over two
+         * periods, so 163,750 this month.
+         *
+         * The loan: 500,000 over ten periods, so 50,000. That happens to equal
+         * the flat figure this replaced, which is exactly why the flat figure
+         * looked right for so long — it was correct for one loan and wrong for
+         * every other, and uncapped for all of them.
          */
         $advance = advance('300000.00', '22500.00', '5000.00', 2);
+        $loan = staffLoan('500000.00', 10);
 
-        $both = payroll()->compute(staff('1000000.00'), Money::zero(), true, true, $advance);
-        $loanOnly = payroll()->compute(staff('1000000.00'), Money::zero(), true, true, null);
+        $both = payroll()->compute(
+            staff('1000000.00'), Money::zero(), entitlements(true), collect(), $loan, $advance,
+        );
+        $loanOnly = payroll()->compute(
+            staff('1000000.00'), Money::zero(), entitlements(true), collect(), $loan, null,
+        );
 
         expect($both->deductionOf(DeductionType::Loan)->toDecimalString())->toBe('50000.00')
             ->and($both->deductionOf(DeductionType::Advance)->toDecimalString())->toBe('163750.00')
@@ -128,7 +188,9 @@ describe('payroll', function (): void {
         $advance = advance('300000.00', '0.00', '0.00', 3);
         $advance->amount_recovered = '299000.00';
 
-        $result = payroll()->compute(staff('1000000.00'), Money::zero(), true, false, $advance);
+        $result = payroll()->compute(
+            staff('1000000.00'), Money::zero(), entitlements(true), collect(), null, $advance,
+        );
 
         expect($result->deductionOf(DeductionType::Advance)->toDecimalString())->toBe('1000.00');
     });
@@ -137,14 +199,23 @@ describe('payroll', function (): void {
         $advance = advance('300000.00', '0.00', '0.00', 3);
         $advance->amount_recovered = '300000.00';
 
-        $result = payroll()->compute(staff('1000000.00'), Money::zero(), true, false, $advance);
+        $result = payroll()->compute(
+            staff('1000000.00'), Money::zero(), entitlements(true), collect(), null, $advance,
+        );
 
         // No deduction row at all, rather than one of zero.
         expect($result->deductionOf(DeductionType::Advance)->isZero())->toBeTrue();
     });
 
     it('keeps its itemisation consistent with its totals', function (): void {
-        $result = payroll()->compute(staff('1234567.89'), Money::of('999.99'), true, true, advance('200000.00', '10000.00', '2000.00', 1));
+        $result = payroll()->compute(
+            staff('1234567.89'),
+            Money::of('999.99'),
+            entitlements(true),
+            collect(),
+            staffLoan('500000.00', 10),
+            advance('200000.00', '10000.00', '2000.00', 1),
+        );
 
         $allowances = Money::sum(array_map(static fn (array $a): Money => $a['amount'], $result->allowances));
         $deductions = Money::sum(array_map(static fn (array $d): Money => $d['amount'], $result->deductions));
@@ -159,7 +230,9 @@ describe('payroll', function (): void {
 
     it('rounds the fund contribution half-up on a fractional salary', function (): void {
         // 10% of 833,333.33 is 83,333.333 → 83,333.33.
-        $result = payroll()->compute(staff('833333.33'), Money::zero(), false, false, null);
+        $result = payroll()->compute(
+            staff('833333.33'), Money::zero(), entitlements(false), collect(), null, null,
+        );
 
         expect($result->deductionOf(DeductionType::StaffFund)->toDecimalString())->toBe('83333.33');
     });
@@ -174,11 +247,25 @@ describe('payroll', function (): void {
          * now that the instalment comes from the advance's own terms rather
          * than a flat figure.
          */
-        $result = payroll()->compute(staff('100000.00'), Money::zero(), false, true, advance('50000.00'));
+        $result = payroll()->compute(
+            staff('100000.00'),
+            Money::zero(),
+            entitlements(false),
+            collect(),
+            staffLoan('50000.00', 1),
+            advance('50000.00'),
+        );
 
         expect($result->netSalary->toDecimalString())->toBe('10000.00');
 
-        $worse = payroll()->compute(staff('50000.00'), Money::zero(), false, true, advance('50000.00'));
+        $worse = payroll()->compute(
+            staff('50000.00'),
+            Money::zero(),
+            entitlements(false),
+            collect(),
+            staffLoan('50000.00', 1),
+            advance('50000.00'),
+        );
 
         // Surfaced rather than clamped: an employee whose recoveries outrun
         // their salary is a real situation, and hiding it would pay them money
@@ -196,9 +283,89 @@ describe('payroll', function (): void {
             ->and(payroll()->isBranchBased(RoleName::LoanOfficer, null))->toBeFalse();
     });
 
+    it('pays a bonus alongside the standing allowances', function (): void {
+        // §10 lists Bonus beside Transport and Airtime, and until Module 7 no
+        // code path could create one — the enum case was unreachable.
+        $result = payroll()->compute(
+            staff('800000.00'), Money::zero(), entitlements(true, '150000.00'), collect(), null, null,
+        );
+
+        $types = array_map(static fn (array $a): string => $a['type']->value, $result->allowances);
+
+        expect($types)->toBe(['transport', 'airtime', 'bonus'])
+            ->and($result->allowancesTotal->toDecimalString())->toBe('220000.00');
+    });
+
+    it('sums several bonuses into one payslip line', function (): void {
+        // Two decisions, one line: `allowances` is what a payslip reads, and a
+        // payslip does not show the same allowance twice.
+        $result = payroll()->compute(
+            staff('800000.00'),
+            Money::zero(),
+            entitlements(true, '100000.00', '50000.00'),
+            collect(),
+            null,
+            null,
+        );
+
+        expect(count($result->allowances))->toBe(3)
+            ->and($result->deductionOf(DeductionType::StaffFund)->toDecimalString())->toBe('80000.00')
+            ->and($result->allowancesTotal->toDecimalString())->toBe('220000.00');
+    });
+
+    it('withholds a penalty, which no code path could create before', function (): void {
+        $penalty = new App\Models\StaffDeduction([
+            'type' => DeductionType::Penalty,
+            'amount' => '35000.00',
+            'period' => '2027-01',
+            'reason' => 'Till shortage',
+        ]);
+
+        $result = payroll()->compute(
+            staff('800000.00'), Money::zero(), entitlements(true), collect([$penalty]), null, null,
+        );
+
+        expect($result->deductionOf(DeductionType::Penalty)->toDecimalString())->toBe('35000.00')
+            // 80,000 fund + 35,000 penalty.
+            ->and($result->deductionsTotal->toDecimalString())->toBe('115000.00');
+    });
+
+    it('recovers a loan only up to what is owed', function (): void {
+        // 100,000 over four periods is 25,000, but 95,000 is already recovered.
+        $result = payroll()->compute(
+            staff('800000.00'),
+            Money::zero(),
+            entitlements(true),
+            collect(),
+            staffLoan('100000.00', 4, '95000.00'),
+            null,
+        );
+
+        expect($result->deductionOf(DeductionType::Loan)->toDecimalString())->toBe('5000.00');
+    });
+
+    it('deducts nothing for a loan already settled', function (): void {
+        $result = payroll()->compute(
+            staff('800000.00'),
+            Money::zero(),
+            entitlements(true),
+            collect(),
+            staffLoan('100000.00', 4, '100000.00'),
+            null,
+        );
+
+        // The defect in one assertion: the flat figure kept deducting here.
+        expect($result->deductionOf(DeductionType::Loan)->isZero())->toBeTrue();
+    });
+
     it('is deterministic — identical input gives identical output', function (): void {
-        $once = payroll()->compute(staff('987654.32'), Money::of('1111.11'), true, true, null);
-        $twice = payroll()->compute(staff('987654.32'), Money::of('1111.11'), true, true, null);
+        $args = fn (): array => [
+            staff('987654.32'), Money::of('1111.11'), entitlements(true), collect(),
+            staffLoan('500000.00', 10), null,
+        ];
+
+        $once = payroll()->compute(...$args());
+        $twice = payroll()->compute(...$args());
 
         expect($once->toLineRow())->toBe($twice->toLineRow());
     });

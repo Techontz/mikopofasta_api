@@ -28,6 +28,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $employee_number
  * @property int|null $branch_id
  * @property int|null $zone_id
+ *
+ * HQ staff have no branch and only a zone manager has a zone, so both relations
+ * resolve to null for real rows — declared here because the BelongsTo signature
+ * alone reads as non-nullable and every caller then has to defend against a
+ * null the type system says cannot happen.
+ * @property-read Branch|null $branch
+ * @property-read Zone|null $zone
  * @property string $base_salary
  * @property bool $commission_eligible
  * @property StaffPaymentMethod $payment_method
@@ -115,6 +122,27 @@ class StaffProfile extends Model
     public function performanceRecords(): HasMany
     {
         return $this->hasMany(StaffPerformanceRecord::class);
+    }
+
+    /**
+     * What this employee is entitled to draw — see StaffAllowance for how it
+     * differs from `allowances`, which is what a payslip actually paid.
+     *
+     * @return HasMany<StaffAllowance, $this>
+     */
+    public function allowanceEntitlements(): HasMany
+    {
+        return $this->hasMany(StaffAllowance::class);
+    }
+
+    /**
+     * Penalties recorded against this employee.
+     *
+     * @return HasMany<StaffDeduction, $this>
+     */
+    public function payDeductions(): HasMany
+    {
+        return $this->hasMany(StaffDeduction::class);
     }
 
     public function baseSalary(): Money

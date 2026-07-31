@@ -8,6 +8,7 @@ use App\Domain\Auth\Enums\RoleName;
 use App\Domain\Hr\Enums\DeductionType;
 use App\Domain\Hr\Enums\PayrollRunStatus;
 use App\Domain\Hr\Enums\StaffAdvanceStatus;
+use App\Domain\Hr\Enums\StaffLoanStatus;
 use App\Domain\Hr\Exceptions\PayrollStateException;
 use App\Domain\Hr\Services\PayrollPostingBuilder;
 use App\Domain\Ledger\Enums\JournalSourceType;
@@ -16,6 +17,7 @@ use App\Enums\AuditAction;
 use App\Models\PayrollLine;
 use App\Models\PayrollRun;
 use App\Models\StaffAdvance;
+use App\Models\StaffLoan;
 use App\Models\User;
 use App\Models\ZoneCommissionDistribution;
 use App\Services\AuditLogger;
@@ -48,13 +50,19 @@ final class FinalizePayrollAction
         private readonly PayrollPostingBuilder $postings,
         private readonly LedgerService $ledger,
         private readonly RecoverStaffAdvanceAction $advances,
+        private readonly RecoverStaffLoanAction $loans,
         private readonly AuditLogger $audit,
     ) {}
 
     public function handle(PayrollRun $run, User $actor): PayrollRun
     {
-        if (! $run->isDraft()) {
-            throw PayrollStateException::notDraft();
+        /*
+         * Approved, not draft. §16.7 gives HR the approval and §16.8 gives
+         * Finance the disbursement, so Finance posts figures somebody has
+         * signed off rather than whatever the draft happened to hold.
+         */
+        if ($run->status !== PayrollRunStatus::Approved) {
+            throw PayrollStateException::notApproved();
         }
 
         $run->load(['lines.staffProfile.user', 'lines.deductions']);
@@ -73,6 +81,7 @@ final class FinalizePayrollAction
             $run->update([
                 'status' => PayrollRunStatus::Finalized,
                 'finalized_at' => Date::now(),
+                'finalized_by' => $actor->getKey(),
             ]);
 
             $this->linkZoneOverrides($run);
@@ -146,6 +155,7 @@ final class FinalizePayrollAction
          * that might still be regenerated.
          */
         $this->recoverAdvances($line, $actor);
+        $this->recoverLoans($line, $actor);
 
         return $line->grossPay();
     }
@@ -177,6 +187,32 @@ final class FinalizePayrollAction
             }
 
             $this->advances->recover($advance, $deduction->amountMoney(), $actor);
+        }
+    }
+
+    /**
+     * Credits each staff loan with what this payslip recovered, and closes it
+     * if that clears the balance.
+     *
+     * The counterpart of `recoverAdvances`, and its absence is what let a staff
+     * loan run for ever: nothing anywhere set `StaffLoanStatus::Closed`, so
+     * payroll kept deducting after the debt was gone and drove Staff Loan
+     * Receivable negative. See RecoverStaffLoanAction.
+     */
+    private function recoverLoans(PayrollLine $line, User $actor): void
+    {
+        foreach ($line->deductions as $deduction) {
+            if ($deduction->type !== DeductionType::Loan || $deduction->reference_id === null) {
+                continue;
+            }
+
+            $loan = StaffLoan::query()->find($deduction->reference_id);
+
+            if ($loan === null || $loan->status !== StaffLoanStatus::Active) {
+                continue;
+            }
+
+            $this->loans->recover($loan, $deduction->amountMoney(), $actor);
         }
     }
 

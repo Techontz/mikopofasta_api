@@ -8,6 +8,7 @@ use App\Domain\Auth\Actions\CreateUserAction;
 use App\Domain\Hr\DTOs\RegisterStaffData;
 use App\Domain\Hr\Enums\EmploymentStatus;
 use App\Domain\Hr\Services\EmployeeNumberGenerator;
+use App\Domain\Hr\Services\PayrollCalculator;
 use App\Enums\AuditAction;
 use App\Models\StaffProfile;
 use App\Models\User;
@@ -35,6 +36,8 @@ final class RegisterStaffAction
     public function __construct(
         private readonly CreateUserAction $createUser,
         private readonly EmployeeNumberGenerator $employeeNumbers,
+        private readonly PayrollCalculator $payroll,
+        private readonly ManageStaffAllowanceAction $allowances,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -61,6 +64,26 @@ final class RegisterStaffAction
                     'account_number' => $data->bankAccountNumber,
                 ]);
             }
+
+            /*
+             * The standard allowances become rows the moment the employee
+             * exists, rather than being re-derived from their role every time
+             * payroll runs.
+             *
+             * Transport goes to branch-based staff only; airtime to everyone.
+             * That split is unchanged — what changes is that it is now a
+             * decision recorded once, which HR can then alter for one person
+             * without touching anybody else. §10 lists Bonus alongside these
+             * two, and it is granted rather than enrolled: a bonus is always
+             * somebody deciding, never a default.
+             */
+            $this->allowances->enrol(
+                $profile,
+                $this->payroll->defaultEntitlements(
+                    $this->payroll->isBranchBased($user->roleName(), $user->branch_id),
+                ),
+                $actor,
+            );
 
             $this->audit->log(
                 AuditAction::StaffRegistered,

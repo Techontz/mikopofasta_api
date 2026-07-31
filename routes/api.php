@@ -17,6 +17,7 @@ use App\Http\Controllers\Hr\CommissionController;
 use App\Http\Controllers\Hr\PayrollController;
 use App\Http\Controllers\Hr\SalaryAdvanceController;
 use App\Http\Controllers\Hr\StaffController;
+use App\Http\Controllers\Hr\StaffPayController;
 use App\Http\Controllers\Ledger\LedgerController;
 use App\Http\Controllers\Loans\ChargeRegisterController;
 use App\Http\Controllers\Loans\DisbursementCallbackController;
@@ -545,7 +546,50 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('salary-advances.repayments');
     Route::get('/salary-advances', [SalaryAdvanceController::class, 'index'])
         ->name('salary-advances.index');
+    /*
+     * Staff loans — §14, and the same request → HR approval → Finance
+     * disbursement route an advance takes (§16.7–16.8). Read-only until
+     * Module 7: before it, only a seeder could create one and nothing could
+     * ever close one.
+     */
     Route::get('/staff/loans', [StaffController::class, 'loans'])->name('staff.loans');
+    Route::post('/staff/loan/request', [StaffController::class, 'requestLoan'])->name('staff.loan.request');
+    Route::post('/staff/loan/approve', [StaffController::class, 'approveLoan'])->name('staff.loan.approve');
+    Route::post('/staff/loan/reject', [StaffController::class, 'rejectLoan'])->name('staff.loan.reject');
+    Route::post('/staff/loan/disburse', [StaffController::class, 'disburseLoan'])->name('staff.loan.disburse');
+
+    /*
+     * What an employee draws and what is withheld (§10, §11), their payslips
+     * (§17), the Staff Fund (§12) and their four §2B ledger views.
+     *
+     * The fund and the payslip index come before /staff/{staffProfile} in
+     * spirit but not in the file — Laravel matches in declaration order, and
+     * `staff-fund` and `payslips` are distinct paths, so neither can be
+     * swallowed by the wildcard the way `staff/loans` could.
+     */
+    Route::get('/payslips', [StaffPayController::class, 'payslips'])->name('payslips.index');
+    Route::get('/staff-fund', [StaffPayController::class, 'fund'])->name('staff-fund.show');
+
+    Route::get('/staff/{staffProfile}/payslips', [StaffPayController::class, 'staffPayslips'])
+        ->name('staff.payslips');
+    Route::get('/staff/{staffProfile}/ledger', [StaffPayController::class, 'ledger'])
+        ->name('staff.ledger');
+
+    Route::get('/staff/{staffProfile}/allowances', [StaffPayController::class, 'allowances'])
+        ->name('staff.allowances.index');
+    Route::post('/staff/{staffProfile}/allowances', [StaffPayController::class, 'grantAllowance'])
+        ->name('staff.allowances.store');
+    Route::put('/staff-allowances/{allowance}', [StaffPayController::class, 'updateAllowance'])
+        ->name('staff-allowances.update');
+    Route::delete('/staff-allowances/{allowance}', [StaffPayController::class, 'revokeAllowance'])
+        ->name('staff-allowances.destroy');
+
+    Route::get('/staff/{staffProfile}/deductions', [StaffPayController::class, 'deductions'])
+        ->name('staff.deductions.index');
+    Route::post('/staff/{staffProfile}/deductions', [StaffPayController::class, 'recordDeduction'])
+        ->name('staff.deductions.store');
+    Route::delete('/staff-deductions/{deduction}', [StaffPayController::class, 'cancelDeduction'])
+        ->name('staff-deductions.destroy');
     Route::get('/staff/performance', [StaffController::class, 'performance'])->name('staff.performance.index');
     Route::post('/staff/performance', [StaffController::class, 'recordPerformance'])->name('staff.performance.store');
 
@@ -567,6 +611,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('idempotency')
         ->name('payroll.generate');
     Route::get('/payroll/{run}', [PayrollController::class, 'show'])->name('payroll.show');
+    /*
+     * §16.7–16.8 in three endpoints: HR approves, Finance finalizes, Finance
+     * pays. `approve` sits behind payroll.generate — HR's grant — so no single
+     * role holds both halves of the control.
+     */
+    Route::post('/payroll/{run}/approve', [PayrollController::class, 'approve'])->name('payroll.approve');
     Route::post('/payroll/{run}/finalize', [PayrollController::class, 'finalize'])->name('payroll.finalize');
     Route::post('/payroll/{run}/pay', [PayrollController::class, 'pay'])
         ->middleware('idempotency')

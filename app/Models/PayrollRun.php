@@ -21,12 +21,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $period
  * @property PayrollRunStatus $status
  * @property int $generated_by
+ * @property int|null $approved_by
+ * @property CarbonImmutable|null $approved_at
  * @property CarbonImmutable|null $finalized_at
+ * @property int|null $finalized_by
+ * @property int|null $paid_by
+ * @property CarbonImmutable|null $paid_at
  */
 class PayrollRun extends Model
 {
     /** @var list<string> */
-    protected $fillable = ['period', 'status', 'generated_by', 'finalized_at'];
+    protected $fillable = [
+        'period', 'status', 'generated_by', 'approved_by', 'approved_at',
+        'finalized_at', 'finalized_by', 'paid_by', 'paid_at',
+    ];
 
     /**
      * @return HasMany<PayrollLine, $this>
@@ -50,9 +58,38 @@ class PayrollRun extends Model
         return Money::sum($this->lines->map(fn (PayrollLine $l): Money => $l->netSalary()));
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function finalizedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'finalized_by');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function paidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paid_by');
+    }
+
     public function isDraft(): bool
     {
         return $this->status === PayrollRunStatus::Draft;
+    }
+
+    /**
+     * Whether the figures may still change — §16.1's rule, asked of the run.
+     *
+     * The enum holds the answer so that every caller gets the same one; this is
+     * only the convenience of asking the run rather than its status.
+     */
+    public function isEditable(): bool
+    {
+        return $this->status->isEditable();
     }
 
     /**
@@ -62,7 +99,9 @@ class PayrollRun extends Model
     {
         return [
             'status' => PayrollRunStatus::class,
+            'approved_at' => 'immutable_datetime',
             'finalized_at' => 'immutable_datetime',
+            'paid_at' => 'immutable_datetime',
         ];
     }
 }

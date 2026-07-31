@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Hr;
 
+use App\Domain\Hr\Actions\ApprovePayrollAction;
 use App\Domain\Hr\Actions\FinalizePayrollAction;
 use App\Domain\Hr\Actions\GeneratePayrollAction;
 use App\Domain\Hr\Actions\PayPayrollAction;
@@ -41,7 +42,10 @@ final class PayrollController extends Controller
         $this->authorize('viewAny', PayrollRun::class);
 
         $query = PayrollRun::query()
-            ->with('lines')
+            // The four actors by name. /users needs `users.manage`, which the
+            // roles that read payroll do not hold, so without these the screen
+            // could only print an id — which tells a reader nothing.
+            ->with(['lines', 'generatedBy', 'approvedBy', 'finalizedBy', 'paidBy'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->orderByDesc('period');
 
@@ -59,7 +63,10 @@ final class PayrollController extends Controller
         $this->authorize('view', $run);
 
         return ApiResponse::data(new PayrollRunResource(
-            $run->load(['lines.staffProfile.user', 'lines.allowances', 'lines.deductions']),
+            $run->load([
+                'lines.staffProfile.user', 'lines.allowances', 'lines.deductions',
+                'generatedBy', 'approvedBy', 'finalizedBy', 'paidBy',
+            ]),
         ));
     }
 
@@ -84,11 +91,34 @@ final class PayrollController extends Controller
     /**
      * POST /api/v1/payroll/{run}/finalize — §15.5. Finance only; this posts.
      */
+    /**
+     * POST /api/v1/payroll/{run}/approve — HR signs the figures off.
+     *
+     * §16.1: "Salary haiwezi kubadilishwa baada ya approval." From here the run
+     * can no longer be regenerated, which is what makes that rule enforceable
+     * rather than a statement of intent. Nothing posts — Finance still does
+     * that, at finalization.
+     *
+     * The grant is `payroll.generate`, HR's: §16.7 gives the approval to HR and
+     * §16.8 gives the disbursement to Finance, so putting it behind
+     * `payroll.finalize` would hand both halves of the control to one role.
+     */
+    public function approve(Request $request, PayrollRun $run, ApprovePayrollAction $action): JsonResponse
+    {
+        $this->authorize('generate', PayrollRun::class);
+
+        $approved = $action->handle($run, $this->actor($request));
+
+        return ApiResponse::data(new PayrollRunResource($this->withActors($approved)));
+    }
+
     public function finalize(Request $request, PayrollRun $run, FinalizePayrollAction $action): JsonResponse
     {
         $this->authorize('finalize', PayrollRun::class);
 
-        return ApiResponse::data(new PayrollRunResource($action->handle($run, $this->actor($request))));
+        return ApiResponse::data(
+            new PayrollRunResource($this->withActors($action->handle($run, $this->actor($request)))),
+        );
     }
 
     /**
@@ -98,6 +128,20 @@ final class PayrollController extends Controller
     {
         $this->authorize('finalize', PayrollRun::class);
 
-        return ApiResponse::data(new PayrollRunResource($action->handle($run, $this->actor($request))));
+        return ApiResponse::data(
+            new PayrollRunResource($this->withActors($action->handle($run, $this->actor($request)))),
+        );
+    }
+
+    /**
+     * Loads the four actors so the resource can name them.
+     *
+     * The resource emits each `whenLoaded`, so a lifecycle response without
+     * this would omit the names that `show` includes — and a screen swapping
+     * the returned row in would lose them until the next fetch.
+     */
+    private function withActors(PayrollRun $run): PayrollRun
+    {
+        return $run->load(['generatedBy', 'approvedBy', 'finalizedBy', 'paidBy']);
     }
 }

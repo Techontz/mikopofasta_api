@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Reports\Services;
 
+use App\Domain\Hr\Services\SalaryAdvanceCalculator;
+use App\Domain\Hr\Services\StaffFundReader;
+use App\Domain\Hr\Services\StaffLoanCalculator;
 use App\Domain\Reports\Contracts\Report;
 use App\Domain\Reports\Reports\AgeAnalysisReport;
 use App\Domain\Reports\Reports\ArrearsReport;
@@ -26,6 +29,10 @@ use App\Domain\Reports\Reports\RepaymentBehaviorReport;
 use App\Domain\Reports\Reports\RepaymentReport;
 use App\Domain\Reports\Reports\ReversalsReport;
 use App\Domain\Reports\Reports\SegmentationReport;
+use App\Domain\Reports\Reports\StaffAdvanceReport;
+use App\Domain\Reports\Reports\StaffFundReport;
+use App\Domain\Reports\Reports\StaffLoanReport;
+use App\Domain\Reports\Reports\StaffPayslipReport;
 use App\Domain\Reports\Reports\SuspenseReport;
 use App\Domain\Reports\Reports\TrialBalanceReport;
 use App\Domain\Reports\Reports\ZoneCommissionReport;
@@ -92,6 +99,21 @@ final class ReportRegistry
             // reads §2.9's staff_performance_records.
             new TrialBalanceReport($this->sources),
             new PerformanceReport,
+
+            /*
+             * §17 of the HR document lists six reports the module must produce:
+             * Payroll, Staff Payslip, Commission (per branch), Staff Loan,
+             * Staff Advance and Staff Fund Balance. The first and third were
+             * here; these four are the rest.
+             *
+             * None is an invention — each reads a table §2.9 already defines,
+             * and the payslip is the same `payroll_lines` the Payroll report
+             * reads, itemised rather than totalled.
+             */
+            new StaffPayslipReport,
+            new StaffLoanReport(app(StaffLoanCalculator::class)),
+            new StaffAdvanceReport(app(SalaryAdvanceCalculator::class)),
+            new StaffFundReport(app(StaffFundReader::class)),
         ];
 
         $keyed = [];

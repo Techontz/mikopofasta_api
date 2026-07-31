@@ -573,9 +573,17 @@ function finalizedPayrollRun(): App\Models\PayrollRun
     $hr = actingAsHr();
     $run = app(App\Domain\Hr\Actions\GeneratePayrollAction::class)->handle(currentPeriod(), $hr);
 
+    /*
+     * HR approves before Finance posts — §16.7, and §16.1's moment after which
+     * the figures can no longer change. Added in Module 7: the run used to go
+     * straight from HR's draft to Finance's posting, so there was no point at
+     * which the figures became the agreed figures.
+     */
+    app(App\Domain\Hr\Actions\ApprovePayrollAction::class)->handle($run, $hr);
+
     $finance = actingAsFinance();
 
-    return app(App\Domain\Hr\Actions\FinalizePayrollAction::class)->handle($run, $finance);
+    return app(App\Domain\Hr\Actions\FinalizePayrollAction::class)->handle($run->refresh(), $finance);
 }
 
 /*

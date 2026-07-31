@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Domain\Auth\Enums\RoleName;
+use App\Domain\Hr\Actions\ManageStaffAllowanceAction;
+use App\Domain\Hr\Actions\StaffLoanAction;
+use App\Domain\Hr\Enums\AllowanceType;
+use App\Domain\Hr\Enums\DeductionType;
 use App\Domain\Hr\Enums\EmploymentStatus;
 use App\Domain\Hr\Enums\PerformanceRating;
 use App\Domain\Hr\Enums\StaffAdvanceStatus;
-use App\Domain\Hr\Enums\StaffLoanStatus;
 use App\Domain\Hr\Enums\StaffPaymentMethod;
 use App\Domain\Hr\Services\EmployeeNumberGenerator;
+use App\Domain\Hr\Services\PayrollCalculator;
 use App\Domain\Hr\Services\PayrollPostingBuilder;
 use App\Domain\Hr\Services\SalaryAdvanceCalculator;
 use App\Domain\Hr\Services\StaffAdvanceReferenceGenerator;
@@ -18,7 +22,8 @@ use App\Domain\Ledger\Enums\JournalSourceType;
 use App\Domain\Ledger\Services\LedgerService;
 use App\Models\SalaryAdvanceCategory;
 use App\Models\StaffAdvance;
-use App\Models\StaffLoan;
+use App\Models\StaffAllowance;
+use App\Models\StaffDeduction;
 use App\Models\StaffPerformanceRecord;
 use App\Models\StaffProfile;
 use App\Models\User;
@@ -99,7 +104,12 @@ final class StaffSeeder extends Seeder
                 'bank_name' => $index % 2 === 0 ? 'NMB Bank' : 'CRDB Bank',
                 'account_number' => (string) (30_000_000 + $index * 111),
             ]);
+
+            $this->enrolAllowances($profile, $role, $user);
         }
+
+        $this->seedBonus();
+        $this->seedPenalty();
 
         $this->seedStaffLoan();
         $this->seedStaffAdvance();
@@ -107,40 +117,126 @@ final class StaffSeeder extends Seeder
     }
 
     /**
+     * The standard allowances, as rows rather than as constants in the
+     * calculator.
+     *
+     * Transport for branch-based staff, airtime for everyone — the same split
+     * PayrollCalculator used to apply from two class constants. What changes is
+     * that the decision is now recorded once per employee and HR can alter it
+     * for one person; before Module 7 every branch employee necessarily drew
+     * the identical figure and no bonus could exist at all.
+     */
+    private function enrolAllowances(StaffProfile $profile, ?RoleName $role, User $user): void
+    {
+        if ($profile->allowanceEntitlements()->exists()) {
+            return;
+        }
+
+        $payroll = app(PayrollCalculator::class);
+        $hr = User::query()->where('phone', '0754000007')->first() ?? $user;
+
+        app(ManageStaffAllowanceAction::class)->enrol(
+            $profile,
+            $payroll->defaultEntitlements($payroll->isBranchBased($role, $profile->branch_id)),
+            $hr,
+        );
+    }
+
+    /**
+     * One bonus, so the Bonus type is visible on a screen rather than only in
+     * an enum.
+     *
+     * Stamped with the current period because a bonus is always one-off — a
+     * recurring one is a salary increase, and belongs on the profile.
+     */
+    private function seedBonus(): void
+    {
+        // Frank Urio, Credit Officer. Deliberately NOT one of the staff the
+        // payroll tests pin exact figures against — a demo bonus that changed
+        // somebody's net pay would look like a broken assertion rather than a
+        // seeded reward.
+        $staff = $this->staffFor('0754000006');
+        $hr = User::query()->where('phone', '0754000007')->first();
+
+        if ($staff === null || $hr === null) {
+            return;
+        }
+
+        StaffAllowance::query()->firstOrCreate(
+            [
+                'staff_profile_id' => $staff->getKey(),
+                'type' => AllowanceType::Bonus,
+                'period' => Date::now()->format('Y-m'),
+            ],
+            [
+                'amount' => '100000.00',
+                'reason' => 'Best collection rate, quarter to date',
+                'active' => true,
+                'created_by' => $hr->getKey(),
+            ],
+        );
+    }
+
+    /**
+     * One penalty, for the same reason: DeductionType::Penalty was mapped to an
+     * account and rendered by the frontend, and nothing could ever create one.
+     */
+    private function seedPenalty(): void
+    {
+        // Daniel Kessy, Branch Manager — chosen for the same reason as the
+        // bonus above.
+        $staff = $this->staffFor('0754000004');
+        $hr = User::query()->where('phone', '0754000007')->first();
+
+        if ($staff === null || $hr === null) {
+            return;
+        }
+
+        StaffDeduction::query()->firstOrCreate(
+            [
+                'staff_profile_id' => $staff->getKey(),
+                'period' => Date::now()->format('Y-m'),
+                'type' => DeductionType::Penalty,
+            ],
+            [
+                'amount' => '25000.00',
+                'reason' => 'Till shortage carried from the previous count',
+                'created_by' => $hr->getKey(),
+            ],
+        );
+    }
+
+    /**
      * An outstanding staff loan, so a payroll run has a recovery deduction to
      * demonstrate and the Staff Loan Receivable account has a balance.
+     *
+     * Walked through the real workflow now — requested, approved by HR,
+     * disbursed by Finance — rather than written directly as an active row.
+     * The seeder used to be the only thing in the system that could create a
+     * staff loan, and a seeded row that skipped the lifecycle was also a row
+     * that proved the lifecycle worked for nobody.
      */
     private function seedStaffLoan(): void
     {
         $staff = $this->staffFor('0754000005');
+        $hr = User::query()->where('phone', '0754000007')->first();
         $finance = User::query()->where('phone', '0754000003')->first();
 
-        if ($staff === null || $finance === null || $staff->loans()->exists()) {
+        if ($staff === null || $hr === null || $finance === null || $staff->loans()->exists()) {
             return;
         }
 
-        $amount = Money::of('500000.00');
+        $action = app(StaffLoanAction::class);
 
-        $entry = app(LedgerService::class)->post(
-            description: sprintf('Staff loan disbursement — %s', $staff->displayName()),
-            sourceType: JournalSourceType::StaffLoan,
-            sourceId: null,
-            lines: app(PayrollPostingBuilder::class)->buildLoanDisbursement(
-                $amount,
-                (int) $staff->getKey(),
-                $staff->branch_id,
-            ),
-            postedBy: $finance,
-            entryDate: Date::now()->subDays(60)->toImmutable(),
-        );
+        // Ten periods against 500,000 — the term the retired flat 50,000
+        // recovery happened to imply, kept so the seeded books read the same.
+        $loan = $action->request($staff, Money::of('500000.00'), 10, $hr);
+        $action->approve($loan, $hr);
+        $action->disburse($loan, $finance);
 
-        StaffLoan::query()->create([
-            'staff_profile_id' => $staff->getKey(),
-            'amount' => $amount->toDecimalString(),
-            'status' => StaffLoanStatus::Active,
-            'disbursed_at' => Date::now()->subDays(60)->toDateString(),
-            'journal_entry_id' => $entry->getKey(),
-        ]);
+        // Backdated so the demo book shows a loan already part-way through
+        // recovery rather than one disbursed today.
+        $loan->update(['disbursed_at' => Date::now()->subDays(60)->toDateString()]);
     }
 
     /**

@@ -17,6 +17,9 @@ use App\Models\CommissionDistribution;
 use App\Models\PayrollLine;
 use App\Models\PayrollRun;
 use App\Models\StaffAdvance;
+use App\Models\StaffAllowance;
+use App\Models\StaffDeduction;
+use App\Models\StaffLoan;
 use App\Models\StaffProfile;
 use App\Models\User;
 use App\Models\ZoneCommissionDistribution;
@@ -64,7 +67,22 @@ final class GeneratePayrollAction
 
         $commissionByStaff = $this->commissionForPeriod($period);
 
-        return DB::transaction(function () use ($period, $actor, $staff, $commissionByStaff): PayrollRun {
+        /*
+         * Resolved once for the whole run rather than per employee. Allowances
+         * and penalties are now rows rather than constants, and a hundred
+         * employees would otherwise be two hundred extra queries.
+         */
+        $entitlements = $this->entitlementsForPeriod($period);
+        $penalties = $this->penaltiesForPeriod($period);
+
+        return DB::transaction(function () use (
+            $period,
+            $actor,
+            $staff,
+            $commissionByStaff,
+            $entitlements,
+            $penalties,
+        ): PayrollRun {
             $run = PayrollRun::query()->create([
                 'period' => $period,
                 'status' => PayrollRunStatus::Draft,
@@ -72,7 +90,15 @@ final class GeneratePayrollAction
             ]);
 
             foreach ($staff as $member) {
-                $this->buildLine($run, $member, $commissionByStaff[$member->getKey()] ?? Money::zero());
+                $key = (int) $member->getKey();
+
+                $this->buildLine(
+                    $run,
+                    $member,
+                    $commissionByStaff[$key] ?? Money::zero(),
+                    $entitlements->get($key) ?? collect(),
+                    $penalties->get($key) ?? collect(),
+                );
             }
 
             $this->audit->log(
@@ -167,24 +193,34 @@ final class GeneratePayrollAction
      * A deduction that recovers a loan or advance carries `reference_id`, so
      * the recovery can be traced back to the specific debt it is paying down
      * rather than appearing as an unexplained subtraction on a payslip.
+     *
+     * @param Collection<int, StaffAllowance> $entitlements
+     * @param Collection<int, StaffDeduction> $penalties
      */
-    private function buildLine(PayrollRun $run, StaffProfile $staff, Money $commission): void
-    {
+    private function buildLine(
+        PayrollRun $run,
+        StaffProfile $staff,
+        Money $commission,
+        Collection $entitlements,
+        Collection $penalties,
+    ): void {
         $eligibleCommission = $staff->commission_eligible ? $commission : Money::zero();
 
         /*
-         * The advance itself, not a boolean. The recovery instalment comes from
-         * its own terms — see SalaryAdvanceCalculator — so the calculator needs
-         * the record, and passing a flag was what forced the flat figure this
-         * replaced.
+         * The debts themselves, not booleans. Each instalment comes from the
+         * record's own terms — see StaffLoanCalculator and
+         * SalaryAdvanceCalculator — so the calculator needs the record. Passing
+         * a flag was exactly what forced the flat figures both replaced.
          */
+        $outstandingLoan = $this->outstandingLoanFor($staff);
         $outstandingAdvance = $this->outstandingAdvanceFor($staff);
 
         $computation = $this->payroll->compute(
             staff: $staff,
             commissionAmount: $eligibleCommission,
-            isBranchBased: $this->payroll->isBranchBased($staff->user->roleName(), $staff->branch_id),
-            hasActiveLoan: $staff->hasActiveLoan(),
+            entitlements: $entitlements,
+            penalties: $penalties,
+            outstandingLoan: $outstandingLoan,
             outstandingAdvance: $outstandingAdvance,
         );
 
@@ -210,6 +246,45 @@ final class GeneratePayrollAction
     }
 
     /**
+     * The loan payroll should recover against this period, if any.
+     *
+     * The oldest active one, so a member of staff with two runs them down in
+     * the order they were taken rather than in whichever order the relation
+     * happened to load.
+     */
+    private function outstandingLoanFor(StaffProfile $staff): ?StaffLoan
+    {
+        return $staff->loans
+            ->filter(fn (StaffLoan $l): bool => $l->status === StaffLoanStatus::Active)
+            ->sortBy('id')
+            ->first();
+    }
+
+    /**
+     * Every employee's allowance entitlements for the period, keyed by staff.
+     *
+     * @return Collection<int|string, Collection<int, StaffAllowance>>
+     */
+    private function entitlementsForPeriod(string $period): Collection
+    {
+        return collect(
+            StaffAllowance::query()->forPeriod($period)->get()->groupBy('staff_profile_id')->all(),
+        )->map(fn ($rows): Collection => collect($rows->all()));
+    }
+
+    /**
+     * Every penalty recorded against the period, keyed by staff.
+     *
+     * @return Collection<int|string, Collection<int, StaffDeduction>>
+     */
+    private function penaltiesForPeriod(string $period): Collection
+    {
+        return collect(
+            StaffDeduction::query()->forPeriod($period)->get()->groupBy('staff_profile_id')->all(),
+        )->map(fn ($rows): Collection => collect($rows->all()));
+    }
+
+    /**
      * The advance payroll should recover against this period, if any.
      *
      * The oldest disbursed one, so a member of staff with two runs them down in
@@ -230,8 +305,9 @@ final class GeneratePayrollAction
     private function referenceFor(StaffProfile $staff, DeductionType $type): ?int
     {
         return match ($type) {
-            DeductionType::Loan => $staff->loans
-                ->first(fn ($l): bool => $l->status === StaffLoanStatus::Active)?->getKey(),
+            // The same loan the deduction was computed from, so the reference
+            // cannot point at a different one than was recovered.
+            DeductionType::Loan => $this->outstandingLoanFor($staff)?->getKey(),
 
             // The same advance the deduction was computed from, so the
             // reference cannot point at a different one than was recovered.

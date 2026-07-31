@@ -95,6 +95,8 @@ enum ErrorCode: string
     case AdvanceInProgress = 'ADVANCE_IN_PROGRESS';
     case CommissionNotDistributable = 'COMMISSION_NOT_DISTRIBUTABLE';
     case StaffProfileExists = 'STAFF_PROFILE_EXISTS';
+    case InvalidStaffLoanState = 'INVALID_STAFF_LOAN_STATE';
+    case StaffLoanInProgress = 'STAFF_LOAN_IN_PROGRESS';
 
     /*
     |--------------------------------------------------------------------------

@@ -15,6 +15,7 @@ use App\Models\PayrollRun;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Support\Money;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -75,7 +76,11 @@ final class PayPayrollAction
                 $paid = $paid->add($line->netSalary());
             }
 
-            $run->update(['status' => PayrollRunStatus::Paid]);
+            $run->update([
+                'status' => PayrollRunStatus::Paid,
+                'paid_by' => $actor->getKey(),
+                'paid_at' => Date::now(),
+            ]);
 
             $this->audit->log(
                 AuditAction::PayrollPaid,
