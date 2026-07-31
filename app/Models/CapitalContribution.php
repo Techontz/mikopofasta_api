@@ -34,12 +34,6 @@ class CapitalContribution extends Model
         'shareholder_id', 'amount', 'pay_method', 'receipt_no', 'cheque_no', 'journal_entry_id', 'created_by',
     ];
 
-    /** @return array<string, string> */
-    protected function casts(): array
-    {
-        return ['pay_method' => PayMethod::class, 'amount' => 'decimal:2'];
-    }
-
     /** @return BelongsTo<Shareholder, $this> */
     public function shareholder(): BelongsTo
     {
@@ -50,5 +44,11 @@ class CapitalContribution extends Model
     public function journalEntry(): BelongsTo
     {
         return $this->belongsTo(JournalEntry::class);
+    }
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return ['pay_method' => PayMethod::class, 'amount' => 'decimal:2'];
     }
 }

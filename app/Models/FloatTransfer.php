@@ -36,17 +36,6 @@ class FloatTransfer extends Model
         'amount', 'status', 'requested_by', 'approved_by', 'approved_at', 'rejection_reason', 'journal_entry_id',
     ];
 
-    /** @return array<string, string> */
-    protected function casts(): array
-    {
-        return [
-            'kind' => FloatTransferKind::class,
-            'status' => FloatTransferStatus::class,
-            'amount' => 'decimal:2',
-            'approved_at' => 'immutable_datetime',
-        ];
-    }
-
     /** @return BelongsTo<Branch, $this> */
     public function fromBranch(): BelongsTo
     {
@@ -81,5 +70,16 @@ class FloatTransfer extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return [
+            'kind' => FloatTransferKind::class,
+            'status' => FloatTransferStatus::class,
+            'amount' => 'decimal:2',
+            'approved_at' => 'immutable_datetime',
+        ];
     }
 }

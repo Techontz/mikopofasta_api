@@ -15,7 +15,6 @@ use App\Models\ReserveSetting;
  * Loan Charges & Reserve — Settings → Loan Fee / Penalty / Reserve Setting.
  * See docs/modules/loan-charges.md.
  */
-
 beforeEach(function (): void {
     seedLoanFoundation();
 });

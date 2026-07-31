@@ -50,6 +50,18 @@ final class ExpenseRequestResource extends JsonResource
 
             // Ids for the callers that act rather than draw.
             'branchId' => (string) $this->branch_id,
+
+            // Set only for an expense paid from a bank account rather than out
+            // of the branch till — Bank → Register Bank Expenses.
+            'bankAccountId' => $this->bank_account_id === null ? null : (string) $this->bank_account_id,
+            'bankName' => $this->whenLoaded(
+                'bankAccount',
+                fn (): ?string => $this->bank_account_id === null ? null : $this->bankAccount->bank_name,
+            ),
+            'bankAccountName' => $this->whenLoaded(
+                'bankAccount',
+                fn (): ?string => $this->bank_account_id === null ? null : $this->bankAccount->account_name,
+            ),
             'expenseCategoryId' => (string) $this->expense_category_id,
             'requestedBy' => (string) $this->requested_by,
             'decidedBy' => $this->decided_by === null ? null : (string) $this->decided_by,

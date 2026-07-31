@@ -42,11 +42,11 @@ class ExpenseRequest extends Model
      *
      * @var list<string>
      */
-    public const LIST_RELATIONS = ['category', 'branch', 'requester', 'decider'];
+    public const LIST_RELATIONS = ['category', 'branch', 'bankAccount', 'requester', 'decider'];
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'expense_category_id', 'scope', 'branch_id', 'requested_by',
+        'reference', 'expense_category_id', 'scope', 'branch_id', 'bank_account_id', 'requested_by',
         'amount', 'description', 'comment', 'status', 'decided_by', 'decided_at',
         'journal_entry_id', 'requested_on',
     ];
@@ -61,6 +61,17 @@ class ExpenseRequest extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * The bank account this expense was paid from, when it was not paid in
+     * cash — Bank → Register Bank Expenses.
+     *
+     * @return BelongsTo<BankAccount, $this>
+     */
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class);
     }
 
     /** @return BelongsTo<User, $this> */

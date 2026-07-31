@@ -519,3 +519,60 @@ describe('authorization', function (): void {
         $this->getJson('/api/v1/expense-requests')->assertForbidden();
     });
 });
+
+describe('paid from a bank account', function (): void {
+    it('credits the bank account rather than the branch till', function (): void {
+        officerAt('Kakonko', RoleName::Finance);
+        $category = expenseCategory('Bank Charges', 'headquarters');
+
+        $this->postJson('/api/v1/bank-accounts', [
+            'bankName' => 'CRDB Bank',
+            'accountName' => 'Mikopofasta Operations',
+            'accountNumber' => '0150999888777',
+            'currency' => 'TZS',
+            'openingBalance' => '500000',
+            'status' => 'active',
+        ])->assertCreated();
+
+        $bank = App\Models\BankAccount::query()->where('account_number', '0150999888777')->firstOrFail();
+        $kakonko = branchNamedForExpense('Kakonko');
+        $tillBefore = tillBalance($kakonko);
+
+        $this->postJson('/api/v1/expense-requests', [
+            'expenseCategoryId' => $category->id,
+            'bankAccountId' => $bank->id,
+            'amount' => '15000',
+            'description' => 'Monthly account fee',
+        ])->assertCreated();
+
+        $id = latestExpenseRequestId();
+        switchToApprover();
+        $this->postJson("/api/v1/expense-requests/{$id}/decide", ['decision' => 'approved'])->assertOk();
+
+        // Same record, same approval, same debit — only the credit side moves.
+        $bankBalance = (float) $bank->fresh()->load('chartAccount.balances')
+            ->currentBalance()->toDecimalString();
+
+        expect($bankBalance)->toBe(485000.0);
+        expect(tillBalance($kakonko))->toBe($tillBefore);
+    });
+
+    it('still credits the till when no bank account is named', function (): void {
+        officerAt('Kakonko', RoleName::Finance);
+        $category = expenseCategory();
+        $kakonko = branchNamedForExpense('Kakonko');
+        $tillBefore = tillBalance($kakonko);
+
+        $this->postJson('/api/v1/expense-requests', [
+            'expenseCategoryId' => $category->id,
+            'amount' => '5000',
+            'description' => 'Office rent',
+        ])->assertCreated();
+
+        $id = latestExpenseRequestId();
+        switchToApprover();
+        $this->postJson("/api/v1/expense-requests/{$id}/decide", ['decision' => 'approved'])->assertOk();
+
+        expect($tillBefore - tillBalance($kakonko))->toBe(5000.0);
+    });
+});

@@ -16,6 +16,7 @@ final readonly class ExpenseRequestData
     public function __construct(
         public int $categoryId,
         public ?int $branchId,
+        public ?int $bankAccountId,
         public string $amount,
         public string $description,
         public ?string $comment,
@@ -39,6 +40,7 @@ final readonly class ExpenseRequestData
         return new self(
             categoryId: (int) $validated['expenseCategoryId'],
             branchId: isset($validated['branchId']) ? (int) $validated['branchId'] : null,
+            bankAccountId: isset($validated['bankAccountId']) ? (int) $validated['bankAccountId'] : null,
             // A string all the way to the DECIMAL column — money never passes
             // through a float on its way to the ledger.
             amount: (string) $validated['amount'],

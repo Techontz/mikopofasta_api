@@ -10,7 +10,11 @@ use App\Domain\Ledger\DTOs\JournalLine;
 use App\Domain\Ledger\Enums\JournalSourceType;
 use App\Domain\Ledger\Services\AccountResolver;
 use App\Domain\Ledger\Services\LedgerService;
+use App\Domain\Treasury\Exceptions\BankMovementInvalidException;
+use App\Enums\ActiveStatus;
 use App\Enums\AuditAction;
+use App\Models\Branch;
+use App\Models\ChartOfAccount;
 use App\Models\ExpenseRequest;
 use App\Models\User;
 use App\Services\AuditLogger;
@@ -25,7 +29,13 @@ use Illuminate\Support\Facades\DB;
  * the frontend's types/expense.ts states and ACCOUNT OVERVIEW §4D describes:
  *
  *     Dr  the category's own 6xxx expense account
- *     Cr  the paying branch's teller cash
+ *     Cr  whatever paid for it
+ *
+ * The credit side is the branch's teller cash for an ordinary expense, and the
+ * named bank account for one raised on Bank → Register Bank Expenses. Same
+ * record, same approval, same debit — only where the money left from differs,
+ * which is why that screen is one nullable column here rather than a second
+ * expense system.
  *
  * A note on the source document, because it reads oddly. ACCOUNT OVERVIEW's
  * money-flow section writes the expense entry as "Dr Expense / Cr Income".
@@ -61,7 +71,7 @@ final class DecideExpenseRequestAction
         }
 
         return DB::transaction(function () use ($request, $decision, $comment, $actor): ExpenseRequest {
-            $request->loadMissing(['category.chartAccount', 'branch']);
+            $request->loadMissing(['category.chartAccount', 'branch', 'bankAccount.chartAccount']);
 
             $entryId = $decision === ExpenseRequestStatus::Approved
                 ? $this->post($request, $actor)
@@ -94,13 +104,7 @@ final class DecideExpenseRequestAction
         });
     }
 
-    /**
-     * Dr the category's expense account, Cr the branch till.
-     *
-     * Cash rather than bank: an expense request is a branch spending its own
-     * float, which is the till. A bank-paid cost is the Bank module's "Register
-     * Bank Expenses" screen and posts against the bank account instead.
-     */
+    /** Dr the category's expense account, Cr whatever paid for it. */
     private function post(ExpenseRequest $request, User $actor): int
     {
         $amount = Money::of($request->amount);
@@ -108,7 +112,7 @@ final class DecideExpenseRequestAction
         $branchId = (int) $branch->getKey();
 
         $expenseAccountId = (int) $request->category->chart_account_id;
-        $cashAccount = $this->accounts->cashAccountFor(isCashChannel: true, branch: $branch);
+        $cashAccount = $this->creditAccount($request, $branch);
 
         $entry = $this->ledger->post(
             sprintf('%s — %s', $request->category->name, $request->description),
@@ -123,5 +127,33 @@ final class DecideExpenseRequestAction
         );
 
         return (int) $entry->getKey();
+    }
+
+    /**
+     * Where the money left from.
+     *
+     * A named bank account when the request has one — Bank → Register Bank
+     * Expenses — and the branch till otherwise, which is what a branch spending
+     * its own float does.
+     *
+     * The bank account must be postable. An expense filed against an account
+     * that has since been closed is refused here rather than deeper inside
+     * LedgerService, so the message names the account rather than an id.
+     */
+    private function creditAccount(ExpenseRequest $request, Branch $branch): ChartOfAccount
+    {
+        $bankAccount = $request->bankAccount;
+
+        if ($bankAccount === null) {
+            return $this->accounts->cashAccountFor(isCashChannel: true, branch: $branch);
+        }
+
+        $chart = $bankAccount->chartAccount;
+
+        if ($chart === null || $chart->status !== ActiveStatus::Active) {
+            throw BankMovementInvalidException::inactiveAccount($bankAccount->account_name);
+        }
+
+        return $chart;
     }
 }

@@ -33,6 +33,12 @@ class PenaltySetting extends Model
     /** @var list<string> */
     protected $fillable = ['calculation_type', 'amount', 'created_by'];
 
+    /** @return BelongsTo<User, $this> */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
@@ -40,11 +46,5 @@ class PenaltySetting extends Model
             'calculation_type' => ChargeValueType::class,
             'amount' => 'decimal:3',
         ];
-    }
-
-    /** @return BelongsTo<User, $this> */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
     }
 }

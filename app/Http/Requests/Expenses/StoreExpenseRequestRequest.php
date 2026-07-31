@@ -53,6 +53,14 @@ final class StoreExpenseRequestRequest extends FormRequest
              */
             'scope' => ['nullable', Rule::enum(ExpenseScope::class)],
 
+            /*
+             * Where the money came from, when it was not the branch till.
+             * Bank → Register Bank Expenses sends this; the branch and
+             * headquarters expense screens do not, and their costs come out of
+             * the till as they always have.
+             */
+            'bankAccountId' => ['nullable', 'integer', Rule::exists('bank_accounts', 'id')->whereNull('deleted_at')],
+
             'amount' => ['required', 'numeric', 'gt:0', 'max:99999999999999.99'],
             'description' => ['required', 'string', 'min:2', 'max:255'],
             'comment' => ['nullable', 'string', 'max:300'],

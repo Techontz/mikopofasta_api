@@ -135,6 +135,10 @@ final class ExpenseSeeder extends Seeder
                 new ExpenseRequestData(
                     categoryId: (int) $category->getKey(),
                     branchId: (int) $branch->getKey(),
+                    // Paid out of the branch till, like every legacy expense —
+                    // Bank → Register Bank Expenses is the screen that names an
+                    // account instead, and it seeds nothing.
+                    bankAccountId: null,
                     amount: $amount,
                     description: $description,
                     comment: null,

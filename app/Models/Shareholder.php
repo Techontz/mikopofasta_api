@@ -31,12 +31,6 @@ class Shareholder extends Model
     /** @var list<string> */
     protected $fillable = ['full_name', 'phone', 'email', 'gender', 'date_of_birth', 'created_by'];
 
-    /** @return array<string, string> */
-    protected function casts(): array
-    {
-        return ['date_of_birth' => 'immutable_date'];
-    }
-
     /** @return HasMany<CapitalContribution, $this> */
     public function contributions(): HasMany
     {
@@ -47,5 +41,11 @@ class Shareholder extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return ['date_of_birth' => 'immutable_date'];
     }
 }

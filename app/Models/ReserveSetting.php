@@ -26,12 +26,6 @@ class ReserveSetting extends Model
     /** @var list<string> */
     protected $fillable = ['percentage', 'updated_by'];
 
-    /** @return array<string, string> */
-    protected function casts(): array
-    {
-        return ['percentage' => 'decimal:3'];
-    }
-
     /** @return BelongsTo<User, $this> */
     public function editor(): BelongsTo
     {
@@ -45,5 +39,11 @@ class ReserveSetting extends Model
     public static function singleton(): self
     {
         return static::query()->firstOrCreate([], ['percentage' => 0]);
+    }
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return ['percentage' => 'decimal:3'];
     }
 }

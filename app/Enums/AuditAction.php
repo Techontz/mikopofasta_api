@@ -181,4 +181,17 @@ enum AuditAction: string
     case HqTransactionRequested = 'HQ_TRANSACTION_REQUESTED';
     case HqTransactionApproved = 'HQ_TRANSACTION_APPROVED';
     case HqTransactionRejected = 'HQ_TRANSACTION_REJECTED';
+
+    /*
+     * Bank (§Bank module). Registering an account mints a chart account and may
+     * post an opening balance; closing one takes it out of service. Both are
+     * chart-of-accounts changes however they are spelled on the screen.
+     */
+    case BankAccountRegistered = 'BANK_ACCOUNT_REGISTERED';
+    case BankAccountUpdated = 'BANK_ACCOUNT_UPDATED';
+    case BankAccountClosed = 'BANK_ACCOUNT_CLOSED';
+    case BankTransactionRequested = 'BANK_TRANSACTION_REQUESTED';
+    case BankTransactionApproved = 'BANK_TRANSACTION_APPROVED';
+    case BankTransactionRejected = 'BANK_TRANSACTION_REJECTED';
+    case BankTransferCompleted = 'BANK_TRANSFER_COMPLETED';
 }

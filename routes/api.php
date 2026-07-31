@@ -30,6 +30,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\Repayments\PaymentController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\Treasury\BankController;
 use App\Http\Controllers\Treasury\CapitalContributionController;
 use App\Http\Controllers\Treasury\FloatTransferController;
 use App\Http\Controllers\Treasury\HqTransactionController;
@@ -336,6 +337,29 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('hq-transactions.store');
     Route::post('/hq-transactions/{transaction}/decide', [HqTransactionController::class, 'decide'])
         ->name('hq-transactions.decide');
+
+    /*
+     * Bank (sidebar → Bank). Register Account, Account Balance, Bank
+     * Transaction, Approved Transaction and the two Transfer Balance screens.
+     * Same treasury.view / treasury.manage pair, enforced by CapitalPolicy.
+     * See docs/modules/bank.md.
+     */
+    Route::get('/bank-accounts', [BankController::class, 'accounts'])->name('bank-accounts.index');
+    Route::post('/bank-accounts', [BankController::class, 'storeAccount'])->name('bank-accounts.store');
+    Route::put('/bank-accounts/{bankAccount}', [BankController::class, 'updateAccount'])
+        ->name('bank-accounts.update');
+    Route::delete('/bank-accounts/{bankAccount}', [BankController::class, 'destroyAccount'])
+        ->name('bank-accounts.destroy');
+
+    Route::get('/bank-transactions', [BankController::class, 'transactions'])
+        ->name('bank-transactions.index');
+    Route::post('/bank-transactions', [BankController::class, 'storeTransaction'])
+        ->name('bank-transactions.store');
+    Route::post('/bank-transactions/{transaction}/decide', [BankController::class, 'decideTransaction'])
+        ->name('bank-transactions.decide');
+
+    Route::get('/bank-transfers', [BankController::class, 'transfers'])->name('bank-transfers.index');
+    Route::post('/bank-transfers', [BankController::class, 'storeTransfer'])->name('bank-transfers.store');
 
     // Declared before the {loan} routes so it is not captured as a loan id.
     Route::post('/loans/check-eligibility', [LoanController::class, 'checkEligibility'])

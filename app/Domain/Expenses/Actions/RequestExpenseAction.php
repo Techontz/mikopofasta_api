@@ -51,6 +51,7 @@ final class RequestExpenseAction
                 // register a cost lands in is a property of what was bought.
                 'scope' => $category->scope,
                 'branch_id' => $branchId,
+                'bank_account_id' => $data->bankAccountId,
                 'requested_by' => $actor->getKey(),
                 'amount' => $data->amount,
                 'description' => $data->description,
@@ -68,6 +69,7 @@ final class RequestExpenseAction
                     'category' => $category->name,
                     'scope' => $request->scope->value,
                     'branch_id' => $branchId,
+                    'bank_account_id' => $data->bankAccountId,
                     'amount' => $request->amount,
                 ],
                 actor: $actor,

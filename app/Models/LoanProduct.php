@@ -153,6 +153,17 @@ class LoanProduct extends Model
     }
 
     /**
+     * The configured arrangement fee and insurance premium, if any.
+     * Settings → Loan Fee; see docs/modules/loan-charges.md.
+     *
+     * @return HasOne<LoanFee, $this>
+     */
+    public function fee(): HasOne
+    {
+        return $this->hasOne(LoanFee::class);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -165,16 +176,5 @@ class LoanProduct extends Model
             'max_tenure_days' => 'integer',
             'penalty_grace_days' => 'integer',
         ];
-    }
-
-    /**
-     * The configured arrangement fee and insurance premium, if any.
-     * Settings → Loan Fee; see docs/modules/loan-charges.md.
-     *
-     * @return HasOne<LoanFee, $this>
-     */
-    public function fee(): HasOne
-    {
-        return $this->hasOne(LoanFee::class);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Treasury\Policies;
 
 use App\Domain\Auth\Enums\PermissionName;
+use App\Models\BankTransaction;
 use App\Models\FloatTransfer;
 use App\Models\HqAccountTransfer;
 use App\Models\User;
@@ -56,5 +57,17 @@ final class CapitalPolicy
     public function decideHqTransaction(User $actor, HqAccountTransfer $transfer): bool
     {
         return $this->manage($actor) && $transfer->requested_by !== $actor->getKey();
+    }
+
+    /**
+     * And again for bank movements.
+     *
+     * Note there is no equivalent for a bank *transfer*: those apply
+     * immediately and have no approval step, following the legacy screens,
+     * which show none. Raising one needs `manage`, and that is the whole check.
+     */
+    public function decideBankTransaction(User $actor, BankTransaction $transaction): bool
+    {
+        return $this->manage($actor) && $transaction->requested_by !== $actor->getKey();
     }
 }

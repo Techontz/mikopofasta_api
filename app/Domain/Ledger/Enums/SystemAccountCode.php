@@ -47,6 +47,22 @@ enum SystemAccountCode: string
      */
     case SalaryExpense = '6000';
     case CommissionExpense = '6100';
+
+    /*
+     * Bank charges (§Bank module).
+     *
+     * Added for the same reason as the five above: a canonical posting needs an
+     * account the specification's table does not list. A bank's fee for holding
+     * an account or making a transfer is an operating cost of the company as a
+     * whole rather than of any branch, and it is not a loan write-off — booking
+     * it to 4200 would overstate credit losses by the price of running a bank
+     * account.
+     *
+     * Fixed rather than a dynamic 6200-range expense category, because every
+     * bank charge and every transfer fee posts here automatically and an
+     * administrator must not be able to retire the account they land in.
+     */
+    case BankCharges = '6150';
     case StaffLoanReceivable = '7010';
     case StaffAdvanceReceivable = '7020';
     case StaffPayable = '7050';
@@ -74,6 +90,7 @@ enum SystemAccountCode: string
             self::Offset => 'Offset Account',
             self::SalaryExpense => 'Salary Expense',
             self::CommissionExpense => 'Commission Expense',
+            self::BankCharges => 'Bank Charges',
             self::StaffLoanReceivable => 'Staff Loan Receivable',
             self::StaffAdvanceReceivable => 'Staff Advance Receivable',
             self::StaffPayable => 'Staff Payable',
@@ -95,7 +112,8 @@ enum SystemAccountCode: string
             self::LoanReceivable, self::OutstandingLoan, self::OutstandingInterest, self::DefaultLoan,
             self::StaffLoanReceivable, self::StaffAdvanceReceivable => AccountType::Asset,
             self::InterestIncome, self::FeeIncome, self::PenaltyIncome, self::RecoveredLoans => AccountType::Income,
-            self::WriteOff, self::SalaryExpense, self::CommissionExpense => AccountType::Expense,
+            self::WriteOff, self::SalaryExpense, self::CommissionExpense,
+            self::BankCharges => AccountType::Expense,
             self::StaffFund, self::StaffPayable => AccountType::Liability,
             self::Reserve, self::LoanArrears, self::Suspense, self::Offset => AccountType::Control,
         };

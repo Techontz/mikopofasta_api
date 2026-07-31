@@ -34,16 +34,6 @@ class LoanFee extends Model
     /** @var list<string> */
     protected $fillable = ['loan_product_id', 'fee_type', 'fee_amount', 'insurance_amount', 'created_by'];
 
-    /** @return array<string, string> */
-    protected function casts(): array
-    {
-        return [
-            'fee_type' => ChargeValueType::class,
-            'fee_amount' => 'decimal:2',
-            'insurance_amount' => 'decimal:2',
-        ];
-    }
-
     /** @return BelongsTo<LoanProduct, $this> */
     public function product(): BelongsTo
     {
@@ -54,5 +44,15 @@ class LoanFee extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return [
+            'fee_type' => ChargeValueType::class,
+            'fee_amount' => 'decimal:2',
+            'insurance_amount' => 'decimal:2',
+        ];
     }
 }
