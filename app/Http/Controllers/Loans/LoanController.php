@@ -65,6 +65,10 @@ final class LoanController extends Controller
 
         $query = Loan::query()
             ->with(['customer', 'branch', 'product'])
+            // Two SQL sums rather than a schedule load per row — see
+            // Loan::scopeWithScheduleTotals(). This is what lets a list row
+            // carry a balance at all.
+            ->withScheduleTotals()
             ->when(
                 isset($filters['search']) && $filters['search'] !== '',
                 fn ($q) => $q->search((string) $filters['search']),

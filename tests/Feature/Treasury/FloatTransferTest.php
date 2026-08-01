@@ -304,3 +304,38 @@ describe('audit trail', function (): void {
             ->where('user_id', $approver->id)->exists())->toBeTrue();
     });
 });
+
+describe('head office resolution', function (): void {
+    /**
+     * The company profile names the head office; the `is_head_office` flag is
+     * only the fallback for when it does not.
+     *
+     * This was inverted in practice. Both resolvers reached for
+     * `$profile->headquartersBranch`, and the relation is called `headquarters`
+     * — so the property resolved to nothing, and outside production
+     * `shouldBeStrict` turned that into an exception while inside production it
+     * was silently null. Either way the configured branch was never consulted
+     * and the flagged one always won, which is invisible until the two disagree
+     * and then routes company float and capital to the wrong branch.
+     */
+    it('draws company float from the branch the profile names, not the flagged one', function (): void {
+        $configured = branchNamed('Kakonko');
+        $flagged = Branch::query()->where('is_head_office', true)->sole();
+
+        expect($configured->getKey())->not->toBe($flagged->getKey());
+
+        App\Models\CompanyProfile::query()->first()
+            ->forceFill(['headquarters_branch_id' => $configured->getKey()])->save();
+
+        expect(app(App\Domain\Treasury\Services\FloatAccountResolver::class)->headOffice()->getKey())
+            ->toBe($configured->getKey());
+    });
+
+    it('falls back to the flagged branch when the profile names none', function (): void {
+        App\Models\CompanyProfile::query()->first()
+            ->forceFill(['headquarters_branch_id' => null])->save();
+
+        expect(app(App\Domain\Treasury\Services\FloatAccountResolver::class)->headOffice()->getKey())
+            ->toBe(Branch::query()->where('is_head_office', true)->value('id'));
+    });
+});

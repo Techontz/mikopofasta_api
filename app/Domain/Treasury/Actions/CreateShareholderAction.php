@@ -19,9 +19,14 @@ final class CreateShareholderAction
     public function handle(ShareholderData $data, User $actor): Shareholder
     {
         return DB::transaction(function () use ($data, $actor): Shareholder {
-            $shareholder = Shareholder::query()->create(
-                $data->toAttributes() + ['created_by' => $actor->getKey()],
-            );
+            // fill()->save() rather than create() with a unioned array: the
+            // union erases the attribute names, so nothing can check them
+            // against the model. This is also how UpdateShareholderAction
+            // writes the same fields.
+            $shareholder = new Shareholder;
+            $shareholder->fill($data->toAttributes());
+            $shareholder->created_by = $actor->getKey();
+            $shareholder->save();
 
             $this->audit->log(
                 AuditAction::ShareholderRegistered,

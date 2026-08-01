@@ -670,3 +670,36 @@ function postDisbursementWebhook(array $payload): Illuminate\Testing\TestRespons
         signedCallback($payload, vodacomSecret(), (string) config('webhooks.providers.vodacom.header')),
     );
 }
+
+/**
+ * Installment rows for a loan, written straight rather than generated.
+ *
+ * The generator derives its own amounts from the product's terms, which is what
+ * you want when testing the generator and exactly what you do not want when
+ * testing a sum: a balance assertion should state the figure it expects, not
+ * inherit whatever the schedule happened to produce.
+ *
+ * @param array<string, string> $amounts
+ */
+function scheduleRows(App\Models\Loan $loan, int $count, array $amounts = []): void
+{
+    $amounts = array_merge([
+        'principal_due' => '50000.00',
+        'interest_due' => '7500.00',
+        'penalty_due' => '0.00',
+        'principal_paid' => '0.00',
+        'interest_paid' => '0.00',
+        'penalty_paid' => '0.00',
+    ], $amounts);
+
+    $start = (int) App\Models\LoanSchedule::query()->where('loan_id', $loan->getKey())->max('installment_number');
+
+    foreach (range(1, $count) as $i) {
+        App\Models\LoanSchedule::query()->create(array_merge($amounts, [
+            'loan_id' => $loan->getKey(),
+            'installment_number' => $start + $i,
+            'due_date' => now()->addWeeks($start + $i)->toDateString(),
+            'status' => 'pending',
+        ]));
+    }
+}

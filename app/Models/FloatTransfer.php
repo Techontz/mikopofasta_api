@@ -23,6 +23,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property FloatTransferStatus $status
  * @property string $amount
  * @property int|null $journal_entry_id
+ * @property int|null $from_branch_id
+ * @property int|null $to_branch_id
+ * @property int $from_account_id
+ * @property int $to_account_id
+ *
+ * A transfer names branches or accounts, never both: branch-to-branch leaves
+ * the account columns to the resolver, account-to-account has no branch at all.
+ * The accounts are always resolved — every kind lands on two of them — which is
+ * why only the branch sides are optional here.
+ * @property-read Branch|null $fromBranch
+ * @property-read Branch|null $toBranch
+ * @property-read ChartOfAccount $fromAccount
+ * @property-read ChartOfAccount $toAccount
  * @property int $requested_by
  * @property CarbonImmutable|null $approved_at
  */

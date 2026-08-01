@@ -29,6 +29,7 @@ final class IndexPaymentRequest extends FormRequest
             'channel' => ['sometimes', 'nullable', 'array'],
             'channel.*' => ['string', Rule::in(PaymentChannel::values())],
             'loan_id' => ['sometimes', 'nullable', 'integer'],
+            'customer_id' => ['sometimes', 'nullable', 'integer'],
             'branch_id' => ['sometimes', 'nullable', 'integer'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],

@@ -69,6 +69,18 @@ final class PaymentController extends Controller
             ->when(! empty($filters['status']), fn ($q) => $q->whereIn('status', $filters['status']))
             ->when(! empty($filters['channel']), fn ($q) => $q->whereIn('channel', $filters['channel']))
             ->when(isset($filters['loan_id']), fn ($q) => $q->where('loan_id', $filters['loan_id']))
+            /*
+             * A payment is received against a loan, not against a person, so
+             * there is no customer column to filter on. Asking through the loan
+             * is what lets a customer's whole statement be one request: the
+             * teller session used to fetch payments once per loan the customer
+             * held, which is a request count that grows with their borrowing
+             * history for a screen that only ever shows one list.
+             */
+            ->when(
+                isset($filters['customer_id']),
+                fn ($q) => $q->whereHas('loan', fn ($l) => $l->where('customer_id', $filters['customer_id'])),
+            )
             ->when(isset($filters['branch_id']), fn ($q) => $q->where('branch_id', $filters['branch_id']))
             ->latest('received_at');
 

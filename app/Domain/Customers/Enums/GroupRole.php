@@ -29,6 +29,8 @@ enum GroupRole: string
     /**
      * The offices, as opposed to ordinary membership. At most one member of a
      * group may hold each of these.
+     *
+     * @return list<self>
      */
     public static function offices(): array
     {

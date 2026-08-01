@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Models\Loan;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Resources\MissingValue;
 
 /**
  * Matches `LoanSchema` in the frontend's types/loan.ts.
@@ -63,9 +65,72 @@ final class LoanResource extends JsonResource
             'productName' => $this->whenLoaded('product', fn (): ?string => $this->product?->name),
 
             'schedules' => LoanScheduleResource::collection($this->whenLoaded('schedules')),
-            'totalPayable' => $this->whenLoaded('schedules', fn (): string => $this->totalPayable()->toDecimalString()),
-            'outstandingTotal' => $this->whenLoaded('schedules', fn (): string => $this->outstandingTotal()->toDecimalString()),
+
+            /*
+             * Two ways in, one meaning.
+             *
+             * `show` eager-loads the schedules and the totals come off the
+             * objects. `index` cannot — a page of loans would be a page of
+             * schedule loads — so it asks for the same two sums in SQL via
+             * `withScheduleTotals()`, and they arrive as aggregate attributes.
+             *
+             * Whichever the caller used, the field means the same thing and is
+             * formatted the same way, so a list row and a detail page can never
+             * disagree about what a loan owes.
+             *
+             * Absent when neither was asked for. That is deliberate: omitting
+             * the key says "not loaded", where a zero would say "owes nothing",
+             * and those are different claims.
+             */
+            'totalPayable' => $this->scheduleTotal(
+                fn (): Money => $this->totalPayable(),
+                fn (): Money => $this->due(),
+            ),
+            'outstandingTotal' => $this->scheduleTotal(
+                fn (): Money => $this->outstandingTotal(),
+                fn (): Money => $this->due()->subtract($this->paid()),
+            ),
         ];
+    }
+
+    /**
+     * Resolves one total from whichever source the caller loaded.
+     *
+     * @param callable(): Money $fromRelation the schedules are in memory
+     * @param callable(): Money $fromAggregate only the SQL sums are
+     */
+    private function scheduleTotal(callable $fromRelation, callable $fromAggregate): mixed
+    {
+        if ($this->relationLoaded('schedules')) {
+            return $fromRelation()->toDecimalString();
+        }
+
+        /*
+         * `array_key_exists`, not `isset`. A loan approved but not yet
+         * scheduled sums to NULL, and `isset` cannot tell that apart from a
+         * caller who never asked for the sums at all. The first owes zero and
+         * should say so; the second has no answer and must stay absent.
+         */
+        if (! array_key_exists('schedule_due_total', $this->resource->getAttributes())) {
+            return new MissingValue;
+        }
+
+        return $fromAggregate()->toDecimalString();
+    }
+
+    /**
+     * A loan approved but not yet scheduled sums to NULL rather than to a row
+     * of zeros, and NULL here means the same thing zero does: nothing is owed
+     * before there are installments to owe it against.
+     */
+    private function due(): Money
+    {
+        return Money::of((string) ($this->schedule_due_total ?? '0.00'));
+    }
+
+    private function paid(): Money
+    {
+        return Money::of((string) ($this->schedule_paid_total ?? '0.00'));
     }
 
     private static function id(mixed $value): ?string

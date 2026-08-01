@@ -52,8 +52,22 @@ final class FloatPoster
     {
         $transfer->loadMissing(['fromBranch', 'toBranch', 'fromAccount', 'toAccount']);
 
-        $from = $transfer->fromBranch?->name ?? $transfer->fromAccount?->name ?? 'source';
-        $to = $transfer->toBranch?->name ?? $transfer->toAccount?->name ?? 'destination';
+        /*
+         * The foreign key decides, not a null-check on the loaded relation.
+         *
+         * Whether a side has a branch is a property of the transfer's kind —
+         * account-to-account has none — and the column is where that is
+         * recorded. Reading it says so; a `?->` chain reads as defensiveness
+         * about a relation that might not have loaded, which is a different and
+         * less true statement.
+         */
+        $from = $transfer->from_branch_id === null
+            ? $transfer->fromAccount->name
+            : $transfer->fromBranch->name;
+
+        $to = $transfer->to_branch_id === null
+            ? $transfer->toAccount->name
+            : $transfer->toBranch->name;
 
         return sprintf('Float transfer %s to %s', $from, $to);
     }

@@ -51,7 +51,27 @@ final class FloatAccountResolver
     /** The branch company float is drawn from. */
     public function headOffice(): Branch
     {
-        $branch = CompanyProfile::query()->first()?->headquartersBranch
+        /*
+         * `headquarters_branch_id`, not `->headquartersBranch`.
+         *
+         * The relation is named `headquarters` (CompanyProfile::66), so
+         * `headquartersBranch` resolves to nothing at all. Outside production
+         * that throws MissingAttributeException; inside it, `shouldBeStrict` is
+         * off and Eloquent hands back null — so this silently always took the
+         * `is_head_office` fallback and the branch configured on the company
+         * profile was never consulted.
+         *
+         * Harmless while the profile's branch and the flag name the same
+         * branch, and wrong the moment they do not: company float would be drawn from the flagged branch's
+         * account instead of the configured one.
+         *
+         * Reading the column cannot go wrong that way, and it keeps the
+         * nullability honest — `headquarters_branch_id` is nullable, so the
+         * fallback below is the normal path rather than dead code.
+         */
+        $configuredId = CompanyProfile::query()->value('headquarters_branch_id');
+
+        $branch = ($configuredId === null ? null : Branch::query()->find($configuredId))
             ?? Branch::query()->where('is_head_office', true)->first();
 
         if ($branch === null) {

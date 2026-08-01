@@ -771,3 +771,53 @@ describe('audit logging', function (): void {
             ->and(AuditLog::query()->where('action', AuditAction::SuspenseResolved->value)->exists())->toBeTrue();
     });
 });
+
+describe('customer statement filter', function (): void {
+    /**
+     * A customer's whole statement in one request.
+     *
+     * The teller session used to fetch payments once per loan the customer
+     * held, because a payment carries a loan and not a customer. Resolving that
+     * join on the API turns a request count that grows with someone's borrowing
+     * history into a constant.
+     */
+    it('returns every payment across all of one customer loans', function (): void {
+        $first = activeLoan();
+        $second = activeLoan();
+
+        officerAt($first->branch->name, RoleName::Teller);
+        $this->postJson('/api/v1/payments/cash', ['loanId' => $first->getKey(), 'amount' => '5000.00'])
+            ->assertCreated();
+
+        officerAt($second->branch->name, RoleName::Teller);
+        $this->postJson('/api/v1/payments/cash', ['loanId' => $second->getKey(), 'amount' => '7000.00'])
+            ->assertCreated();
+
+        officerAt('Head Office', RoleName::Finance);
+
+        $mine = $this->getJson("/api/v1/payments?customer_id={$first->customer_id}")->assertOk()->json('data');
+
+        expect($mine)->toHaveCount(1)
+            ->and($mine[0]['loanId'])->toBe((string) $first->getKey())
+            // The unfiltered list holds both, so the filter narrowed rather
+            // than the fixture only ever producing one.
+            ->and($this->getJson('/api/v1/payments')->assertOk()->json('data'))->toHaveCount(2);
+    });
+
+    /**
+     * The filter must not become a way around §13. It narrows what a caller may
+     * already see; it does not widen it.
+     */
+    it('still hides another branch payments when filtering by customer', function (): void {
+        $loan = activeLoan();
+
+        officerAt($loan->branch->name, RoleName::Teller);
+        $this->postJson('/api/v1/payments/cash', ['loanId' => $loan->getKey(), 'amount' => '5000.00'])
+            ->assertCreated();
+
+        officerAt('Missenyi', RoleName::BranchManager);
+
+        expect($this->getJson("/api/v1/payments?customer_id={$loan->customer_id}")->assertOk()->json('data'))
+            ->toBeEmpty();
+    });
+});

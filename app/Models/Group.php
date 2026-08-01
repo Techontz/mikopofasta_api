@@ -26,6 +26,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $meeting_day ISO-8601 weekday, 1 = Monday
  * @property string|null $meeting_time
  * @property CarbonImmutable|null $deleted_at
+ *
+ * Not a column. The controller computes it from the members' loan schedules and
+ * assigns it after paging, because deriving it in the query would load the whole
+ * loan book to render one page of groups. Absent unless that has happened, which
+ * is what the resource's isset() check reads.
+ * @property string|null $outstanding_balance
  */
 class Group extends Model
 {

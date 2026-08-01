@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Backend spec §2.5 — `loans`.
@@ -201,6 +202,38 @@ class Loan extends Model
     public function totalPayable(): Money
     {
         return Money::sum($this->schedules->map(fn (LoanSchedule $s): Money => $s->totalDue()));
+    }
+
+    /**
+     * The same two totals as `totalPayable()` and `outstandingTotal()`, summed
+     * in SQL instead of in PHP.
+     *
+     * Listing loans cannot afford the object versions: they walk `$this->schedules`,
+     * so a page of 25 loans is 25 schedule loads, and a caller that wanted a
+     * portfolio total had to ask per loan. The frontend was doing exactly that —
+     * one `/loans/{id}/schedule` request per row — and tripped the rate limiter
+     * under a burst.
+     *
+     * Two `SUM`s rather than one `SUM(due - paid)` because the resource emits
+     * both figures, and because a single subquery per column keeps each one a
+     * plain aggregate the planner can satisfy from the `loan_id` index.
+     *
+     * The arithmetic is identical. Both sides sum the same six DECIMAL(18,2)
+     * columns, and MySQL's DECIMAL addition is exact, so the driver hands back
+     * a decimal string that `Money::of()` parses without rounding — the same
+     * value the PHP path produces, not an approximation of it.
+     *
+     * Loans with no schedule yet (nothing is owed before approval) aggregate to
+     * NULL, which `COALESCE` renders as the zero those loans genuinely owe.
+     *
+     * @param Builder<Loan> $query
+     * @return Builder<Loan>
+     */
+    public function scopeWithScheduleTotals(Builder $query): Builder
+    {
+        return $query
+            ->withSum('schedules as schedule_due_total', DB::raw('principal_due + interest_due + penalty_due'))
+            ->withSum('schedules as schedule_paid_total', DB::raw('principal_paid + interest_paid + penalty_paid'));
     }
 
     /**

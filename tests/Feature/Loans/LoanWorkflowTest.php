@@ -14,6 +14,7 @@ use App\Models\Loan;
 use App\Models\LoanProduct;
 use App\Models\LoanSchedule;
 use App\Support\Money;
+use Illuminate\Support\Facades\DB;
 
 describe('application', function (): void {
     beforeEach(function (): void {
@@ -479,5 +480,92 @@ describe('state machine', function (): void {
         expect($history->pluck('to_status')->map(fn ($s) => $s->value)->all())
             ->toBe(['draft', 'pending_manager_approval', 'pending_credit_review', 'pending_finance'])
             ->and($history->every(fn ($h): bool => $h->changed_by !== null))->toBeTrue();
+    });
+});
+
+describe('index balances', function (): void {
+    beforeEach(function (): void {
+        seedLoanFoundation();
+    });
+
+    /**
+     * The whole point of the aggregate: a list row must owe exactly what the
+     * detail page says it owes. Two different sums of the same six columns —
+     * one in SQL over a page, one in PHP over loaded objects — and any drift
+     * between them would show the operator two balances for one loan.
+     */
+    it('lists the same outstanding the detail endpoint reports', function (): void {
+        // submittedLoan() rather than loanAtFinance(): the latter has already
+        // been through disbursement preparation and carries a generated
+        // schedule, so rows added on top would be summed with amounts the test
+        // never chose and the assertion would be reading the generator.
+        $loan = submittedLoan();
+        scheduleRows($loan, 3, [
+            'principal_due' => '100000.00',
+            'interest_due' => '15000.00',
+            'penalty_due' => '2500.00',
+            'principal_paid' => '40000.00',
+            'interest_paid' => '5000.00',
+            'penalty_paid' => '1250.00',
+        ]);
+
+        officerAt('Head Office', RoleName::Finance);
+
+        $index = $this->getJson('/api/v1/loans?per_page=50')->assertOk();
+        $row = collect($index->json('data'))->firstWhere('id', (string) $loan->id);
+
+        $show = $this->getJson("/api/v1/loans/{$loan->id}")->assertOk();
+
+        // 3 × (117500 - 46250)
+        expect($row['outstandingTotal'])->toBe('213750.00')
+            ->and($row['totalPayable'])->toBe('352500.00')
+            ->and($row['outstandingTotal'])->toBe($show->json('data.outstandingTotal'))
+            ->and($row['totalPayable'])->toBe($show->json('data.totalPayable'));
+    });
+
+    /**
+     * A loan that has not been scheduled yet aggregates to NULL, which is not
+     * the same shape as a row of zeros. It still owes nothing, so the field has
+     * to read zero rather than vanish — a missing key would make the frontend
+     * fall back to "not fetched" and re-request what it already has.
+     */
+    it('reports zero for a loan that has no schedule yet', function (): void {
+        $loan = submittedLoan();
+        officerAt('Head Office', RoleName::Finance);
+
+        $row = collect($this->getJson('/api/v1/loans?per_page=50')->json('data'))
+            ->firstWhere('id', (string) $loan->id);
+
+        expect($row['outstandingTotal'])->toBe('0.00')
+            ->and($row['totalPayable'])->toBe('0.00');
+    });
+
+    /**
+     * The reason this exists. Listing loans used to carry no balance, so the
+     * frontend asked per row; the query count now has to stay flat as the page
+     * grows or the fan-out has simply moved from HTTP into SQL.
+     */
+    it('costs the same number of queries whatever the page holds', function (): void {
+        officerAt('Head Office', RoleName::Finance);
+
+        $count = function (int $perPage): int {
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $this->getJson("/api/v1/loans?per_page={$perPage}")->assertOk();
+            $n = count(DB::getQueryLog());
+            DB::disableQueryLog();
+
+            return $n;
+        };
+
+        foreach (range(1, 6) as $i) {
+            scheduleRows(submittedLoan(), 4);
+        }
+
+        // One row on the page against all six. Eloquent skips an eager-load
+        // query entirely when the parent set is empty, so the comparison has to
+        // start from a page that already has loans on it — otherwise it would
+        // measure that skip rather than the aggregate.
+        expect($count(50))->toBe($count(1));
     });
 });

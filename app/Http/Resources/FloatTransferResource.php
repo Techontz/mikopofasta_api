@@ -32,8 +32,11 @@ final class FloatTransferResource extends JsonResource
 
             'fromBranchName' => $this->whenLoaded('fromBranch', fn (): ?string => $this->fromBranch?->name),
             'toBranchName' => $this->whenLoaded('toBranch', fn (): ?string => $this->toBranch?->name),
-            'fromAccountName' => $this->whenLoaded('fromAccount', fn (): ?string => $this->fromAccount?->name),
-            'toAccountName' => $this->whenLoaded('toAccount', fn (): ?string => $this->toAccount?->name),
+            // Both sides always resolve to an account — every transfer kind
+            // lands on two of them — so these are not optional the way the
+            // branch names above are.
+            'fromAccountName' => $this->whenLoaded('fromAccount', fn (): string => $this->fromAccount->name),
+            'toAccountName' => $this->whenLoaded('toAccount', fn (): string => $this->toAccount->name),
             'requesterName' => $this->whenLoaded('requester', fn (): ?string => $this->requester?->name),
             'approverName' => $this->whenLoaded('approver', fn (): ?string => $this->approver?->name),
         ];
