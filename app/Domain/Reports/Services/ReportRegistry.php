@@ -11,23 +11,33 @@ use App\Domain\Reports\Contracts\Report;
 use App\Domain\Reports\Reports\AgeAnalysisReport;
 use App\Domain\Reports\Reports\ArrearsReport;
 use App\Domain\Reports\Reports\AuditTrailReport;
+use App\Domain\Reports\Reports\BalanceSheetReport;
 use App\Domain\Reports\Reports\BranchEfficiencyReport;
+use App\Domain\Reports\Reports\BranchExpenseReport;
 use App\Domain\Reports\Reports\BranchPnlReport;
 use App\Domain\Reports\Reports\BranchRankingReport;
 use App\Domain\Reports\Reports\CashflowReport;
+use App\Domain\Reports\Reports\CashPositionReport;
+use App\Domain\Reports\Reports\CommissionEligibilityReport;
 use App\Domain\Reports\Reports\CommissionReport;
 use App\Domain\Reports\Reports\DailyCollectionReport;
 use App\Domain\Reports\Reports\DailyDisbursementReport;
+use App\Domain\Reports\Reports\DailyPositionReport;
 use App\Domain\Reports\Reports\ExecutiveSummaryReport;
 use App\Domain\Reports\Reports\FinancialStatementsReport;
+use App\Domain\Reports\Reports\GrowthReport;
+use App\Domain\Reports\Reports\HqAllocationReport;
 use App\Domain\Reports\Reports\HqCashflowReport;
+use App\Domain\Reports\Reports\HqExpenseReport;
 use App\Domain\Reports\Reports\PayrollReport;
 use App\Domain\Reports\Reports\PerformanceReport;
 use App\Domain\Reports\Reports\PortfolioReport;
+use App\Domain\Reports\Reports\ProfitAdjustmentReport;
 use App\Domain\Reports\Reports\RecoveryReport;
 use App\Domain\Reports\Reports\RepaymentBehaviorReport;
 use App\Domain\Reports\Reports\RepaymentReport;
 use App\Domain\Reports\Reports\ReversalsReport;
+use App\Domain\Reports\Reports\RiskReport;
 use App\Domain\Reports\Reports\SegmentationReport;
 use App\Domain\Reports\Reports\StaffAdvanceReport;
 use App\Domain\Reports\Reports\StaffFundReport;
@@ -114,6 +124,32 @@ final class ReportRegistry
             new StaffLoanReport(app(StaffLoanCalculator::class)),
             new StaffAdvanceReport(app(SalaryAdvanceCalculator::class)),
             new StaffFundReport(app(StaffFundReader::class)),
+
+            /*
+             * Module 8 — the ten reports the reports document names that §15.6
+             * does not. Each maps to a numbered section of that document, given
+             * in its own docblock:
+             *
+             *   §3C  Branch Expense          §7B  Balance Sheet
+             *   §4B  HQ Expense              §7C  Cash Position
+             *   §4C  HQ Allocation (2%)      §9C  Daily Position
+             *   §6B  Profit Adjustment       §10B Growth
+             *   §6C  Commission Eligibility  §10C Risk
+             *
+             * None invents a figure: every one reads tables the operational
+             * modules already write, which is why none of them needed a schema
+             * change.
+             */
+            new BranchExpenseReport,
+            new HqExpenseReport($this->sources),
+            new HqAllocationReport,
+            new ProfitAdjustmentReport,
+            new CommissionEligibilityReport,
+            new BalanceSheetReport($this->sources),
+            new CashPositionReport($this->sources),
+            new DailyPositionReport($this->sources),
+            new GrowthReport($this->sources),
+            new RiskReport($this->sources),
         ];
 
         $keyed = [];

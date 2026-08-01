@@ -6,8 +6,12 @@ namespace App\Http\Controllers\Reports;
 
 use App\Domain\Auth\Enums\PermissionName;
 use App\Domain\Reports\Contracts\Report;
+use App\Domain\Reports\DTOs\ReportColumn;
 use App\Domain\Reports\DTOs\ReportFilters;
+use App\Domain\Reports\DTOs\ReportQuery;
 use App\Domain\Reports\Policies\ReportPolicy;
+use App\Domain\Reports\Services\ReportExporter;
+use App\Domain\Reports\Services\ReportPresenter;
 use App\Domain\Reports\Services\ReportRegistry;
 use App\Enums\ErrorCode;
 use App\Http\Controllers\Controller;
@@ -35,7 +39,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ReportController extends Controller
 {
-    public function __construct(private readonly ReportRegistry $registry) {}
+    public function __construct(
+        private readonly ReportRegistry $registry,
+        private readonly ReportPresenter $presenter,
+        private readonly ReportExporter $exporter,
+    ) {}
 
     /**
      * GET /api/v1/reports — the catalogue.
@@ -68,7 +76,19 @@ final class ReportController extends Controller
         }
 
         $filters = $this->resolveFilters($request, $report);
-        $result = $report->compute($filters);
+        $query = ReportQuery::fromArray($request->validated());
+
+        /*
+         * Compute, then present. The report produces every row its filters
+         * match; the presenter searches, sorts and pages them. Keeping those
+         * apart is what lets `totals` stay the report's own figure over the
+         * whole filtered set — a total that moved when you turned the page
+         * would be worse than no total.
+         */
+        ['result' => $result, 'meta' => $queryMeta] = $this->presenter->present(
+            $report->compute($filters),
+            $query,
+        );
 
         return ApiResponse::data($result->rows, [
             /*
@@ -86,8 +106,68 @@ final class ReportController extends Controller
                 'description' => $report->description(),
                 'group' => $report->group(),
                 'filters' => $report->supportedFilters(),
+
+                // The columns a caller may sort by, so a client need not guess
+                // which keys the presenter will recognise.
+                'sortable' => array_map(
+                    static fn (ReportColumn $c): string => $c->key,
+                    $result->columns,
+                ),
             ],
-        ] + $result->toMeta());
+        ] + $queryMeta + $result->toMeta());
+    }
+
+    /**
+     * GET /api/v1/reports/{slug}/export?format=csv|xlsx|pdf
+     *
+     * The same computation as `show`, rendered to a file. Deliberately the same
+     * filters, the same search and the same sort: exporting an unfiltered
+     * report would hand somebody a file that does not match the screen they
+     * exported it from, which is the one thing an export must never do.
+     *
+     * Never paginated. A page of a spreadsheet is not what anybody means by
+     * exporting a report, so `per_page` is ignored here and the whole matched
+     * set is written.
+     */
+    public function export(ReportRequest $request, string $slug): Response|JsonResponse
+    {
+        $this->authorize(ReportPolicy::VIEW_ABILITY);
+
+        $report = $this->registry->find($slug);
+
+        if ($report === null) {
+            return ApiResponse::error(
+                sprintf('No report exists at "%s".', $slug),
+                ErrorCode::ResourceNotFound,
+                Response::HTTP_NOT_FOUND,
+            );
+        }
+
+        $filters = $this->resolveFilters($request, $report);
+
+        $query = ReportQuery::fromArray(
+            ['per_page' => null] + $request->validated(),
+        );
+
+        ['result' => $result] = $this->presenter->present($report->compute($filters), new ReportQuery(
+            search: $query->search,
+            sort: $query->sort,
+            direction: $query->direction,
+        ));
+
+        $format = (string) ($request->validated('format') ?? 'csv');
+
+        return response(
+            $this->exporter->render($report, $result, $format, $filters),
+            Response::HTTP_OK,
+            [
+                'Content-Type' => $this->exporter->contentType($format),
+                'Content-Disposition' => sprintf(
+                    'attachment; filename="%s"',
+                    $this->exporter->filename($report, $format, $filters),
+                ),
+            ],
+        );
     }
 
     /**

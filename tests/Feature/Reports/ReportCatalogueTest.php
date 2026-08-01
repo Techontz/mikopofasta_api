@@ -29,10 +29,15 @@ const SPEC_REPORTS = [
 /**
  * Absent from §15.6's list, and each named somewhere else.
  *
- * The first three are Phase 8's. The last four are §17 of the HR document,
- * which lists six reports the module must produce — Payroll, Staff Payslip,
- * Commission, Staff Loan, Staff Advance and Staff Fund Balance. Payroll and
- * Commission were already in §15.6's twenty-one; these are the other four.
+ * `trial-balance` and `performance` are Phase 8's.
+ *
+ * The four `staff-*` are §17 of the HR document, which names six reports the HR
+ * module must produce; Payroll and Commission were already among §15.6's
+ * twenty-one, and these are the rest.
+ *
+ * The ten after them are the reports document's own sections that §15.6 omits —
+ * §3C, §4B, §4C, §6B, §6C, §7B, §7C, §9C, §10B, §10C. Each report's docblock
+ * names the section it implements.
  *
  * Listed rather than derived, for the same reason SPEC_REPORTS is: adding a
  * report should be a deliberate edit here, not something that appears.
@@ -40,6 +45,9 @@ const SPEC_REPORTS = [
 const EXTRA_REPORTS = [
     'trial-balance', 'performance',
     'staff-payslip', 'staff-loan', 'staff-advance', 'staff-fund',
+    'branch-expense', 'hq-expense', 'hq-allocation', 'profit-adjustment',
+    'commission-eligibility', 'balance-sheet', 'cash-position', 'daily-position',
+    'growth', 'risk',
     'executive-summary',
 ];
 

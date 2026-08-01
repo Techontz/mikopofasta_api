@@ -674,6 +674,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     |
     */
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    /*
+     * Export before show: `/reports/{slug}/export` would otherwise be matched
+     * by the {slug} route with "export" as part of the slug, and the reader
+     * would get a 404 for a report that exists.
+     */
+    Route::get('/reports/{slug}/export', [ReportController::class, 'export'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('reports.export');
+
     Route::get('/reports/{slug}', [ReportController::class, 'show'])
         ->where('slug', '[a-z0-9-]+')
         ->name('reports.show');

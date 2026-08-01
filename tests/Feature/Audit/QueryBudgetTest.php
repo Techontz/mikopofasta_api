@@ -130,6 +130,16 @@ it('keeps every report inside its query budget', function (): void {
             'executive-summary' => 90,
             'branch-ranking' => 60,
             'branch-efficiency', 'branch-pnl' => 40,
+
+            /*
+             * Risk reads a trial balance per branch AND the open loan book, so
+             * it is the union of what Branch P&L and Arrears each cost.
+             */
+            'risk' => 40,
+
+            // Staff Fund asks each advance and loan what it still owes.
+            'staff-fund' => 25,
+
             default => 20,
         };
 

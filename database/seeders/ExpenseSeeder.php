@@ -81,16 +81,18 @@ final class ExpenseSeeder extends Seeder
             $branch[$name] = $this->firstOrCreate($create, $name, ExpenseScope::Branch, $actor);
         }
 
+        $hq = [];
+
         foreach (['MISHAHARA', 'Bank Charges', 'Stationery'] as $name) {
-            $this->firstOrCreate($create, $name, ExpenseScope::Headquarters, $actor);
+            $hq[$name] = $this->firstOrCreate($create, $name, ExpenseScope::Headquarters, $actor);
         }
 
-        return $branch;
+        return $branch + $hq;
     }
 
     /**
-     * The four legacy branch requests, plus two decided ones so the Approved
-     * screen is not empty and the ledger has real expense postings in it.
+     * The four legacy branch requests, plus decided ones so the Approved screen
+     * is not empty and the ledger has real expense postings in it.
      *
      * The four pending ones are left pending deliberately — that is the state
      * the legacy screen was captured in, and their amounts sum to the 92,000
@@ -114,6 +116,21 @@ final class ExpenseSeeder extends Seeder
             ['MAJI', 'Missenyi', '18000', 'Water bill, March', '2026-03-14', ExpenseRequestStatus::Approved],
             ['Rent', 'NEW KALENGE', '32000', 'Office rent', '2026-04-02', ExpenseRequestStatus::Approved],
             ['Usafiri', 'Kakonko', '9000', 'Field visit transport', '2026-04-11', ExpenseRequestStatus::Rejected],
+
+            /*
+             * Head office spending across three months, so §4B's "comparison
+             * month-to-month" has something to compare. Tagged to the head
+             * office branch, which is where an HQ cost belongs — the HQ Expense
+             * report reads both that and untagged company-wide costs.
+             *
+             * Without these the report is correct and empty, which demonstrates
+             * nothing: a reader cannot tell an empty report from a broken one.
+             */
+            ['Bank Charges', 'Head Office', '45000', 'Quarterly bank charges', '2026-06-05', ExpenseRequestStatus::Approved],
+            ['Stationery', 'Head Office', '78000', 'Printing and stationery', '2026-06-19', ExpenseRequestStatus::Approved],
+            ['Bank Charges', 'Head Office', '45000', 'Quarterly bank charges', '2026-07-06', ExpenseRequestStatus::Approved],
+            ['Stationery', 'Head Office', '112000', 'Printer toner and paper', '2026-07-22', ExpenseRequestStatus::Approved],
+            ['Bank Charges', 'Head Office', '52000', 'Bank charges and transfer fees', '2026-08-04', ExpenseRequestStatus::Approved],
         ];
 
         // §14: a request may not be approved by whoever raised it, and that
@@ -147,16 +164,34 @@ final class ExpenseSeeder extends Seeder
                 $actor,
             );
 
-            if ($decision !== null) {
-                $decide->handle(
-                    $filed,
-                    $decision,
-                    $decision === ExpenseRequestStatus::Approved
-                        ? 'Within the monthly budget.'
-                        : 'Not a business cost.',
-                    $approver,
-                );
+            if ($decision === null) {
+                continue;
             }
+
+            $decided = $decide->handle(
+                $filed,
+                $decision,
+                $decision === ExpenseRequestStatus::Approved
+                    ? 'Within the monthly budget.'
+                    : 'Not a business cost.',
+                $approver,
+            );
+
+            /*
+             * Backdated to the day it was raised.
+             *
+             * `DecideExpenseRequestAction` stamps `decided_at` with the moment
+             * of the decision, which is correct at runtime and useless in a
+             * seeder: every seeded expense would land in the month the database
+             * happened to be built, so the HQ Expense report's month-on-month
+             * comparison would have exactly one month in it and the Branch
+             * Expense report would show a year of spending on a single day.
+             *
+             * Only the column moves. The journal entry the decision posted
+             * keeps its own date, and nothing about the money changes — this is
+             * a demo book being given a history it can be read against.
+             */
+            $decided->forceFill(['decided_at' => $date.' 09:00:00'])->save();
         }
     }
 
