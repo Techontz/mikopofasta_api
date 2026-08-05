@@ -40,16 +40,53 @@ final class CommissionCalculator
     /**
      * The pool a branch has earned.
      *
-     * The order is §11's and it matters: HQ takes its 2% of gross profit
-     * first, then the carried-forward loss is offset, and only what survives
-     * both is distributable. Taking the hold after the loss would let a
-     * loss-making branch shrink HQ's cut.
+     * The order matters, and it is now four steps rather than three:
+     *
+     *   1. **Reserve** — Decision Register D1. The client is explicit that it
+     *      comes out first: "kwenye hiyo faida reserve inatolewa kwanza maana
+     *      ndo inalinda mtaji", from that profit the reserve is taken first
+     *      because it protects the capital.
+     *   2. **HQ's 2% hold** — §11, on what survives the reserve.
+     *   3. **Loss carry-forward** — §11.
+     *   4. Whatever is left is distributable.
+     *
+     * Steps 2 and 3 keep §11's relative order, which matters for the reason it
+     * always did: taking the hold after the loss would let a loss-making branch
+     * shrink HQ's cut.
+     *
+     * ## Why the reserve became a parameter
+     *
+     * It was never a parameter before because it never needed to be. §5 took the
+     * reserve as `Dr Interest Income · Cr Reserve` at the moment of collection,
+     * so `$branchProfit` arrived already net of it and §8 could say "(Reserve
+     * already netted out)".
+     *
+     * D1 moved the appropriation to the month-end close. Branch profit is
+     * therefore gross of reserve, and had this signature stayed as it was, every
+     * pool in the system would have quietly grown by the reserve share of
+     * interest — an economic change arriving as a side effect of a timing
+     * decision, which is the kind of change nobody notices until payroll.
+     *
+     * The figure passed in is the one the close actually appropriated
+     * (`period_branch_results.reserve_appropriated`), not one recomputed here,
+     * so a pool always reconciles to the close it came from even if the reserve
+     * percentage changes afterwards.
+     *
+     * Defaulted to zero so a caller reasoning about a period that was never
+     * closed gets the ungrossed arithmetic rather than an error.
      */
-    public function computePool(Money $branchProfit, Money $lossCarryForward): PoolComputation
-    {
-        $hqHold = $branchProfit->percentage(Percentage::of(self::HQ_HOLD_RATE));
+    public function computePool(
+        Money $branchProfit,
+        Money $lossCarryForward,
+        ?Money $reserveAppropriation = null,
+    ): PoolComputation {
+        $reserve = $reserveAppropriation ?? Money::zero();
 
-        $distributableProfit = $branchProfit->subtract($lossCarryForward)->subtract($hqHold);
+        $profitAfterReserve = $branchProfit->subtract($reserve);
+
+        $hqHold = $profitAfterReserve->percentage(Percentage::of(self::HQ_HOLD_RATE));
+
+        $distributableProfit = $profitAfterReserve->subtract($lossCarryForward)->subtract($hqHold);
 
         // §11's hard rule, stated as a boolean rather than left to each caller
         // to re-derive: "commission_distributions for a branch/period cannot
@@ -59,6 +96,7 @@ final class CommissionCalculator
 
         return new PoolComputation(
             branchProfit: $branchProfit,
+            reserveAppropriation: $reserve,
             lossCarryForward: $lossCarryForward,
             hqHoldAmount: $hqHold,
             distributableProfit: $distributableProfit,

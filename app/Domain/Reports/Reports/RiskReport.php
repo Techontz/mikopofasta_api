@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Reports\Reports;
 
-use App\Domain\Ledger\Enums\AccountType;
 use App\Domain\Reports\Contracts\Report;
 use App\Domain\Reports\DTOs\ReportColumn;
 use App\Domain\Reports\DTOs\ReportFilters;
@@ -119,10 +118,11 @@ final class RiskReport implements Report
         $companyExpense = Money::zero();
 
         foreach ($branches as $branch) {
-            $trial = $this->sources->trialBalance($filters->forBranch((int) $branch->getKey()));
-
-            $income = $this->sources->balanceOfTypeFrom($trial, AccountType::Income);
-            $expense = $this->sources->balanceOfTypeFrom($trial, AccountType::Expense);
+            // Period-scoped, and excluding the month-end close's sweep of
+            // income into Profit — see ReportSources::periodIncomeExpense().
+            [$income, $expense] = $this->sources->periodIncomeExpense(
+                $filters->forBranch((int) $branch->getKey()),
+            );
 
             $figures[(int) $branch->getKey()] = ['income' => $income, 'expense' => $expense];
             $companyIncome = $companyIncome->add($income);

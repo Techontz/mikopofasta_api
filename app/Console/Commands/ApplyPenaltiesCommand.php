@@ -23,6 +23,12 @@ use Throwable;
  * recognised on collection. That decision is unchanged and is restated in the
  * command's own output so an operator reading the cron log is not left
  * wondering why the trial balance did not move.
+ *
+ * The action DOES post one thing before it starts: held Customer Advances being
+ * spent on installments that have just fallen due. So the trial balance can move
+ * on a night this command runs, and `advance_consumption` is what moved it. The
+ * two are one job on purpose — an installment the borrower has already funded
+ * must be settled before anything judges it late.
  */
 final class ApplyPenaltiesCommand extends Command
 {
@@ -33,10 +39,14 @@ final class ApplyPenaltiesCommand extends Command
     public function handle(RunOverdueProcessAction $action): int
     {
         /*
-         * No actor. The scheduler is not a person, and attributing the run to
-         * one would put a name against a decision they did not make — the
-         * action already accepts a null actor for exactly this case, and
-         * `penalty_runs.triggered_by` records `cron` instead.
+         * No actor is passed, and the action resolves the System account.
+         *
+         * The scheduler is not a person, and attributing the run to one would
+         * put a name against a decision they did not make. The System account
+         * is the answer to that: automated work has an identity of its own, so
+         * the run is attributable without being misattributed. If the platform
+         * has not been initialised the action refuses outright rather than
+         * running as somebody.
          */
         Log::channel('operations')->info('Penalty run starting', ['triggered_by' => TriggeredBy::Cron->value]);
 

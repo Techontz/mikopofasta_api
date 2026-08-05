@@ -17,12 +17,10 @@ use Illuminate\Support\Facades\DB;
  * ## Why there is no create and no delete
  *
  * `code` is not editable, and formulas cannot be added or removed, because the
- * code is not a label — it is a branch in the interest engine. SIMPLE, FLAT and
- * REDUCING are the three the schedule generator implements, and the frontend
- * says the same thing in its own comment:
- *
- *   "`code` is fixed because lib/domain/loan-schedule.ts branches on
- *   SIMPLE/FLAT/REDUCING by code; it isn't a free-text CRUD field."
+ * code is not a label — it is the key InterestStrategyRegistry resolves a
+ * strategy by, so every code must have a class in
+ * app/Domain/Loans/Engine/Strategies implementing it. The frontend agrees and
+ * offers name and description only (features/admin/interest-formulas/actions.ts).
  *
  * A fourth row would be a formula nothing knows how to compute — a product
  * could be configured with it and every loan priced from that product would

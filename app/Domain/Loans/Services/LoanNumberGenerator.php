@@ -8,8 +8,12 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Generates `loans.loan_number` in the frontend's format: LN-2026-000001
- * (lib/domain/id-generators.ts, and the §15.2 example "LN-2026-000991").
+ * Generates `loans.loan_number` in the legacy system's format: LN-2026-000001
+ * (the §15.2 example "LN-2026-000991").
+ *
+ * The frontend used to mint these itself; it no longer does, and this is now
+ * the only place they are produced. The format is pinned by
+ * tests/Feature/Platform/OperationalLoggingTest.php.
  *
  * The sequence restarts each calendar year and is derived from the highest
  * existing number for that year — not from MAX(id), which drifts from the

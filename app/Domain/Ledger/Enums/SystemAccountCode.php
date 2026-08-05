@@ -30,6 +30,19 @@ enum SystemAccountCode: string
     case WriteOff = '4200';
     case RecoveredLoans = '4300';
     case Suspense = '5000';
+
+    /*
+     * Money a borrower has paid ahead of the due date — Advance.
+     *
+     * A control account beside Suspense, and a liability in substance: the cash
+     * is the lender's to hold but not yet theirs to recognise, because no
+     * installment has fallen due to earn it. It is credited when a payment
+     * exceeds what is owed and debited as installments consume it.
+     *
+     * Distinct from Suspense, which holds money whose OWNER is unknown. An
+     * advance has a known owner and a known loan; only its purpose is pending.
+     */
+    case CustomerAdvance = '5100';
     case StaffFund = '7000';
     case Dividend = '7100';
     case Offset = '7200';
@@ -80,6 +93,7 @@ enum SystemAccountCode: string
             self::PenaltyIncome => 'Penalty Income Account',
             self::Reserve => 'Reserve Account',
             self::Profit => 'Profit Account',
+            self::CustomerAdvance => 'Customer Advance Account',
             self::LoanArrears => 'Loan Arrears Account',
             self::DefaultLoan => 'Default Loan Account',
             self::WriteOff => 'Write-Off Account',
@@ -115,7 +129,8 @@ enum SystemAccountCode: string
             self::WriteOff, self::SalaryExpense, self::CommissionExpense,
             self::BankCharges => AccountType::Expense,
             self::StaffFund, self::StaffPayable => AccountType::Liability,
-            self::Reserve, self::LoanArrears, self::Suspense, self::Offset => AccountType::Control,
+            self::Reserve, self::LoanArrears, self::Suspense, self::CustomerAdvance,
+            self::Offset => AccountType::Control,
         };
     }
 

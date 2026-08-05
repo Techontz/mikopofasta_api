@@ -6,6 +6,13 @@ namespace App\Models;
 
 use App\Domain\Loans\Enums\PenaltyType;
 use App\Enums\ActiveStatus;
+/*
+ * Aliased because the enum above already owns the name `PenaltyType` in this
+ * file. The enum is the legacy column's cast; the model is the master-data row
+ * replacing it. They coexist during the transition and the alias keeps which is
+ * which unambiguous at every use site.
+ */
+use App\Models\PenaltyType as PenaltyTypeModel;
 use App\Support\Money;
 use App\Support\Percentage;
 use Carbon\CarbonImmutable;
@@ -30,13 +37,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property string $name
  * @property string $code
+ * @property string|null $description
  * @property int $interest_formula_id
  * @property string $interest_rate
  * @property string $min_amount
  * @property string $max_amount
  * @property int $min_tenure_days
  * @property int $max_tenure_days
+ * @property int $grace_period_days
+ * @property string $processing_fee_rate
+ * @property string $insurance_fee_rate
+ * @property string|null $commission_rate
+ * @property string|null $recovery_commission_rate
  * @property PenaltyType $penalty_type
+ * @property int|null $penalty_type_id
  * @property string $penalty_rate
  * @property int $penalty_grace_days
  * @property string|null $penalty_cap_amount
@@ -51,11 +65,28 @@ class LoanProduct extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'name', 'code', 'interest_formula_id', 'interest_rate',
+        'name', 'code', 'description', 'interest_formula_id', 'interest_rate',
+        'interest_rate_basis_id',
         'min_amount', 'max_amount', 'min_tenure_days', 'max_tenure_days',
-        'penalty_type', 'penalty_rate', 'penalty_grace_days', 'penalty_cap_amount',
+        'grace_period_days', 'processing_fee_rate', 'insurance_fee_rate',
+        'commission_rate', 'recovery_commission_rate',
+        'penalty_type', 'penalty_type_id', 'penalty_rate', 'penalty_grace_days', 'penalty_cap_amount',
         'requires_mandate', 'status', 'created_by',
     ];
+
+    /**
+     * The penalty type as administrator-managed data.
+     *
+     * `penalty_type` (the enum column) is kept in step for the code that still
+     * reads it; this relation is where new work should look. Nullable only
+     * during the transition — every seeded product points at a row.
+     *
+     * @return BelongsTo<PenaltyTypeModel, $this>
+     */
+    public function penaltyTypeRow(): BelongsTo
+    {
+        return $this->belongsTo(PenaltyTypeModel::class, 'penalty_type_id');
+    }
 
     /**
      * @return BelongsTo<InterestFormula, $this>
@@ -63,6 +94,20 @@ class LoanProduct extends Model
     public function interestFormula(): BelongsTo
     {
         return $this->belongsTo(InterestFormula::class);
+    }
+
+    /**
+     * What this product's rate MEANS — P2, left configurable per the client.
+     *
+     * Null is the ordinary case and means "the default basis", which is
+     * AS_CONFIGURED: the rate is used exactly as entered. Every product
+     * predating the decision carries null, and none of them is repriced by it.
+     *
+     * @return BelongsTo<InterestRateBasis, $this>
+     */
+    public function interestRateBasis(): BelongsTo
+    {
+        return $this->belongsTo(InterestRateBasis::class, 'interest_rate_basis_id');
     }
 
     /**
@@ -121,6 +166,40 @@ class LoanProduct extends Model
     public function interestRate(): Percentage
     {
         return Percentage::of($this->interest_rate);
+    }
+
+    /** Alias read by the loan engine when pricing straight from a product. */
+    public function interestRatePercentage(): Percentage
+    {
+        return $this->interestRate();
+    }
+
+    /** Origination charges, as configured on the product. */
+    public function processingFeeRate(): Percentage
+    {
+        return Percentage::of($this->processing_fee_rate ?? '0');
+    }
+
+    public function insuranceFeeRate(): Percentage
+    {
+        return Percentage::of($this->insurance_fee_rate ?? '0');
+    }
+
+    /**
+     * The commission rate this product earns, when it overrides the
+     * company-wide one. Null means "use the default" — Decision Register D7.
+     */
+    public function commissionRate(): ?Percentage
+    {
+        return $this->commission_rate === null ? null : Percentage::of($this->commission_rate);
+    }
+
+    /** The higher rate earned on money recovered after default (D7). */
+    public function recoveryCommissionRate(): ?Percentage
+    {
+        return $this->recovery_commission_rate === null
+            ? null
+            : Percentage::of($this->recovery_commission_rate);
     }
 
     /**

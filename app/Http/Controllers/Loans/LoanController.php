@@ -133,7 +133,13 @@ final class LoanController extends Controller
         $this->guard->authorizeBranchId($this->actor($request), $loan->branch_id, Loan::class);
 
         return ApiResponse::data(new LoanResource(
-            $loan->load(['customer', 'branch', 'product.interestFormula', 'repaymentSchedule', 'schedules']),
+            $loan->load([
+                'customer', 'branch', 'product.interestFormula', 'repaymentSchedule', 'schedules',
+                // The detail page shows the settlement record when there is
+                // one; loading them here is what turns `earlySettlement` from
+                // an absent key into a served answer.
+                'earlySettledBy', 'earlySettlementPayment',
+            ]),
         ));
     }
 

@@ -47,6 +47,14 @@ final class LoanResource extends JsonResource
             'status' => $this->status->value,
             'statusLabel' => $this->status->label(),
 
+            /*
+             * Where the loan sits in the approval chain. Null once it has left
+             * it — cleared through, rejected, or returned to the officer. A
+             * held loan keeps its stage, because that is where it goes back to.
+             */
+            'approvalStageId' => self::id($this->approval_stage_id),
+            'holdResumeStatus' => $this->hold_resume_status?->value,
+
             'disbursementDate' => $this->disbursement_date?->toDateString(),
             'expectedCompletionDate' => $this->expected_completion_date?->toDateString(),
             'approvedBy' => self::id($this->approved_by),
@@ -54,6 +62,30 @@ final class LoanResource extends JsonResource
             'rejectedReason' => $this->rejected_reason,
             'closedAt' => $this->closed_at?->toIso8601String(),
             'frozenUntil' => $this->frozen_until?->toDateString(),
+
+            /*
+             * Early settlement, always emitted.
+             *
+             * Flat on the loan because they describe the loan: a settled loan
+             * closed on a date, having forgiven an amount, and both belong
+             * beside `closedAt` where every consumer already looks. Null and
+             * "0.00" respectively when the loan simply ran its course, which is
+             * what distinguishes a settlement from an ordinary closure.
+             */
+            'earlySettledAt' => $this->early_settled_at?->toIso8601String(),
+            'interestWaived' => $this->interest_waived,
+
+            /*
+             * The full settlement record, when the caller loaded it.
+             *
+             * Nested rather than five more flat keys because these five facts
+             * are only meaningful together and only exist together — there is
+             * no such thing as a settlement reference on a loan that was never
+             * settled. A null block says "not settled" once, instead of five
+             * nulls saying it five times and inviting a screen to render one
+             * without the others.
+             */
+            'earlySettlement' => $this->earlySettlement(),
             'createdBy' => self::id($this->created_by),
             'createdAt' => $this->created_at?->toIso8601String(),
             'deletedAt' => $this->deleted_at?->toIso8601String(),
@@ -90,6 +122,52 @@ final class LoanResource extends JsonResource
                 fn (): Money => $this->outstandingTotal(),
                 fn (): Money => $this->due()->subtract($this->paid()),
             ),
+        ];
+    }
+
+    /**
+     * The five things a settlement screen has to show, from the record itself.
+     *
+     * Settlement date, interest waived, final amount paid, reference and
+     * officer — every one of them served, none of them derivable in the
+     * browser. `amountPaid` in particular is NOT the outstanding balance the
+     * customer had: the waiver removed part of that before the money was taken,
+     * so any figure the frontend arrived at by subtracting would be the amount
+     * owed before forgiveness, not the amount actually handed over.
+     *
+     * Null when the loan was not settled early. Absent — a MissingValue — when
+     * the caller did not load the relations, which is the same convention the
+     * schedule totals use: an omitted key means "not loaded", where a null
+     * would claim "not settled", and those are different answers.
+     *
+     * @return array<string, mixed>|MissingValue|null
+     */
+    private function earlySettlement(): array|MissingValue|null
+    {
+        if (! $this->relationLoaded('earlySettledBy') && ! $this->relationLoaded('earlySettlementPayment')) {
+            return new MissingValue;
+        }
+
+        if ($this->early_settled_at === null) {
+            return null;
+        }
+
+        $payment = $this->earlySettlementPayment;
+        $officer = $this->earlySettledBy;
+
+        return [
+            'settledAt' => $this->early_settled_at->toIso8601String(),
+            'interestWaived' => $this->interest_waived,
+            /*
+             * Null, not "0.00", when the waiver alone settled the loan. A loan
+             * whose whole remaining balance was unearned interest took no
+             * money, and a zero here would read as "the customer paid nothing"
+             * rather than "there was nothing left to pay".
+             */
+            'amountPaid' => $payment?->amount,
+            'reference' => $payment?->payment_reference,
+            'officerId' => self::id($this->early_settled_by),
+            'officerName' => $officer?->name,
         ];
     }
 

@@ -24,7 +24,12 @@ function installment(int $number, string $principal, string $interest, string $p
 {
     $schedule = new LoanSchedule([
         'installment_number' => $number,
-        'due_date' => now()->addDays($number * 7)->toDateString(),
+        /*
+         * Past-dated, in installment order. An installment is only settled once
+         * it has fallen due — see PaymentAllocator — so these fixtures have to
+         * be payable for the allocation rule to be what is under test.
+         */
+        'due_date' => now()->subDays(400 - $number * 7)->toDateString(),
         'principal_due' => $principal,
         'interest_due' => $interest,
         'penalty_due' => $penalty,
@@ -48,25 +53,31 @@ function allocate(string $amount, array $schedules): App\Domain\Repayments\DTOs\
     return (new PaymentAllocator)->allocate(Money::of($amount), collect($schedules));
 }
 
-it('takes penalty before interest and interest before principal', function (): void {
+it('takes penalty before principal and principal before interest', function (): void {
+    /*
+     * The client-confirmed order: Penalty → Advance → Principal → Interest.
+     * This assertion previously read Penalty → Interest → Principal, which was
+     * the reading carried while P1 was open. P1 is now closed and principal
+     * comes first.
+     */
     $result = allocate('7000.00', [installment(1, '10000.00', '2000.00', '5000.00')]);
 
     $line = $result->lines[0];
 
     expect($line->penalty->toDecimalString())->toBe('5000.00')
-        ->and($line->interest->toDecimalString())->toBe('2000.00')
-        ->and($line->principal->toDecimalString())->toBe('0.00');
+        ->and($line->principal->toDecimalString())->toBe('2000.00')
+        ->and($line->interest->toDecimalString())->toBe('0.00');
 });
 
 it('stops mid-priority when the money runs out', function (): void {
-    // 3,000 covers the penalty and only half the interest.
+    // 3,000 covers the penalty and then bites into PRINCIPAL, not interest.
     $result = allocate('3000.00', [installment(1, '10000.00', '2000.00', '2000.00')]);
 
     $line = $result->lines[0];
 
     expect($line->penalty->toDecimalString())->toBe('2000.00')
-        ->and($line->interest->toDecimalString())->toBe('1000.00')
-        ->and($line->principal->toDecimalString())->toBe('0.00')
+        ->and($line->principal->toDecimalString())->toBe('1000.00')
+        ->and($line->interest->toDecimalString())->toBe('0.00')
         ->and($result->unallocated->isZero())->toBeTrue();
 });
 
@@ -79,10 +90,10 @@ it('clears the oldest installment entirely before touching the next', function (
     expect($result->lines)->toHaveCount(2)
         // The first installment is fully cleared: 12,000.
         ->and($result->lines[0]->total()->toDecimalString())->toBe('12000.00')
-        // The remaining 1,000 goes to the second installment's interest, not
-        // its principal.
-        ->and($result->lines[1]->interest->toDecimalString())->toBe('1000.00')
-        ->and($result->lines[1]->principal->toDecimalString())->toBe('0.00');
+        // The remaining 1,000 goes to the second installment's PRINCIPAL —
+        // interest is last under the confirmed order.
+        ->and($result->lines[1]->principal->toDecimalString())->toBe('1000.00')
+        ->and($result->lines[1]->interest->toDecimalString())->toBe('0.00');
 });
 
 it('walks in installment order regardless of the order given', function (): void {
@@ -102,9 +113,15 @@ it('accounts for what has already been paid', function (): void {
         installment(2, '10000.00', '2000.00'),
     ]);
 
+    /*
+     * 5,000 against an installment owing 2,000 of principal and nothing else,
+     * then a fresh one. Principal first throughout: 2,000 clears #1, and the
+     * remaining 3,000 all lands on #2's principal — interest is reached last
+     * and there is nothing left for it.
+     */
     expect($result->lines[0]->principal->toDecimalString())->toBe('2000.00')
-        ->and($result->lines[1]->interest->toDecimalString())->toBe('2000.00')
-        ->and($result->lines[1]->principal->toDecimalString())->toBe('1000.00');
+        ->and($result->lines[1]->principal->toDecimalString())->toBe('3000.00')
+        ->and($result->lines[1]->interest->toDecimalString())->toBe('0.00');
 });
 
 it('skips an installment that is already settled', function (): void {

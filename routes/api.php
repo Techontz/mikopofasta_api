@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Accounting\AccountingPeriodController;
+use App\Http\Controllers\Accounting\ReserveUtilisationController;
 use App\Http\Controllers\Admin\SystemConfigurationController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
@@ -9,6 +11,7 @@ use App\Http\Controllers\Customers\CustomerCategoryController;
 use App\Http\Controllers\Customers\CustomerController;
 use App\Http\Controllers\Customers\CustomerDocumentController;
 use App\Http\Controllers\Customers\CustomerRelationController;
+use App\Http\Controllers\Customers\FaceScanController;
 use App\Http\Controllers\Customers\GroupController;
 use App\Http\Controllers\Customers\KycController;
 use App\Http\Controllers\Expenses\ExpenseCategoryController;
@@ -21,16 +24,23 @@ use App\Http\Controllers\Hr\StaffPayController;
 use App\Http\Controllers\Ledger\LedgerController;
 use App\Http\Controllers\Loans\ChargeRegisterController;
 use App\Http\Controllers\Loans\DisbursementCallbackController;
+use App\Http\Controllers\Loans\EarlySettlementController;
+use App\Http\Controllers\Loans\LoanApprovalController;
 use App\Http\Controllers\Loans\LoanChargeController;
 use App\Http\Controllers\Loans\LoanConfigurationController;
 use App\Http\Controllers\Loans\LoanController;
 use App\Http\Controllers\Loans\LoanProductController;
+use App\Http\Controllers\Loans\LoanRecoveryController;
+use App\Http\Controllers\Loans\LoanSchedulePreviewController;
+use App\Http\Controllers\MasterData\MasterDataController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyProfileController;
 use App\Http\Controllers\Organization\GeographyController;
+use App\Http\Controllers\Organization\OrganizationStructureController;
 use App\Http\Controllers\Organization\RegionController;
 use App\Http\Controllers\Organization\ZoneController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\Repayments\CashDepositController;
 use App\Http\Controllers\Repayments\PaymentController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\RoleController;
@@ -54,15 +64,29 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/health', function (): JsonResponse {
+Route::get('/health', function (App\Domain\Ledger\Services\SystemActor $system): JsonResponse {
+    /*
+     * Readiness, not just liveness.
+     *
+     * An installation missing its System account answers requests perfectly
+     * well until the first automated posting, then fails every one of them. A
+     * health check that said "ok" up to that moment would be telling a load
+     * balancer to send traffic to an instance that cannot do half its job.
+     *
+     * Reported rather than thrown: this endpoint's purpose is to describe the
+     * platform's state, so it is the one caller that must not fail on it.
+     */
+    $ready = $system->isInitialised();
+
     return response()->json([
         'data' => [
             'service' => config('app.name'),
             'api_version' => 'v1',
             'environment' => config('app.env'),
-            'status' => 'ok',
+            'status' => $ready ? 'ok' : 'not_ready',
+            'systemAccount' => $ready ? 'initialized' : 'missing',
         ],
-    ]);
+    ], $ready ? 200 : 503);
 })->name('health');
 
 /*
@@ -141,6 +165,22 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     // Declared before the {branch} resource routes so "hierarchy" is not
     // captured as a branch id.
+    /*
+     * The enterprise structure — Super Admin → Head Office → Zones → Branches.
+     *
+     * `/structure` is the Super Admin console's governance view and needs
+     * `admin.org_settings`; `/me` tells any authenticated user where they sit
+     * and what they supervise, which is not privileged information about
+     * themselves.
+     *
+     * Declared before the {branch} routes so neither path is captured as a
+     * branch id.
+     */
+    Route::get('/organization/structure', [OrganizationStructureController::class, 'structure'])
+        ->name('organization.structure');
+    Route::get('/organization/me', [OrganizationStructureController::class, 'me'])
+        ->name('organization.me');
+
     Route::get('/branches/hierarchy', [BranchController::class, 'hierarchy'])->name('branches.hierarchy');
     Route::post('/branches/{branch}/head-office', [BranchController::class, 'setHeadOffice'])
         ->name('branches.head-office');
@@ -148,6 +188,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::apiResource('zones', ZoneController::class);
     Route::apiResource('regions', RegionController::class);
+
+    /*
+     * Admin-managed lookup lists — the source for every dropdown in the ERP.
+     *
+     * Reads are open to any authenticated user because the registration form
+     * needs them; writes check `admin.org_settings` inside the controller. The
+     * list name is a path segment, resolved against a fixed map, so an unknown
+     * one 404s before touching the database. See MasterDataController.
+     */
+    Route::get('/master-data/{list}', [MasterDataController::class, 'index'])->name('master-data.index');
+    Route::post('/master-data/{list}', [MasterDataController::class, 'store'])->name('master-data.store');
+    Route::put('/master-data/{list}/{id}', [MasterDataController::class, 'update'])->name('master-data.update');
+    Route::delete('/master-data/{list}/{id}', [MasterDataController::class, 'destroy'])->name('master-data.destroy');
 
     Route::get('/company-profile', [CompanyProfileController::class, 'show'])->name('company-profile.show');
     Route::put('/company-profile', [CompanyProfileController::class, 'update'])->name('company-profile.update');
@@ -179,14 +232,25 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
 
     Route::get('/customers/{customer}/kyc-status', [CustomerController::class, 'kycStatus'])->name('customers.kyc-status');
+    /* The freeze history — who froze this account, when, why, and whether it
+       is still in force. Written since Phase 4; nothing could read it back. */
+    Route::get('/customers/{customer}/freezes', [CustomerController::class, 'freezes'])->name('customers.freezes');
     Route::post('/customers/{customer}/additional-data', [KycController::class, 'additionalData'])->name('customers.additional-data');
     Route::put('/customers/{customer}/category', [KycController::class, 'assignCategory'])->name('customers.category');
     Route::post('/customers/{customer}/face-verify', [KycController::class, 'faceVerify'])->name('customers.face-verify');
+
+    /* Face KYC history. Scans are never overwritten, so the profile needs to
+       read the ones a re-scan superseded as well as the active one. */
+    Route::get('/customers/{customer}/face-scans', [FaceScanController::class, 'index'])->name('customers.face-scans.index');
+    Route::get('/customers/{customer}/face-scans/{faceScan}/audit', [FaceScanController::class, 'audit'])->name('customers.face-scans.audit');
 
     Route::post('/customers/{customer}/approve', [CustomerController::class, 'approve'])->name('customers.approve');
     Route::post('/customers/{customer}/reject', [CustomerController::class, 'reject'])->name('customers.reject');
     Route::post('/customers/{customer}/freeze', [CustomerController::class, 'freeze'])->name('customers.freeze');
     Route::post('/customers/{customer}/unfreeze', [CustomerController::class, 'unfreeze'])->name('customers.unfreeze');
+    /* The profile's save. Every field entered at registration is correctable
+       here; status and the KYC timestamps deliberately are not. */
+    Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
     Route::patch('/customers/{customer}/status', [CustomerController::class, 'setStatus'])->name('customers.status');
 
     Route::get('/customers/{customer}/documents', [CustomerDocumentController::class, 'index'])->name('customers.documents.index');
@@ -326,6 +390,42 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('reserve-setting.update');
 
     /*
+    |--------------------------------------------------------------------------
+    | Month-end close and the Reserve fund — Decision Register D1
+    |--------------------------------------------------------------------------
+    |
+    | D1 moved the reserve off the repayment path. It is now calculated from
+    | realised profit during the close, requires Admin approval to spend, and
+    | belongs to Headquarters rather than to any branch.
+    |
+    | The two reserve grants are deliberately held by different roles: Finance
+    | raises a utilisation request, Admin decides it, and AccountingPolicy
+    | additionally refuses a decision by the person who raised it (§14).
+    |
+    | The close is idempotency-protected — running it twice would recognise a
+    | month's profit twice and appropriate its reserve twice — and the preview
+    | exists because there is no reopen.
+    |
+    */
+    Route::get('/accounting/periods', [AccountingPeriodController::class, 'index'])
+        ->name('accounting.periods.index');
+    Route::get('/accounting/periods/{period}/preview', [AccountingPeriodController::class, 'preview'])
+        ->name('accounting.periods.preview');
+    Route::post('/accounting/periods/close', [AccountingPeriodController::class, 'close'])
+        ->middleware('idempotency')
+        ->name('accounting.periods.close');
+
+    Route::get('/reserve/utilisations', [ReserveUtilisationController::class, 'index'])
+        ->name('reserve.utilisations.index');
+    Route::post('/reserve/utilisations', [ReserveUtilisationController::class, 'store'])
+        ->name('reserve.utilisations.store');
+    Route::post('/reserve/utilisations/{utilisation}/approve', [ReserveUtilisationController::class, 'approve'])
+        ->middleware('idempotency')
+        ->name('reserve.utilisations.approve');
+    Route::post('/reserve/utilisations/{utilisation}/reject', [ReserveUtilisationController::class, 'reject'])
+        ->name('reserve.utilisations.reject');
+
+    /*
      * Capital (sidebar → Capital). Reads behind treasury.view, writes behind
      * treasury.manage, enforced by CapitalPolicy. See docs/modules/capital.md.
      */
@@ -411,6 +511,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/loans/check-eligibility', [LoanController::class, 'checkEligibility'])
         ->name('loans.check-eligibility');
 
+    /*
+     * What a product would produce, priced by the engine.
+     *
+     * The application form used to compute this in the browser from a copy of
+     * the formulas. One implementation of the arithmetic, and the officer's
+     * preview is the schedule the customer will actually owe.
+     */
+    Route::post('/loans/schedule-preview', LoanSchedulePreviewController::class)
+        ->name('loans.schedule-preview');
+
     Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');
     Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
     Route::get('/loans/{loan}', [LoanController::class, 'show'])->name('loans.show');
@@ -419,6 +529,26 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/loans/{loan}/history', [LoanController::class, 'history'])->name('loans.history');
     Route::get('/loans/{loan}/topup-eligibility', [LoanController::class, 'topupEligibility'])
         ->name('loans.topup-eligibility');
+
+    /*
+     * The approval chain — Branch Manager → Zone Manager → Head Office Credit.
+     *
+     * One decision endpoint for all four of the client's decisions (Approve,
+     * Reject, Return for Modification, Hold) plus Release. Authorization is not
+     * a route middleware here because the permission required depends on which
+     * STAGE the loan is at, which is a database row — LoanApprovalWorkflow
+     * decides, and the GET reports the same answer so the UI and the API agree
+     * on what is offered.
+     *
+     * `approve-manager` is kept as the named entry point for stage one: the
+     * existing route, frontend action and tests all speak to it, and it now
+     * delegates to the same implementation.
+     */
+    Route::get('/loans/{loan}/approval', [LoanApprovalController::class, 'show'])->name('loans.approval.show');
+    Route::post('/loans/{loan}/approval/decide', [LoanApprovalController::class, 'decide'])
+        ->name('loans.approval.decide');
+    Route::post('/loans/{loan}/approval/resubmit', [LoanApprovalController::class, 'resubmit'])
+        ->name('loans.approval.resubmit');
 
     // The §10 workflow, in order.
     Route::post('/loans/{loan}/approve-manager', [LoanController::class, 'decide'])->name('loans.approve-manager');
@@ -435,8 +565,43 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // there is one place a loan becomes active and one place it is posted.
     Route::post('/loans/{loan}/settle-disbursement', [DisbursementCallbackController::class, 'settle'])
         ->name('loans.settle-disbursement');
+    /*
+     * "Close Loan Early" — client Decision 1, Option B.
+     *
+     * Deliberately NOT the same as paying the balance off. Paying ahead holds
+     * the money as an advance and leaves the schedule alone (Option A); this is
+     * the officer choosing to close the loan, which waives unearned interest
+     * and cancels the remaining installments. Two different customer outcomes,
+     * two different endpoints, and its own `loans.settle_early` grant.
+     */
+    Route::get('/loans/{loan}/early-settlement', [EarlySettlementController::class, 'quote'])
+        ->name('loans.early-settlement.quote');
+    Route::post('/loans/{loan}/early-settlement', [EarlySettlementController::class, 'settle'])
+        ->name('loans.early-settlement.settle');
+
     Route::post('/loans/{loan}/close', [LoanController::class, 'close'])->name('loans.close');
     Route::post('/loans/{loan}/cancel', [LoanController::class, 'cancel'])->name('loans.cancel');
+
+    /*
+     * Bad debt — §5's Write-Off (4200) and Recovered Loans (4300).
+     *
+     * Two grants of their own, `loans.write_off` and `loans.recover`, rather
+     * than riding on `loans.approve`: the role that originates a loan must not
+     * be the role that can forgive it.
+     *
+     * Both are idempotency-protected. A retried write-off would double the
+     * expense and halve an already-cleared receivable; a retried recovery would
+     * recognise the same income twice.
+     */
+    Route::get('/write-offs', [LoanRecoveryController::class, 'index'])->name('write-offs.index');
+    Route::post('/loans/{loan}/write-off', [LoanRecoveryController::class, 'writeOff'])
+        ->middleware('idempotency')
+        ->name('loans.write-off');
+    Route::post('/loans/{loan}/recovery', [LoanRecoveryController::class, 'recover'])
+        ->middleware('idempotency')
+        ->name('loans.recovery.store');
+    Route::get('/loans/{loan}/recoveries', [LoanRecoveryController::class, 'recoveries'])
+        ->name('loans.recoveries.index');
 
     /*
     |--------------------------------------------------------------------------
@@ -456,6 +621,24 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('idempotency')
         ->name('payments.cash');
     Route::post('/payments/unmatched', [PaymentController::class, 'unmatched'])->name('payments.unmatched');
+
+    /*
+     * Bank reconciliation — §15.3, and the transition nothing could previously
+     * make. Until this shipped, no payment in the system had ever reached
+     * `confirmed`, which is what forced OSC-7.
+     *
+     * Split across the two grants §14 already separates: a teller records a
+     * deposit under `repayments.cash_entry`, and only Finance confirms one
+     * under `repayments.reconcile`. `/unbanked` is declared before the
+     * `{deposit}` route so it is not read as an id.
+     */
+    Route::get('/cash-deposits/unbanked', [CashDepositController::class, 'unbanked'])
+        ->name('cash-deposits.unbanked');
+    Route::get('/cash-deposits', [CashDepositController::class, 'index'])->name('cash-deposits.index');
+    Route::post('/cash-deposits', [CashDepositController::class, 'store'])->name('cash-deposits.store');
+    Route::post('/cash-deposits/{deposit}/reconcile', [CashDepositController::class, 'reconcile'])
+        ->middleware('idempotency')
+        ->name('cash-deposits.reconcile');
 
     Route::post('/payments/suspense/{item}/allocate', [PaymentController::class, 'allocateSuspense'])
         ->name('payments.suspense.allocate');
@@ -707,4 +890,9 @@ Route::middleware('signed')->group(function (): void {
 
     Route::get('/customers/{customer}/photo', [CustomerDocumentController::class, 'photo'])
         ->name('customers.photo');
+
+    /* Every scan in the history, current and superseded. An <img> cannot carry
+       a bearer token, so the signature is the credential here too. */
+    Route::get('/customers/{customer}/face-scans/{faceScan}/image', [FaceScanController::class, 'image'])
+        ->name('customers.face-scans.image');
 });

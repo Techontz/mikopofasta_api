@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Repayments;
 
+use App\Domain\Ledger\Services\SystemActor;
 use App\Domain\Organization\Services\BranchScope;
 use App\Domain\Organization\Services\BranchScopeGuard;
 use App\Domain\Repayments\Actions\ReceiveInboundPaymentAction;
@@ -25,7 +26,6 @@ use App\Http\Resources\SuspenseItemResource;
 use App\Models\Loan;
 use App\Models\Payment;
 use App\Models\SuspenseItem;
-use App\Models\User;
 use App\Support\ApiResponse;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
@@ -44,6 +44,7 @@ final class PaymentController extends Controller
     public function __construct(
         private readonly BranchScope $scope,
         private readonly BranchScopeGuard $guard,
+        private readonly SystemActor $system,
     ) {}
 
     /**
@@ -237,7 +238,13 @@ final class PaymentController extends Controller
      */
     public function webhook(InboundPaymentRequest $request, ReceiveInboundPaymentAction $action): JsonResponse
     {
-        $systemUser = User::query()->orderBy('id')->firstOrFail();
+        /*
+         * The webhook is not a person. It used to be attributed to "whichever
+         * user happens to have the lowest id", which put a real employee's name
+         * against every provider callback in the system. Client Decision 4
+         * settled it: automated work runs as the dedicated System account.
+         */
+        $systemUser = $this->system->resolve();
 
         $result = $action->handle(
             reference: (string) $request->validated('reference'),

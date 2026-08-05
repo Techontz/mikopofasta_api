@@ -41,7 +41,7 @@ final class StoreUserRequest extends FormRequest
 
             'email' => ['nullable', 'email', 'max:150', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:6'],
-            'role' => ['required', 'string', Rule::in(RoleName::values())],
+            'role' => ['required', 'string', Rule::in(RoleName::assignable())],
 
             // Existence is validated now that the organization tables exist
             // (Phase 3). These columns also carry real FK constraints, so an

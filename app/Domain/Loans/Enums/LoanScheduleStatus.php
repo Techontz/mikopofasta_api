@@ -12,6 +12,16 @@ enum LoanScheduleStatus: string
     case Paid = 'paid';
     case Overdue = 'overdue';
 
+    /*
+     * Cancelled by an early settlement — client Decision 1, Option B.
+     *
+     * The installment was never billed and never will be: the borrower handed
+     * the money back before the period it covered. Distinct from `paid`,
+     * because nobody paid it, and distinct from deleting the row, because the
+     * schedule the customer agreed to should still be readable afterwards.
+     */
+    case Cancelled = 'cancelled';
+
     /** @return list<string> */
     public static function values(): array
     {

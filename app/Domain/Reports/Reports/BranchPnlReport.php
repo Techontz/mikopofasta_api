@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Reports\Reports;
 
-use App\Domain\Ledger\Enums\AccountType;
 use App\Domain\Reports\Contracts\Report;
 use App\Domain\Reports\DTOs\ReportColumn;
 use App\Domain\Reports\DTOs\ReportFilters;
@@ -103,15 +102,17 @@ final class BranchPnlReport implements Report
      */
     private function figuresFor(Branch $branch, ReportFilters $filters): array
     {
-        // The branch is fixed by the row, not by the caller's filter; the date
-        // window still applies, so a period-scoped P&L is genuinely scoped.
-        $scoped = $filters->forBranch((int) $branch->getKey());
-        $trial = $this->sources->trialBalance($scoped);
-
-        return [
-            $this->sources->balanceOfTypeFrom($trial, AccountType::Income),
-            $this->sources->balanceOfTypeFrom($trial, AccountType::Expense),
-        ];
+        /*
+         * The branch is fixed by the row, not by the caller's filter.
+         *
+         * `periodIncomeExpense` rather than the trial balance: a P&L asks what
+         * the period earned. The trial balance is cumulative to a date, so it
+         * answered "everything since inception up to the end of the window" —
+         * `from` and `period` were accepted and then ignored. It also counts
+         * the month-end close's sweep, which would report a closed period as
+         * having earned nothing at all.
+         */
+        return $this->sources->periodIncomeExpense($filters->forBranch((int) $branch->getKey()));
     }
 
     private function branchType(Branch $branch): string

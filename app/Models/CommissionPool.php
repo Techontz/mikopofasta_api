@@ -31,7 +31,8 @@ class CommissionPool extends Model
 {
     /** @var list<string> */
     protected $fillable = [
-        'branch_id', 'period', 'branch_profit', 'loss_carry_forward', 'hq_hold_amount',
+        'branch_id', 'period', 'branch_profit', 'reserve_appropriation',
+        'loss_carry_forward', 'hq_hold_amount',
         'distributable_profit', 'pool_percentage', 'pool_amount',
     ];
 

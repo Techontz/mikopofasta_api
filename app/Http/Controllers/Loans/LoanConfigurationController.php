@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\DB;
  * Formulas and Settings → Repayment Schedules. Reading stays here because the
  * loan application form is the main caller and these are its lookups.
  *
- * A formula's `code` is what LoanScheduleGenerator switches on, so a fourth
+ * A formula's `code` is resolved to a strategy by InterestStrategyRegistry, so a fourth
  * formula would be a row no calculation knows how to honour: only its name and
  * description are editable, and there is no create or delete. A schedule's
  * `frequency_days` is a number the generator divides by rather than a branch,

@@ -23,8 +23,18 @@ final class InterestFormulaResource extends JsonResource
         return [
             'id' => (string) $this->id,
             'name' => $this->name,
-            'code' => $this->code->value,
+            'code' => $this->code,
             'description' => $this->description,
+
+            /*
+             * Which formula a new product should start on — client Decision 2.
+             *
+             * Served rather than hardcoded in the form, so changing the default
+             * is a row update and the two sides cannot disagree about what the
+             * default is.
+             */
+            'isDefault' => (bool) $this->is_default,
+
             'deletedAt' => $this->deleted_at?->toIso8601String(),
 
             // How many products compute interest this way. Settings → Interest

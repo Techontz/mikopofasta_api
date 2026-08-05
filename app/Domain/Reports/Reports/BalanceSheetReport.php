@@ -117,14 +117,30 @@ final class BalanceSheetReport implements Report
             ];
         }
 
-        // Income less expense — the profit the books have never closed out.
+        /*
+         * Income less expense — earnings that have NOT been closed out.
+         *
+         * Deliberately still cumulative and still counting the close's own
+         * entries, unlike every P&L-shaped read in the system. A balance sheet
+         * is a position, not a period, and the close is a real movement of
+         * equity that the position must reflect.
+         *
+         * What this figure means changed when Decision Register D1 introduced
+         * the month-end close: it is now only what has accumulated since the
+         * last close. Everything closed has already moved into the Profit
+         * account (3100, an Equity account), so it is counted once in the Equity
+         * subtotal above and must not be counted again here. The total is
+         * unaffected either way — the close is a balanced entry — but the label
+         * would otherwise claim earnings were retained when they had been
+         * recognised.
+         */
         $retained = $this->sources->balanceOfTypeFrom($trial, AccountType::Income)
             ->subtract($this->sources->balanceOfTypeFrom($trial, AccountType::Expense));
 
         $rows[] = [
             'section' => 'Equity',
             'code' => '',
-            'account' => 'Retained earnings (income less expense)',
+            'account' => 'Current earnings, not yet closed (income less expense)',
             'amount' => $retained->toDecimalString(),
         ];
 

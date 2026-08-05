@@ -43,7 +43,9 @@ use Illuminate\Support\Facades\Date;
 final class StaffSeeder extends Seeder
 {
     /**
-     * The frontend's salary bands (lib/mock-data/staff-profiles.ts).
+     * The legacy system's salary bands, transcribed from the frontend's demo
+     * roster before that fixture was removed. This seeder is now their only
+     * home — the frontend reads staff from the API.
      */
     private const string HQ_SALARY = '1800000.00';
 

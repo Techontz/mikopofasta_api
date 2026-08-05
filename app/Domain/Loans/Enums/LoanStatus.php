@@ -14,6 +14,29 @@ enum LoanStatus: string
 {
     case Draft = 'draft';
     case PendingManagerApproval = 'pending_manager_approval';
+
+    /*
+     * The zone tier of the client's approval chain — Loan Officer → Branch
+     * Manager → Zone Manager → Head Office Credit. Between the branch and the
+     * credit decision, which is where the organisation chart already puts it.
+     */
+    case PendingZoneApproval = 'pending_zone_approval';
+
+    /*
+     * Sent back to the originating officer to correct. Deliberately NOT
+     * `draft`: an application that was reviewed and returned is a different
+     * thing from one never submitted, and collapsing the two would hide every
+     * rework loop from the queues and from the officer's own record.
+     */
+    case ReturnedForModification = 'returned_for_modification';
+
+    /*
+     * Paused at whatever stage it had reached, pending something outside the
+     * system. `loans.hold_resume_status` remembers where to put it back, so a
+     * hold costs the applicant time and not their place in the queue.
+     */
+    case OnHold = 'on_hold';
+
     case Rejected = 'rejected';
     case MandatePendingOtp = 'mandate_pending_otp';
     case MandateFailed = 'mandate_failed';
@@ -37,6 +60,9 @@ enum LoanStatus: string
         return match ($this) {
             self::Draft => 'Draft',
             self::PendingManagerApproval => 'Pending Manager Approval',
+            self::PendingZoneApproval => 'Pending Zone Approval',
+            self::ReturnedForModification => 'Returned for Modification',
+            self::OnHold => 'On Hold',
             self::Rejected => 'Rejected',
             self::MandatePendingOtp => 'Mandate — Pending OTP',
             self::MandateFailed => 'Mandate Failed',
@@ -76,10 +102,27 @@ enum LoanStatus: string
     public function isOrigination(): bool
     {
         return in_array($this, [
-            self::Draft, self::PendingManagerApproval,
+            self::Draft, self::PendingManagerApproval, self::PendingZoneApproval,
+            self::ReturnedForModification, self::OnHold,
             self::MandatePendingOtp, self::MandateFailed, self::MandateActive,
             self::PendingCreditReview, self::PendingFinance,
             self::AwaitingDisbursement, self::DisbursementFailed, self::Escalated,
+        ], true);
+    }
+
+    /**
+     * Waiting on a human decision in the approval chain.
+     *
+     * `on_hold` and `returned_for_modification` are excluded deliberately:
+     * neither is waiting on an approver. A held loan is waiting on whatever the
+     * approver paused it for, and a returned one is waiting on the officer.
+     * Counting either as a pending approval would make every approver's queue
+     * read longer than the work actually in front of them.
+     */
+    public function isAwaitingApproval(): bool
+    {
+        return in_array($this, [
+            self::PendingManagerApproval, self::PendingZoneApproval, self::PendingCreditReview,
         ], true);
     }
 

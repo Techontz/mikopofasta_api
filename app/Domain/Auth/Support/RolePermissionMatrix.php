@@ -54,6 +54,14 @@ final class RolePermissionMatrix
                 P::HrView, P::HrManage, P::PayrollGenerate,
                 P::ReportsView,
                 P::AdminOrgSettings, P::BranchesViewAll, P::UsersManage, P::RolesView,
+
+                /*
+                 * Decision Register D1: "Reserve transfers require Admin
+                 * approval." Admin approves and does not propose — Finance
+                 * raises the request, and an approver who could also raise one
+                 * would be approving their own.
+                 */
+                P::ReserveApprove,
             ],
 
             RoleName::Finance => [
@@ -65,6 +73,18 @@ final class RolePermissionMatrix
                 P::PayrollFinalize,
                 P::ReportsView,
                 P::BranchesViewAll,
+
+                /*
+                 * Finance closes the books, proposes uses of the Reserve, and
+                 * takes bad debt off the book. It cannot approve its own
+                 * reserve request — that grant sits with Admin (D1).
+                 */
+                P::AccountingPeriodClose,
+                P::ReserveRequest,
+                P::LoansWriteOff, P::LoansRecover,
+
+                // Closing a settled loan on the book is a money decision.
+                P::LoansSettleEarly,
             ],
 
             RoleName::BranchManager => [
@@ -72,6 +92,14 @@ final class RolePermissionMatrix
                 P::LoansView, P::LoansCreate, P::LoansApprove,
                 P::RepaymentsView,
                 P::ReportsView,
+
+                // Stage one of the approval chain: may clear, and may pause or
+                // return an incomplete file rather than having to reject it.
+                P::LoansHold,
+
+                // A customer settling at the branch counter should not have to
+                // wait on Head Office to close their loan.
+                P::LoansSettleEarly,
             ],
 
             RoleName::LoanOfficer => [
@@ -85,6 +113,10 @@ final class RolePermissionMatrix
                 P::CustomersView,
                 P::LoansView, P::LoansCreditReview,
                 P::ReportsView,
+
+                // The client's four decisions at the credit stage. Hold and
+                // return, not approve: clearing credit is still `credit_review`.
+                P::LoansHold,
             ],
 
             RoleName::Hr => [
@@ -92,7 +124,21 @@ final class RolePermissionMatrix
                 P::ReportsView,
             ],
 
-            RoleName::ZoneManager, RoleName::RegionalManager => [
+            /*
+             * Stage two of the approval chain. `loans.zone_approve` is the Zone
+             * Manager's alone — a Regional Manager oversees performance and is
+             * not in the chain the client specified, so giving both the grant
+             * would put a tier in the chain nobody asked for.
+             */
+            RoleName::ZoneManager => [
+                P::CustomersView,
+                P::LoansView, P::LoansZoneApprove, P::LoansHold,
+                P::RepaymentsView,
+                P::ReportsView,
+                P::BranchesViewAll,
+            ],
+
+            RoleName::RegionalManager => [
                 P::CustomersView,
                 P::LoansView,
                 P::RepaymentsView,
@@ -107,6 +153,95 @@ final class RolePermissionMatrix
 
             // Read-only, cross-branch by design: an auditor sees everything
             // financial but holds no manage/approve/finalize/reverse grant.
+            /*
+             * The Head Office as an operational office.
+             *
+             * Runs the centre: approves loans like a Branch Manager, sees the
+             * whole institution (no zone or region pins it, so BranchScope
+             * resolves to every branch), and oversees staff. It does NOT hold
+             * the money grants — disbursement is Finance's and the close is the
+             * Accountant's, because separation of duties does not stop applying
+             * because somebody is senior.
+             *
+             * Nor does it hold `loans.review_cross_branch`. §13/§14 Decision 1
+             * is absolute that cross-branch review is never implied by scope or
+             * seniority and is always an explicit per-user grant — seeing every
+             * branch and being allowed to ACT on every branch are different
+             * things, and this role is exactly the one that would blur them.
+             */
+            RoleName::HeadOfficeManager => [
+                P::CustomersView, P::CustomersManage, P::CustomersApprove,
+                P::LoansView, P::LoansCreate, P::LoansApprove, P::LoansHold, P::LoansSettleEarly,
+                P::RepaymentsView,
+                P::LedgerView,
+                P::TreasuryView,
+                P::HrView,
+                P::ReportsView,
+                P::BranchesViewAll,
+            ],
+
+            /*
+             * The books, and nothing that decides who gets money.
+             *
+             * Ledger, reconciliation and the period close — the work Finance
+             * was carrying alone. No `loans.approve`, no `loans.disburse`: an
+             * accountant who could also authorise the payment they then record
+             * is the oldest control failure there is.
+             */
+            RoleName::Accountant => [
+                P::CustomersView,
+                P::LoansView,
+                P::RepaymentsView, P::RepaymentsManage, P::RepaymentsReconcile,
+                P::LedgerView, P::LedgerReverseRequest,
+                P::TreasuryView,
+                P::AccountingPeriodClose,
+                P::ReportsView,
+            ],
+
+            /*
+             * The counter. Takes money in and banks it.
+             *
+             * Distinct from Teller: a teller records a payment against a loan,
+             * a cashier also runs the till and the deposits. Neither may
+             * confirm their own cash — `repayments.reconcile` is the
+             * Accountant's, so the person holding the cash is never the person
+             * who agrees it reached the bank.
+             */
+            RoleName::Cashier => [
+                P::CustomersView,
+                P::LoansView,
+                P::RepaymentsView, P::RepaymentsCashEntry,
+                P::TreasuryView,
+            ],
+
+            /*
+             * Arrears and bad debt. Records what comes back; cannot forgive
+             * what does not — `loans.write_off` stays with Finance, so the
+             * officer chasing a debt is not the one who can make it disappear.
+             */
+            RoleName::RecoveryOfficer => [
+                P::CustomersView,
+                P::LoansView,
+                P::RepaymentsView, P::RepaymentsCashEntry,
+                P::LoansRecover,
+                P::ReportsView,
+            ],
+
+            /*
+             * Enquiries and record upkeep. Sees the book and decides nothing on
+             * it — no approval, no cash, no ledger.
+             */
+            RoleName::CustomerCare => [
+                P::CustomersView, P::CustomersManage,
+                P::LoansView,
+                P::RepaymentsView,
+            ],
+
+            /*
+             * Deliberately empty — client Decision 4. See RoleName::System.
+             */
+            RoleName::System => [],
+
             RoleName::Auditor => [
                 P::CustomersView,
                 P::LoansView,

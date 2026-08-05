@@ -4,131 +4,59 @@ declare(strict_types=1);
 
 namespace App\Domain\Loans\Actions;
 
-use App\Domain\Loans\DTOs\ScheduleRequest;
-use App\Domain\Loans\Enums\EMandateStatus;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Exceptions\LoanStateException;
-use App\Domain\Loans\Services\LoanScheduleGenerator;
-use App\Domain\Loans\Services\LoanStateMachine;
-use App\Enums\AuditAction;
 use App\Models\Loan;
 use App\Models\User;
-use App\Services\AuditLogger;
-use Illuminate\Support\Facades\Date;
-use Illuminate\Support\Facades\DB;
 
 /**
- * POST /loans/{loan}/approve-manager — the manager's decision (§15.2).
+ * POST /loans/{loan}/approve-manager — the branch manager's decision (§15.2).
  *
- * Approval is where the repayment schedule is generated. §6 is explicit that
- * this is pure computation with no ledger involvement: the ledger is not
- * touched until a disbursement batch actually succeeds.
+ * ## What changed, and why this class still exists
  *
- * Separation of duties (§14): the officer who raised the application can never
- * record its approval. That is enforced here, not merely hidden in the UI.
+ * The chain the client specified has four tiers, not one:
+ *
+ *     Loan Officer → Branch Manager → Zone Manager → Head Office Credit → Disbursement
+ *
+ * so the manager's approval is now stage ONE of a chain rather than the whole
+ * of it, and every stage offers the same four decisions. All of that lives in
+ * RecordApprovalDecisionAction, which is the single implementation.
+ *
+ * This class is kept as the manager stage's named entry point because the
+ * existing route, the existing frontend action and the existing tests all speak
+ * to it. It delegates and adds one thing of its own: the guard that this
+ * endpoint is only for the manager stage. Without it, `approve-manager` would
+ * quietly clear a zone or credit decision for anyone who happened to hold the
+ * right permission, which is not what the route says it does.
  */
 final class DecideLoanApprovalAction
 {
-    public function __construct(
-        private readonly LoanScheduleGenerator $generator,
-        private readonly LoanStateMachine $states,
-        private readonly AuditLogger $audit,
-    ) {}
+    public function __construct(private readonly RecordApprovalDecisionAction $decisions) {}
 
     public function approve(Loan $loan, User $manager): Loan
     {
-        $this->guard($loan, $manager);
+        $this->guardManagerStage($loan);
 
-        return DB::transaction(function () use ($loan, $manager): Loan {
-            $loan->loadMissing(['product.interestFormula', 'repaymentSchedule', 'customer.bankDetails']);
-
-            /*
-             * The schedule starts from today, not from the application date:
-             * the customer's obligations run from when the loan was agreed,
-             * and an application approved a week late should not arrive with
-             * its first installment already a week old.
-             */
-            $request = new ScheduleRequest(
-                principal: $loan->principal(),
-                interestRate: $loan->interestRate(),
-                tenureDays: $loan->tenure_days,
-                frequencyDays: $loan->repaymentSchedule->frequency_days,
-                formula: $loan->product->interestFormula->code,
-                startDate: Date::now()->startOfDay()->toImmutable(),
-            );
-
-            foreach ($this->generator->generate($request) as $installment) {
-                $loan->schedules()->create($installment->toDatabaseRow($loan->getKey()));
-            }
-
-            $loan->update([
-                'approved_by' => $manager->getKey(),
-                'approved_at' => Date::now(),
-                'expected_completion_date' => $this->generator->expectedCompletionDate($request)->toDateString(),
-            ]);
-
-            /*
-             * §10's conditional branch: a product requiring an E-Mandate goes
-             * through the OTP flow first; otherwise straight to credit review.
-             * The decision reads the SNAPSHOT, not the product — a product
-             * edited after application must not reroute a live loan.
-             */
-            if ($loan->requires_mandate_snapshot) {
-                $this->states->transition($loan, LoanStatus::MandatePendingOtp, $manager, 'Approved by manager');
-
-                $loan->mandates()->create([
-                    'bank_name' => $loan->customer->bankDetails->bank_name ?? 'Unknown Bank',
-                    'status' => EMandateStatus::PendingOtp,
-                ]);
-            } else {
-                $this->states->transition($loan, LoanStatus::PendingCreditReview, $manager, 'Approved by manager');
-            }
-
-            $this->audit->log(
-                AuditAction::LoanApproved,
-                $loan,
-                after: [
-                    'approved_by' => $manager->getKey(),
-                    'installments' => $loan->schedules()->count(),
-                    'next_status' => $loan->fresh()->status->value,
-                ],
-                actor: $manager,
-            );
-
-            return $loan->fresh(['customer', 'product', 'schedules', 'branch']);
-        });
+        return $this->decisions->approve($loan, $manager);
     }
 
     public function reject(Loan $loan, string $reason, User $manager): Loan
     {
-        $this->guard($loan, $manager);
+        $this->guardManagerStage($loan);
 
-        return DB::transaction(function () use ($loan, $reason, $manager): Loan {
-            $this->states->transition($loan, LoanStatus::Rejected, $manager, $reason);
-
-            $loan->update(['rejected_reason' => $reason]);
-
-            $this->audit->log(
-                AuditAction::LoanRejected,
-                $loan,
-                after: ['rejected_reason' => $reason],
-                actor: $manager,
-            );
-
-            return $loan->fresh(['customer', 'product', 'branch']);
-        });
+        return $this->decisions->reject($loan, $manager, $reason);
     }
 
-    private function guard(Loan $loan, User $manager): void
+    /**
+     * This endpoint decides the manager stage and nothing else.
+     *
+     * The generic `/approval/decide` route is what the later stages use; a
+     * separate guard here keeps each route honest about which decision it takes.
+     */
+    private function guardManagerStage(Loan $loan): void
     {
         if ($loan->status !== LoanStatus::PendingManagerApproval) {
             throw LoanStateException::notAwaitingManagerApproval();
-        }
-
-        // §14: "The officer who created a loan application cannot also record
-        // its manager approval." An authorization check, not UI hiding.
-        if ($loan->created_by === $manager->getKey()) {
-            throw LoanStateException::selfApproval();
         }
     }
 }

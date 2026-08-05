@@ -42,6 +42,14 @@ final class UserController extends Controller
 
         $query = User::query()
             ->with('role')
+            /*
+             * The System account is not a person and is not administrable —
+             * it is excluded here rather than filtered by the client, so no
+             * caller of this endpoint has to remember to hide it. It remains
+             * visible where it should be: in the audit trail, against the
+             * postings it made.
+             */
+            ->humans()
             ->when(
                 isset($filters['search']),
                 fn ($q) => $q->where(function ($q) use ($filters): void {
@@ -89,6 +97,8 @@ final class UserController extends Controller
      */
     public function show(Request $request, User $user): JsonResponse
     {
+        $this->refuseSystemAccount($user);
+
         $this->authorize('view', $user);
 
         return ApiResponse::data(new UserResource($user->load('role')));
@@ -99,6 +109,8 @@ final class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user, UpdateUserAction $action): JsonResponse
     {
+        $this->refuseSystemAccount($user);
+
         $this->authorize('update', $user);
 
         $updated = $action->handle(
@@ -115,6 +127,8 @@ final class UserController extends Controller
      */
     public function updateStatus(UpdateUserStatusRequest $request, User $user, SetUserStatusAction $action): JsonResponse
     {
+        $this->refuseSystemAccount($user);
+
         $this->authorize('updateStatus', $user);
 
         $updated = $action->handle(
@@ -131,10 +145,29 @@ final class UserController extends Controller
      */
     public function destroy(Request $request, User $user, DeleteUserAction $action): JsonResponse
     {
+        $this->refuseSystemAccount($user);
+
         $this->authorize('delete', $user);
 
         $action->handle($user, $this->actor($request));
 
         return ApiResponse::data(['message' => 'User deleted.']);
+    }
+
+    /**
+     * The System account is not administrable through this API.
+     *
+     * A 404 rather than a 403: the account is hidden from the user list, and an
+     * endpoint that refused it by name would confirm its existence and its id
+     * to anybody probing. It is not a person, it holds no permissions, and it
+     * is not somebody's to manage — from user administration's point of view it
+     * simply is not there.
+     *
+     * Where it IS visible is the audit trail, against the postings it made,
+     * which is the only place it means anything.
+     */
+    private function refuseSystemAccount(User $user): void
+    {
+        abort_if($user->isSystemAccount(), Response::HTTP_NOT_FOUND);
     }
 }

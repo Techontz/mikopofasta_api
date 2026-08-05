@@ -7,21 +7,23 @@ namespace App\Domain\Repayments\Actions;
 use App\Domain\Ledger\Enums\JournalSourceType;
 use App\Domain\Ledger\Services\AccountResolver;
 use App\Domain\Ledger\Services\LedgerService;
-use App\Domain\Loans\Enums\LoanStatus;
-use App\Domain\Loans\Services\LoanStateMachine;
 use App\Domain\Repayments\DTOs\AllocationResult;
 use App\Domain\Repayments\Enums\PaymentChannel;
 use App\Domain\Repayments\Enums\PaymentStatus;
 use App\Domain\Repayments\Enums\SuspenseStatus;
+use App\Domain\Repayments\Services\LoanStatusReconciler;
 use App\Domain\Repayments\Services\PaymentAllocator;
 use App\Domain\Repayments\Services\PaymentReferenceGenerator;
 use App\Domain\Repayments\Services\RepaymentPostingBuilder;
 use App\Enums\AuditAction;
+use App\Models\JournalEntry;
 use App\Models\Loan;
+use App\Models\LoanAdvance;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -47,7 +49,7 @@ final class RecordRepaymentAction
         private readonly RepaymentPostingBuilder $postings,
         private readonly LedgerService $ledger,
         private readonly AccountResolver $accounts,
-        private readonly LoanStateMachine $states,
+        private readonly LoanStatusReconciler $reconciler,
         private readonly PaymentReferenceGenerator $references,
         private readonly AuditLogger $audit,
     ) {}
@@ -58,17 +60,42 @@ final class RecordRepaymentAction
      * @param bool $viaSuspense true when the money already sits in Suspense,
      *                          so Suspense is drawn down instead of debiting
      *                          cash a second time (§5).
+     * @param CarbonImmutable|null $asOf the date to settle installments up to.
+     *                                   Defaults to now, which is what every ordinary payment means. Early
+     *                                   settlement passes the loan's FINAL due date, which lifts the
+     *                                   due-date gate so cash reaches the whole schedule — the one
+     *                                   circumstance in which that is correct, because the borrower has
+     *                                   deliberately asked to close the loan rather than to pay ahead.
      */
     public function applyToLoan(
         Payment $payment,
         Loan $loan,
         bool $viaSuspense,
         User $actor,
+        ?CarbonImmutable $asOf = null,
     ): AllocationResult {
-        return DB::transaction(function () use ($payment, $loan, $viaSuspense, $actor): AllocationResult {
+        return DB::transaction(function () use ($payment, $loan, $viaSuspense, $actor, $asOf): AllocationResult {
             $loan->loadMissing(['schedules', 'branch']);
 
-            $allocation = $this->allocator->allocate($payment->amountMoney(), $loan->schedules);
+            /*
+             * Step 2 of the confirmed order is Advance, so whatever the
+             * borrower has already paid ahead is spent before this payment's
+             * cash touches principal or interest.
+             */
+            $advanceBefore = LoanAdvance::balanceFor((int) $loan->getKey());
+
+            /*
+             * Only installments that have reached their due date are settled.
+             * Anything this payment cannot place falls out as `unallocated` and
+             * is banked below as an advance credit — the client's confirmed
+             * prepaid-credit model.
+             */
+            $allocation = $this->allocator->allocate(
+                $payment->amountMoney(),
+                $loan->schedules,
+                $advanceBefore,
+                $asOf ?? Date::now()->toImmutable(),
+            );
 
             foreach ($allocation->lines as $line) {
                 $schedule = $loan->schedules->firstWhere('id', $line->scheduleId);
@@ -86,7 +113,7 @@ final class RecordRepaymentAction
 
             $entry = null;
 
-            if ($allocation->allocatedTotal()->isPositive()) {
+            if ($allocation->allocatedTotal()->isPositive() || $allocation->unallocated->isPositive()) {
                 $lines = $viaSuspense
                     ? $this->postings->buildSuspenseResolution($loan, $allocation)
                     : $this->postings->build(
@@ -104,6 +131,15 @@ final class RecordRepaymentAction
                 );
             }
 
+            /*
+             * Record the advance movements this payment caused, so the credit
+             * has a statement rather than only a balance. Both are written
+             * inside the same transaction as the allocation and the posting —
+             * an advance that survived a rolled-back payment would be money the
+             * borrower never paid.
+             */
+            $this->recordAdvanceMovements($loan, $payment, $allocation, $advanceBefore, $entry, $actor);
+
             $payment->update([
                 'loan_id' => $loan->getKey(),
                 'customer_id' => $loan->customer_id,
@@ -112,7 +148,7 @@ final class RecordRepaymentAction
                 'journal_entry_id' => $entry?->getKey(),
             ]);
 
-            $this->reconcileLoanStatus($loan->fresh(['schedules']), $actor);
+            $this->reconciler->reconcile($loan->fresh(['schedules']), $actor);
 
             $this->audit->log(
                 AuditAction::PaymentAllocated,
@@ -121,6 +157,7 @@ final class RecordRepaymentAction
                     'loan_id' => $loan->getKey(),
                     'allocated' => $allocation->allocatedTotal()->toDecimalString(),
                     'unallocated' => $allocation->unallocated->toDecimalString(),
+                    'advance_consumed' => $allocation->advanceConsumed->toDecimalString(),
                     'penalty' => $allocation->totalPenalty()->toDecimalString(),
                     'interest' => $allocation->totalInterest()->toDecimalString(),
                     'principal' => $allocation->totalPrincipal()->toDecimalString(),
@@ -209,49 +246,62 @@ final class RecordRepaymentAction
      * Cash is only `allocated` once a deposit has been reconciled against it
      * (§7's two trust states); every other channel is settled on arrival.
      */
+    /**
+     * Writes the advance movements one payment caused.
+     *
+     * Up to two rows, in the order they happened: the consumption of an
+     * existing credit, then the creation of a new one from any surplus. Both
+     * carry the running balance so the loan's advance statement reads as a
+     * statement rather than as a list of deltas.
+     *
+     * Only the CREDIT references the journal entry. A consumption moved no cash
+     * — the money was recognised when it arrived — so pointing it at the entry
+     * would suggest a posting that does not describe it.
+     */
+    private function recordAdvanceMovements(
+        Loan $loan,
+        Payment $payment,
+        AllocationResult $allocation,
+        Money $balanceBefore,
+        ?JournalEntry $entry,
+        User $actor,
+    ): void {
+        $balance = $balanceBefore;
+
+        if ($allocation->advanceConsumed->isPositive()) {
+            $balance = $balance->subtract($allocation->advanceConsumed);
+
+            LoanAdvance::query()->create([
+                'loan_id' => $loan->getKey(),
+                'payment_id' => $payment->getKey(),
+                'amount' => $allocation->advanceConsumed->multiply(-1)->toDecimalString(),
+                'balance_after' => $balance->toDecimalString(),
+                'kind' => LoanAdvance::KIND_CONSUMPTION,
+                'narrative' => sprintf('Consumed against %s', $payment->payment_reference),
+                'created_by' => $actor->getKey(),
+            ]);
+        }
+
+        if ($allocation->unallocated->isPositive()) {
+            $balance = $balance->add($allocation->unallocated);
+
+            LoanAdvance::query()->create([
+                'loan_id' => $loan->getKey(),
+                'payment_id' => $payment->getKey(),
+                'amount' => $allocation->unallocated->toDecimalString(),
+                'balance_after' => $balance->toDecimalString(),
+                'kind' => LoanAdvance::KIND_CREDIT,
+                'narrative' => sprintf('Paid ahead on %s', $payment->payment_reference),
+                'journal_entry_id' => $entry?->getKey(),
+                'created_by' => $actor->getKey(),
+            ]);
+        }
+    }
+
     private function statusAfterAllocation(Payment $payment): PaymentStatus
     {
         return $payment->channel->isCash()
             ? PaymentStatus::PendingVerification
             : PaymentStatus::Allocated;
-    }
-
-    /**
-     * Moves the loan on if the repayment changed its standing.
-     *
-     * Two §10 transitions live here: arrears → active when the last overdue
-     * installment is cleared, and → closed when nothing at all is outstanding.
-     * Closing is what makes "early settlement" a real outcome rather than a
-     * loan that merely happens to have a zero balance.
-     */
-    private function reconcileLoanStatus(Loan $loan, User $actor): void
-    {
-        $stillOverdue = $loan->schedules->contains(
-            fn ($s): bool => $s->status->value === 'overdue' && $s->outstandingTotal()->isPositive(),
-        );
-
-        if ($loan->status === LoanStatus::Arrears && ! $stillOverdue) {
-            $this->states->transition($loan, LoanStatus::Active, $actor, 'Arrears cleared by repayment');
-        }
-
-        if (! $loan->outstandingTotal()->isPositive() && $loan->status->isOpenBook()) {
-            if ($loan->status === LoanStatus::Arrears) {
-                $this->states->transition($loan, LoanStatus::Active, $actor, 'Arrears cleared by final repayment');
-            }
-
-            $this->states->transition($loan, LoanStatus::Closed, $actor, 'Loan fully repaid');
-
-            $loan->update([
-                'closed_at' => Date::now(),
-                'frozen_until' => Date::now()->addDays(\App\Domain\Loans\Actions\CloseLoanAction::DEFAULT_FREEZE_DAYS)->toDateString(),
-            ]);
-
-            $this->audit->log(
-                AuditAction::LoanClosedByRepayment,
-                $loan,
-                after: ['closed_at' => Date::now()->toIso8601String()],
-                actor: $actor,
-            );
-        }
     }
 }

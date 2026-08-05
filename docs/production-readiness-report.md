@@ -32,8 +32,9 @@ reconciles to the ledger.
 
 **Three modules are excluded by instruction and are not counted in the
 denominator:** Agent, Insurance and VISA. No backend module was ever specified
-for them; their eight screens still read `lib/legacy/source.ts`, which has no
-other importer anywhere in the codebase.
+for them; their eight screens ran on a transcription of the legacy system's
+screenshots, which had no other importer anywhere in the codebase and has since
+been deleted — the screens now hold their own inlined labels.
 
 ---
 
@@ -41,12 +42,15 @@ other importer anywhere in the codebase.
 
 ### Missing workflows (specified, never built)
 
-| # | Gap | Consequence |
+> **Phase 1 (August 2026) closed gaps 1, 2 and 3.** See
+> `docs/modules/accounting.md`. Only dividends remain from this list.
+
+| # | Gap | Status |
 | --- | --- | --- |
-| 1 | **Bank reconciliation** — §15.3 `POST /finance/bank-reconciliation`. The `cash_deposits` table exists; the endpoint that moves a cash payment from `pending_verification` to `allocated` does not. | No payment ever reaches `confirmed`. This is the direct cause of OSC-7. |
-| 2 | **Month-end close and profit posting** — §8's `Dr Income · Cr Profit`. | The commission engine derives branch profit from the ledger directly, so payroll is unaffected; the Profit Account itself is never posted. |
-| 3 | **Write-off and recovery postings** — §5 defines `Dr Write-Off Expense · Cr Loan Receivable` and `Dr Cash · Cr Recovered Loans`. The arrears transitions that trigger them are unbuilt. | The Recovery report lists loan *states* rather than ledger balances. |
-| 4 | **Dividends** — §2.8. Capital contributions are built; dividend declaration and payment are not. | Shareholders can be recorded and capital injected; nothing can be distributed. |
+| 1 | **Bank reconciliation** — §15.3 `POST /finance/bank-reconciliation`. | ✅ **Shipped.** `POST /cash-deposits` and `POST /cash-deposits/{id}/reconcile` move a cash payment to `confirmed`, posting `Dr Bank · Cr Teller Cash`. **This makes OSC-7 a real choice rather than a workaround** — `confirmed` is now reachable. |
+| 2 | **Month-end close and profit posting** — §8's `Dr Income · Cr Profit`. | ✅ **Shipped.** `POST /accounting/periods/close`, with reserve appropriated from realised profit per Decision Register D1. |
+| 3 | **Write-off and recovery postings** — §5's `Dr Write-Off Expense · Cr Loan Receivable` and `Dr Cash · Cr Recovered Loans`. | ✅ **Shipped.** `POST /loans/{loan}/write-off` and `POST /loans/{loan}/recovery`. The Recovery report can now read ledger balances rather than loan states. |
+| 4 | **Dividends** — §2.8. Capital contributions are built; dividend declaration and payment are not. | ⬜ Outstanding. Shareholders can be recorded and capital injected; nothing can be distributed. |
 
 ### Notification delivery
 
@@ -72,6 +76,16 @@ auto-memoized. No action needed.
 ---
 
 ## 3. Open Specification Conflicts
+
+> **Decision Register D1 (August 2026) superseded §5's real-time reserve cut.**
+> Reserve is now calculated from realised profit during the month-end close,
+> requires Admin approval to spend, and belongs to Headquarters. Any statement
+> below that assumes a per-repayment cut describes behaviour that no longer
+> ships — see `DECISION-REGISTER.md` §C1 and `docs/modules/accounting.md`.
+>
+> **OSC-7 is now decidable.** Bank reconciliation shipped, so `confirmed` is
+> reachable and the business can choose between the ledger-anchored definition
+> (current) and narrowing to `confirmed`.
 
 **The register holds seven, OSC-1 through OSC-7. There is no OSC-8** — nothing
 in either codebase, the specification or the docs defines one. A candidate

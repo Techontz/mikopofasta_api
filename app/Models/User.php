@@ -9,6 +9,7 @@ use App\Domain\Auth\Enums\RoleName;
 use App\Domain\Auth\Enums\UserStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -181,6 +182,34 @@ class User extends Authenticatable
     public function canAuthenticate(): bool
     {
         return $this->status->canAuthenticate();
+    }
+
+    /**
+     * The automation's account — not a person, and not administrable.
+     *
+     * Everything that manages users consults this: the account is hidden from
+     * the user list, refused for edit, status change, deletion and password
+     * reset, and cannot be created through the API. It exists so the books can
+     * name who posted a scheduled entry, and for nothing else.
+     */
+    public function isSystemAccount(): bool
+    {
+        return $this->status === UserStatus::System;
+    }
+
+    /**
+     * Real people only.
+     *
+     * Applied by user administration rather than as a global scope, because
+     * SystemActor must still be able to find the account — a global scope would
+     * hide it from the one caller whose whole purpose is to resolve it.
+     *
+     * @param Builder<User> $query
+     * @return Builder<User>
+     */
+    public function scopeHumans(Builder $query): Builder
+    {
+        return $query->where('status', '!=', UserStatus::System->value);
     }
 
     /**

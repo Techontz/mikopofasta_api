@@ -11,6 +11,7 @@ use App\Domain\Hr\Services\CommissionCalculator;
 use App\Enums\AuditAction;
 use App\Models\Branch;
 use App\Models\CommissionPool;
+use App\Models\PeriodBranchResult;
 use App\Models\StaffProfile;
 use App\Models\User;
 use App\Models\Zone;
@@ -33,7 +34,9 @@ use Illuminate\Support\Facades\DB;
  * to share out its profit. The money is recognised once, as Commission Expense
  * on the recipient's payroll entry (§5). Posting a pool-level entry as well
  * would expense the same shillings twice. The frontend reached the same
- * conclusion and says so in `lib/mock-data/commission.ts`.
+ * conclusion independently while it still modelled commission itself; it no
+ * longer does, and now reads the pools this action writes (features/hr, via
+ * CommissionReport).
  *
  * Re-running for a period replaces that period's pools rather than adding to
  * them, so a correction after a late expense is entered is a re-run — but only
@@ -102,6 +105,14 @@ final class GenerateCommissionPoolsAction
         $computation = $this->commission->computePool(
             branchProfit: $this->profits->forPeriod($branch, $period),
             lossCarryForward: $this->lossCarriedInto($branch, $period),
+
+            /*
+             * Decision Register D1. Read from the close rather than recomputed,
+             * so a pool always reconciles to the period it was derived from —
+             * and returns zero for a period nobody has closed, which is the
+             * honest answer: no reserve has been appropriated yet.
+             */
+            reserveAppropriation: PeriodBranchResult::reserveFor((int) $branch->getKey(), $period),
         );
 
         /** @var CommissionPool $pool */

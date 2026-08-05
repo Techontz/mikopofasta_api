@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Reports\Reports;
 
-use App\Domain\Ledger\Enums\AccountType;
 use App\Domain\Reports\Contracts\Report;
 use App\Domain\Reports\DTOs\ReportColumn;
 use App\Domain\Reports\DTOs\ReportFilters;
@@ -55,10 +54,10 @@ final class BranchRankingReport implements Report
         $ranked = $this->sources->branches($filters->forBranch(null))
             ->map(function ($branch) use ($filters): array {
                 $scoped = $filters->forBranch((int) $branch->getKey());
-                $trial = $this->sources->trialBalance($scoped);
 
-                $income = $this->sources->balanceOfTypeFrom($trial, AccountType::Income);
-                $expense = $this->sources->balanceOfTypeFrom($trial, AccountType::Expense);
+                // Period-scoped, and excluding the month-end close's sweep of
+                // income into Profit — see ReportSources::periodIncomeExpense().
+                [$income, $expense] = $this->sources->periodIncomeExpense($scoped);
 
                 $loans = $this->sources->openBookLoans($scoped);
 

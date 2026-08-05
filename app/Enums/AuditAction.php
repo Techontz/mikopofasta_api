@@ -58,11 +58,15 @@ enum AuditAction: string
     case CustomerUnfrozen = 'CUSTOMER_UNFROZEN';
     case CustomerSuspended = 'CUSTOMER_SUSPENDED';
     case CustomerReactivated = 'CUSTOMER_REACTIVATED';
-
     // Not in the frontend's map; the vocabulary is extensible by design.
     case CustomerUpdated = 'CUSTOMER_UPDATED';
     case CustomerCategoryAssigned = 'CUSTOMER_CATEGORY_ASSIGNED';
     case CustomerKycVerified = 'CUSTOMER_KYC_VERIFIED';
+    /* A biometric capture is its own event, separate from the KYC checklist it
+       may or may not complete: a re-scan that changes nothing about the
+       checklist still replaced the photograph the branch identifies somebody
+       by, and that is a thing an investigator asks about by name. */
+    case CustomerFaceScanned = 'CUSTOMER_FACE_SCANNED';
     case CustomerDocumentUploaded = 'CUSTOMER_DOCUMENT_UPLOADED';
     case CustomerDocumentRemoved = 'CUSTOMER_DOCUMENT_REMOVED';
     case CustomerCategoryCreated = 'CUSTOMER_CATEGORY_CREATED';
@@ -89,6 +93,29 @@ enum AuditAction: string
     case LoanProductUpdated = 'LOAN_PRODUCT_UPDATED';
     case LoanProductDeleted = 'LOAN_PRODUCT_DELETED';
     case LoanProductEligibilityUpdated = 'LOAN_PRODUCT_ELIGIBILITY_UPDATED';
+
+    /*
+     * The approval chain — Loan Officer → Branch Manager → Zone Manager → Head
+     * Office Credit. Every decision an approver can take has its own action, so
+     * "who held this loan for three weeks" is a query rather than an
+     * archaeology exercise through free-text reasons.
+     */
+    case LoanApprovalStageCleared = 'LOAN_APPROVAL_STAGE_CLEARED';
+    case LoanReturnedForModification = 'LOAN_RETURNED_FOR_MODIFICATION';
+    case LoanResubmitted = 'LOAN_RESUBMITTED';
+    case LoanHeld = 'LOAN_HELD';
+    case LoanReleasedFromHold = 'LOAN_RELEASED_FROM_HOLD';
+
+    /** A held Customer Advance spent on an installment that has fallen due. */
+    case LoanAdvanceConsumed = 'LOAN_ADVANCE_CONSUMED';
+
+    /**
+     * "Close Loan Early" — the deliberate settlement, not a payment that
+     * happened to clear the balance. Its own action because the two have
+     * different consequences for the customer and only one of them cancels
+     * installments.
+     */
+    case LoanSettledEarly = 'LOAN_SETTLED_EARLY';
 
     /*
      * Repayments & ledger (Phase 6). The first three match the frontend's
@@ -188,6 +215,25 @@ enum AuditAction: string
     case PenaltySettingCreated = 'PENALTY_SETTING_CREATED';
     case PenaltySettingDeleted = 'PENALTY_SETTING_DELETED';
     case ReserveSettingUpdated = 'RESERVE_SETTING_UPDATED';
+
+    /*
+     * Month-end close and the Reserve fund — Decision Register D1.
+     *
+     * D1 requires that "every reserve movement must be fully audited". Both
+     * directions are here: the close appropriates, and Admin approves what is
+     * spent. A reserve that only ever recorded its growth would satisfy the
+     * letter of the rule and none of its purpose.
+     */
+    case PeriodClosed = 'PERIOD_CLOSED';
+    case ReserveUtilisationRequested = 'RESERVE_UTILISATION_REQUESTED';
+    case ReserveUtilisationApproved = 'RESERVE_UTILISATION_APPROVED';
+    case ReserveUtilisationRejected = 'RESERVE_UTILISATION_REJECTED';
+
+    /*
+     * §5's Write-Off and Recovered Loans accounts.
+     */
+    case LoanWrittenOff = 'LOAN_WRITTEN_OFF';
+    case LoanRecoveryRecorded = 'LOAN_RECOVERY_RECORDED';
 
     /*
      * Capital (§Capital module). Who holds equity, who put money in, and who

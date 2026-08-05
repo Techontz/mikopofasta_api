@@ -128,19 +128,29 @@ describe('the posting engine', function (): void {
         /*
          * The regression this pins: `account_balances` holds one row per
          * (account, branch), and almost every posting carries a branch. Reading
-         * only the branch-less row would report 0.00 for the Reserve, the loan
-         * book and every income account — the whole accounts screen — while the
-         * trial balance showed the real figures. The two must agree.
+         * only the branch-less row would report 0.00 for the loan book and
+         * every income account — the whole accounts screen — while the trial
+         * balance showed the real figures. The two must agree.
+         *
+         * Interest Income, not the Reserve. This test used the Reserve because
+         * §5's real-time cut made it branch-tagged on every repayment. Decision
+         * Register D1 moved that appropriation into the month-end close, where
+         * the credit is deliberately company-wide, so a ledger with repayments
+         * and no close now has no branch-tagged Reserve rows at all — and the
+         * test failed on the fixture rather than on the behaviour.
+         *
+         * Interest Income is tagged with the earning branch on every collection,
+         * which is exactly the shape the regression was about.
          */
-        $reserve = App\Models\ChartOfAccount::query()->with('balances')
-            ->where('code', SystemAccountCode::Reserve->value)->sole();
+        $account = App\Models\ChartOfAccount::query()->with('balances')
+            ->where('code', SystemAccountCode::InterestIncome->value)->sole();
 
         $fromTrialBalance = collect(app(TrialBalanceBuilder::class)->build()['rows'])
-            ->firstWhere('code', SystemAccountCode::Reserve->value)['balance'];
+            ->firstWhere('code', SystemAccountCode::InterestIncome->value)['balance'];
 
-        expect($reserve->balances->count())->toBeGreaterThan(0)
-            ->and($reserve->cachedBalance()->isPositive())->toBeTrue()
-            ->and($reserve->cachedBalance()->toDecimalString())->toBe($fromTrialBalance);
+        expect($account->balances->count())->toBeGreaterThan(0)
+            ->and($account->cachedBalance()->isPositive())->toBeTrue()
+            ->and($account->cachedBalance()->toDecimalString())->toBe($fromTrialBalance);
     });
 
     it('serves that same balance through the accounts endpoint', function (): void {

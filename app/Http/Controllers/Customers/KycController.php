@@ -140,7 +140,7 @@ final class KycController extends Controller
         abort_unless($capture instanceof UploadedFile, Response::HTTP_UNPROCESSABLE_ENTITY);
 
         return ApiResponse::data(
-            new CustomerResource($action->handle($customer, $capture, $actor)),
+            new CustomerResource($action->handle($customer, $capture, $request->report(), $actor)),
         );
     }
 }

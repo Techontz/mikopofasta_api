@@ -42,6 +42,21 @@ final class LoanProductRequest extends FormRequest
             'interestFormulaId' => ['required', 'integer', Rule::exists('interest_formulas', 'id')->whereNull('deleted_at')],
             'interestRate' => ['required', 'numeric', 'decimal:0,3', 'min:0', 'max:999.999'],
 
+            /*
+             * What the rate means — P2, left open by the client and therefore
+             * optional here. Omitted means the default basis (AS_CONFIGURED),
+             * which is what every product configured before the question was
+             * asked already means.
+             *
+             * Restricted to ACTIVE bases. PER_ANNUM is seeded inactive, so the
+             * option cannot be selected until the client confirms — the answer
+             * is enforced by data, not by leaving the field out of the schema.
+             */
+            'interestRateBasisId' => [
+                'sometimes', 'nullable', 'integer',
+                Rule::exists('interest_rate_bases', 'id')->where('is_active', true)->whereNull('deleted_at'),
+            ],
+
             'minAmount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
             'maxAmount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'gte:minAmount'],
 

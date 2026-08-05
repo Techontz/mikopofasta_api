@@ -49,7 +49,8 @@ final class SystemConfigurationPolicy
      * change settings, and withheld from an administrator who can.
      *
      * `admin.org_settings` also opens it, because the frontend's nav offers it
-     * under Settings to that grant (config/nav.ts lists both).
+     * under Settings to that grant (config/route-permissions.ts lists both on
+     * the /admin/audit-logs entry).
      */
     public function viewAudit(User $actor): bool
     {

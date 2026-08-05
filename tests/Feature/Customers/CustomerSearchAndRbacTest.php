@@ -190,7 +190,13 @@ describe('branch scoping', function (): void {
             ->firstOrFail();
 
         $this->postJson("/api/v1/customers/{$lindiCustomer->id}/freeze", ['reason' => 'Snooping'])->assertForbidden();
-        $this->patchJson("/api/v1/customers/{$lindiCustomer->id}/status", ['active' => false])->assertForbidden();
+        /* A valid payload, like the freeze above it: the point is that the
+           branch guard refuses this, and an incomplete body would be turned
+           away by validation before the guard was ever reached. */
+        $this->patchJson("/api/v1/customers/{$lindiCustomer->id}/status", [
+            'active' => false,
+            'reason' => 'Snooping',
+        ])->assertForbidden();
         $this->postJson("/api/v1/customers/{$lindiCustomer->id}/notes", ['note' => 'x'])->assertForbidden();
     });
 });

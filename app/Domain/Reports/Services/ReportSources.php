@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Reports\Services;
 
 use App\Domain\Ledger\Enums\AccountType;
+use App\Domain\Ledger\Enums\JournalSourceType;
 use App\Domain\Ledger\Services\TrialBalanceBuilder;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Repayments\Enums\PaymentStatus;
@@ -194,6 +195,63 @@ final class ReportSources
     public function balanceOfType(ReportFilters $filters, AccountType $type): Money
     {
         return $this->balanceOfTypeFrom($this->trialBalance($filters), $type);
+    }
+
+    /**
+     * Income and expense EARNED IN the filter window — the P&L figures.
+     *
+     * Distinct from `balanceOfType()`, and the difference is the whole point.
+     * `balanceOfType()` reads the trial balance, which is cumulative to a date:
+     * asking it for August returns everything since inception up to 31 August.
+     * That is right for a balance sheet and wrong for a profit and loss
+     * statement, which is asking what a period earned, not what has accumulated.
+     *
+     * Two rules, both of which the trial balance cannot express:
+     *
+     *   1. **Bounded on both sides.** `from` and `period` are honoured, not just
+     *      `to`. Every P&L-shaped report used to pass filters that were silently
+     *      half-ignored.
+     *   2. **Trading entries only.** The month-end close (Decision Register D1)
+     *      sweeps income and expense into Profit by posting to those accounts,
+     *      so counting closing entries would report every closed period as
+     *      having earned exactly nothing.
+     *
+     * @return array{Money, Money} income, expense — each netted on its own side
+     */
+    public function periodIncomeExpense(ReportFilters $filters): array
+    {
+        $rows = JournalEntryLine::query()
+            ->join('journal_entries as je', 'je.id', '=', 'journal_entry_lines.journal_entry_id')
+            ->join('chart_of_accounts as coa', 'coa.id', '=', 'journal_entry_lines.account_id')
+            ->whereIn('coa.type', [AccountType::Income->value, AccountType::Expense->value])
+            ->whereNotIn('je.source_type', JournalSourceType::periodClosingValues())
+            ->when(
+                $filters->branchId !== null,
+                fn ($q) => $q->where('journal_entry_lines.branch_id', $filters->branchId),
+            )
+            ->when($filters->from !== null, fn ($q) => $q->whereDate('je.entry_date', '>=', $filters->from))
+            ->when($filters->to !== null, fn ($q) => $q->whereDate('je.entry_date', '<=', $filters->to))
+            ->when(
+                $filters->period !== null,
+                fn ($q) => $q->whereRaw("DATE_FORMAT(je.entry_date, '%Y-%m') = ?", [$filters->period]),
+            )
+            ->groupBy('coa.type')
+            ->select('coa.type')
+            ->selectRaw('SUM(journal_entry_lines.debit_amount) AS debit_total, SUM(journal_entry_lines.credit_amount) AS credit_total')
+            ->get()
+            ->keyBy('type');
+
+        $income = $rows->get(AccountType::Income->value);
+        $expense = $rows->get(AccountType::Expense->value);
+
+        // Each netted on its own normal side, so a refunded fee reduces income
+        // rather than appearing as an expense.
+        return [
+            Money::of((string) ($income->credit_total ?? '0.00'))
+                ->subtract(Money::of((string) ($income->debit_total ?? '0.00'))),
+            Money::of((string) ($expense->debit_total ?? '0.00'))
+                ->subtract(Money::of((string) ($expense->credit_total ?? '0.00'))),
+        ];
     }
 
     /**

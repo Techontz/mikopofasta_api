@@ -27,14 +27,56 @@ final class LoanStateMachine
     {
         return [
             LoanStatus::Draft->value => [LoanStatus::PendingManagerApproval, LoanStatus::Cancelled],
+
+            /*
+             * The approval chain — Branch Manager → Zone Manager → Head Office
+             * Credit. Every stage offers the same four exits the client
+             * specified: forward (approve), Rejected, ReturnedForModification
+             * and OnHold. They are listed per stage rather than generated,
+             * because this table is also what the frontend mirrors and a
+             * generated one could not be read.
+             *
+             * The two paths OUT of the last stage before credit — mandate first
+             * or straight through — are §10's conditional branch, decided by
+             * the product snapshot in LoanApprovalWorkflow.
+             */
             LoanStatus::PendingManagerApproval->value => [
-                LoanStatus::Rejected, LoanStatus::MandatePendingOtp, LoanStatus::PendingCreditReview,
+                LoanStatus::PendingZoneApproval,
+                LoanStatus::MandatePendingOtp, LoanStatus::PendingCreditReview,
+                LoanStatus::Rejected, LoanStatus::ReturnedForModification, LoanStatus::OnHold,
             ],
+            LoanStatus::PendingZoneApproval->value => [
+                LoanStatus::MandatePendingOtp, LoanStatus::PendingCreditReview,
+                LoanStatus::Rejected, LoanStatus::ReturnedForModification, LoanStatus::OnHold,
+            ],
+
+            /*
+             * A returned application goes back to the FIRST stage, not to the
+             * one that returned it. The officer has changed something, so every
+             * approver who already cleared it cleared a different application.
+             */
+            LoanStatus::ReturnedForModification->value => [
+                LoanStatus::PendingManagerApproval, LoanStatus::Cancelled,
+            ],
+
+            /*
+             * A hold resumes to whatever stage it paused — `hold_resume_status`
+             * decides which, and the state machine permits all three so that
+             * releasing never has to bypass this table.
+             */
+            LoanStatus::OnHold->value => [
+                LoanStatus::PendingManagerApproval, LoanStatus::PendingZoneApproval,
+                LoanStatus::PendingCreditReview, LoanStatus::Cancelled,
+            ],
+
             LoanStatus::Rejected->value => [],
             LoanStatus::MandatePendingOtp->value => [LoanStatus::MandateActive, LoanStatus::MandateFailed],
             LoanStatus::MandateFailed->value => [LoanStatus::MandatePendingOtp, LoanStatus::Cancelled],
             LoanStatus::MandateActive->value => [LoanStatus::PendingCreditReview],
-            LoanStatus::PendingCreditReview->value => [LoanStatus::PendingFinance, LoanStatus::Rejected],
+            LoanStatus::PendingCreditReview->value => [
+                LoanStatus::PendingFinance,
+                LoanStatus::Rejected, LoanStatus::ReturnedForModification, LoanStatus::OnHold,
+            ],
             LoanStatus::PendingFinance->value => [LoanStatus::AwaitingDisbursement],
             LoanStatus::AwaitingDisbursement->value => [LoanStatus::Active, LoanStatus::DisbursementFailed],
             LoanStatus::DisbursementFailed->value => [

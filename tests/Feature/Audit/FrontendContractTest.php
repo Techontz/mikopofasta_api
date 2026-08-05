@@ -47,6 +47,11 @@ function contractSchemas(): array
             'tenureDays', 'requiresMandateSnapshot', 'status', 'disbursementDate',
             'expectedCompletionDate', 'approvedBy', 'approvedAt', 'rejectedReason', 'closedAt',
             'frozenUntil', 'createdBy', 'deletedAt',
+            // Flat on every loan, including the list: a consumer must be able
+            // to ask "was this settled early" of any loan, not only of one it
+            // fetched individually. The `earlySettlement` block is deliberately
+            // NOT here — it is absent unless the caller loaded it.
+            'earlySettledAt', 'interestWaived',
         ],
         'LoanScheduleSchema' => [
             'id', 'loanId', 'installmentNumber', 'dueDate', 'principalDue', 'interestDue',
@@ -266,6 +271,10 @@ it('returns every money field as a decimal string, never a float', function (): 
         'allowancesTotal', 'deductionsTotal', 'debitAmount', 'creditAmount', 'poolAmount',
         'branchProfit', 'hqHoldAmount', 'distributableProfit', 'lossCarryForward',
         'overrideAmount', 'totalPoolBase', 'minAmount', 'maxAmount',
+        // Waived interest is money like any other. A float here would round a
+        // figure the institution is writing off, on the one record that exists
+        // to say exactly how much it wrote off.
+        'interestWaived',
     ];
 
     $offenders = [];

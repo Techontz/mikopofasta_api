@@ -19,9 +19,10 @@ use Illuminate\Support\Str;
  * The eleven demo accounts, one per role.
  *
  * Names, phone numbers, roles, the derived email pattern and now the
- * branch/zone/region assignments all mirror the frontend's SEED_USERS in
- * lib/mock-data/users.ts, so the demo roster in the frontend's
- * docs/demo-accounts.md works unchanged against the real API.
+ * branch/zone/region assignments were all taken from the frontend's original
+ * SEED_USERS fixture, since removed, so the demo roster documented in the
+ * frontend's docs/demo-accounts.md works unchanged against the real API. That
+ * document is now the contract this seeder has to satisfy.
  *
  * Every user has a home branch, including the HQ-wide roles — they are based
  * at Head Office (spec §12 Decision 2). Cross-branch visibility is decided by

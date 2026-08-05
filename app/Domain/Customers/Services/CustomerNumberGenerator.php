@@ -8,8 +8,12 @@ use App\Models\Customer;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Generates `customers.customer_number` in the frontend's format: CU-000001
- * (lib/domain/id-generators.ts).
+ * Generates `customers.customer_number` in the legacy system's format: CU-000001.
+ *
+ * The frontend used to mint these itself; it no longer does, and this is now
+ * the only place they are produced. The format is pinned by
+ * tests/Feature/Customers/CustomerRegistrationTest.php, and the frontend
+ * displays what it is served (`customerNumber` on types/customer.ts).
  *
  * The sequence is derived from the highest existing customer NUMBER, not from
  * MAX(id). Those two diverge as soon as the table has an auto-increment gap —

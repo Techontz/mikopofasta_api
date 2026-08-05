@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Repayments\Actions;
 
+use App\Domain\Ledger\Services\SystemActor;
 use App\Domain\Loans\Enums\LoanScheduleStatus;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Services\LoanStateMachine;
@@ -57,12 +58,40 @@ final class RunOverdueProcessAction
     public function __construct(
         private readonly PenaltyCalculator $penalties,
         private readonly LoanStateMachine $states,
+        private readonly ApplyDueAdvancesAction $advances,
+        private readonly SystemActor $system,
         private readonly AuditLogger $audit,
     ) {}
 
     public function handle(TriggeredBy $triggeredBy, ?User $actor = null): PenaltyRun
     {
         $asOf = Date::now()->toImmutable();
+
+        /*
+         * The scheduler is not a person — but it is now an identity.
+         *
+         * This used to run with a null actor, on the reasoning that attributing
+         * a cron run to somebody would name a decision they did not make. That
+         * reasoning was right and the conclusion is now better served: the
+         * System account exists precisely so automated work has an identity of
+         * its own, so `penalty_runs.triggered_by_user_id` and every status
+         * history row this produces name it rather than nobody.
+         *
+         * `triggered_by` still records `cron` — the account says WHO, the enum
+         * says HOW, and neither is a substitute for the other.
+         */
+        $actor ??= $this->system->resolve();
+
+        /*
+         * Held advances are spent BEFORE anything is judged late.
+         *
+         * An installment a borrower has already funded was never overdue, so
+         * penalising it and reversing the penalty a moment later would put a
+         * charge and its cancellation in the customer's statement for something
+         * that never happened. Consuming first means the penalty job only ever
+         * sees genuine shortfalls.
+         */
+        $this->advances->handle($actor, $asOf);
 
         return DB::transaction(function () use ($asOf, $triggeredBy, $actor): PenaltyRun {
             $loansProcessed = 0;
@@ -138,7 +167,7 @@ final class RunOverdueProcessAction
                 'installments_penalised' => $installmentsPenalised,
                 'total_penalty_applied' => $totalPenalty->toDecimalString(),
                 'triggered_by' => $triggeredBy,
-                'triggered_by_user_id' => $actor?->getKey(),
+                'triggered_by_user_id' => $actor->getKey(),
                 'created_at' => Date::now(),
             ]);
 

@@ -31,6 +31,13 @@ class DatabaseSeeder extends Seeder
 
             UserSeeder::class,
 
+            /*
+             * The automation's identity — client Decision 4. Must exist before
+             * anything scheduled can post: SystemActor refuses rather than
+             * falling back to a human account.
+             */
+            SystemUserSeeder::class,
+
             // Categories before customers (a customer names one), and users
             // before both (customers record who registered them).
             CustomerCategorySeeder::class,
@@ -43,6 +50,14 @@ class DatabaseSeeder extends Seeder
             // Products reference categories (the §2.3 eligibility pivot);
             // loans reference both, plus the customers and users above.
             LoanProductSeeder::class,
+
+            /*
+             * The approval chain, before any loan exists. An application
+             * submitted into an unconfigured chain has nowhere to go — the
+             * workflow refuses it rather than inventing a stage — so the stages
+             * must be in place before LoanSeeder runs.
+             */
+            LoanApprovalStageSeeder::class,
 
             // Fees before loans: a loan snapshots its product's fee at
             // application, so a loan seeded first would carry none.

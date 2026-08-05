@@ -11,14 +11,18 @@ use App\Domain\Customers\Actions\SetCustomerStatusAction;
 use App\Domain\Customers\Services\KycEvaluator;
 use App\Domain\Organization\Services\BranchScope;
 use App\Domain\Organization\Services\BranchScopeGuard;
+use App\Enums\AuditAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customers\FreezeCustomerRequest;
 use App\Http\Requests\Customers\IndexCustomerRequest;
 use App\Http\Requests\Customers\RegisterCustomerRequest;
 use App\Http\Requests\Customers\RejectCustomerRequest;
 use App\Http\Requests\Customers\SetCustomerStatusRequest;
+use App\Http\Requests\Customers\UpdateCustomerRequest;
+use App\Http\Resources\AccountFreezeResource;
 use App\Http\Resources\CustomerResource;
 use App\Models\Customer;
+use App\Services\AuditLogger;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -105,7 +109,9 @@ final class CustomerController extends Controller
         $this->guard->authorizeBranchId($this->actor($request), $customer->branch_id, Customer::class);
 
         return ApiResponse::data(
-            new CustomerResource($customer->load(['branch', 'category', 'bankDetails'])),
+            /* `faceScanOperator` so the profile can name who ran the scan
+               without a second request for one string. */
+            new CustomerResource($customer->load(['branch', 'category', 'bankDetails', 'faceScanOperator'])),
         );
     }
 
@@ -130,6 +136,28 @@ final class CustomerController extends Controller
             'missingDocuments' => $kyc->missingDocuments($customer),
             'isLoanEligible' => $customer->isLoanEligible(),
         ]);
+    }
+
+    /**
+     * GET /api/v1/customers/{customer}/freezes
+     *
+     * The freeze history, newest first.
+     *
+     * `account_freezes` has been written since Phase 4 and never read back:
+     * freeze and unfreeze were POSTs with no counterpart, so the profile could
+     * show that an account IS frozen and never who froze it, when, or why —
+     * and a customer frozen three times looked identical to one frozen once.
+     * The table exists precisely so those questions are answerable (see the
+     * model's own note), which needs an endpoint.
+     */
+    public function freezes(Request $request, Customer $customer): JsonResponse
+    {
+        $this->authorize('view', $customer);
+        $this->guard->authorizeBranchId($this->actor($request), $customer->branch_id, Customer::class);
+
+        return ApiResponse::data(
+            AccountFreezeResource::collection($customer->freezes()->get()),
+        );
     }
 
     /**
@@ -193,8 +221,97 @@ final class CustomerController extends Controller
         $actor = $this->actor($request);
         $this->guard->authorizeBranchId($actor, $customer->branch_id, Customer::class);
 
-        $updated = $action->handle($customer, $request->boolean('active'), $actor);
+        $updated = $action->handle(
+            $customer,
+            $request->boolean('active'),
+            [
+                'reason' => (string) $request->validated('reason'),
+                'remarks' => $request->validated('remarks'),
+            ],
+            $actor,
+        );
 
         return ApiResponse::data(new CustomerResource($updated));
+    }
+
+    /**
+     * PUT /api/v1/customers/{customer}
+     *
+     * The profile's save. Until this existed, only six fields could be amended
+     * after registration — a surname typed wrongly on the day stayed wrong.
+     *
+     * Only the keys present in the request are written, so a section of the
+     * profile saves without the others sending stale values back. The camelCase
+     * → column map is explicit rather than a `Str::snake` loop, because the two
+     * do not always agree (`nationalIdNumber` → `national_id_number` does, but
+     * a silent mismatch elsewhere would drop an edit without failing).
+     *
+     * Audited: `AuditLogger` records the actor and the changed attributes, so a
+     * corrected record still says who corrected it.
+     */
+    public function update(UpdateCustomerRequest $request, Customer $customer, AuditLogger $audit): JsonResponse
+    {
+        $this->authorize('update', $customer);
+        $actor = $this->actor($request);
+        $this->guard->authorizeBranchId($actor, $customer->branch_id, Customer::class);
+
+        $payload = $request->validated();
+
+        /** @var array<string, string> $map */
+        $map = [
+            'firstName' => 'first_name', 'middleName' => 'middle_name', 'lastName' => 'last_name',
+            'nickname' => 'nickname', 'dob' => 'dob', 'gender' => 'gender',
+            'nationality' => 'nationality',
+            'phone' => 'phone', 'alternativePhone' => 'alternative_phone', 'email' => 'email',
+            'nationalIdNumber' => 'national_id_number', 'voterIdNumber' => 'voter_id_number',
+            'driverLicenceNumber' => 'driver_licence_number', 'passportNumber' => 'passport_number',
+            'tinNumber' => 'tin_number', 'workIdNumber' => 'work_id_number',
+            'branchId' => 'branch_id', 'employeeId' => 'employee_id',
+            'customerCategoryId' => 'customer_category_id', 'loanTypeId' => 'loan_type_id',
+            'customerTypeId' => 'customer_type_id', 'accountTypeId' => 'account_type_id',
+            'workTypeId' => 'work_type_id', 'employmentTypeId' => 'employment_type_id',
+            'occupationId' => 'occupation_id', 'maritalStatusId' => 'marital_status_id',
+            'bankId' => 'bank_id', 'mobileMoneyProviderId' => 'mobile_money_provider_id',
+            'regionId' => 'region_id', 'districtId' => 'district_id', 'wardId' => 'ward_id',
+            'streetId' => 'street_id', 'village' => 'village', 'houseNumber' => 'house_number',
+            'postalCode' => 'postal_code', 'landmark' => 'landmark', 'residenceType' => 'residence_type',
+            'occupation' => 'occupation', 'employer' => 'employer', 'department' => 'department',
+            'councilNumber' => 'council_number', 'placeOfEmployment' => 'place_of_employment',
+            'retirementDate' => 'retirement_date', 'dependentsCount' => 'dependents_count',
+            'monthlyIncome' => 'monthly_income', 'basicSalary' => 'basic_salary', 'takeHome' => 'take_home',
+            'businessName' => 'business_name', 'businessType' => 'business_type',
+            'businessAddress' => 'business_address',
+            'bankName' => 'bank_name', 'bankBranch' => 'bank_branch', 'accountName' => 'account_name',
+            'accountNumber' => 'account_number', 'checkNumber' => 'check_number',
+            'mobileMoneyProvider' => 'mobile_money_provider', 'walletNumber' => 'wallet_number',
+            'cardExpiryMonth' => 'card_expiry_month', 'cardExpiryYear' => 'card_expiry_year',
+            'updatedDevice' => 'updated_device',
+        ];
+
+        $changes = [];
+        foreach ($map as $key => $column) {
+            if (array_key_exists($key, $payload)) {
+                $changes[$column] = $payload[$key];
+            }
+        }
+
+        /* Same rule as registration: the PAN never reaches a column. */
+        if (array_key_exists('cardNumber', $payload)) {
+            $digits = preg_replace('/\\D/', '', (string) $payload['cardNumber']);
+            $changes['card_last_four'] = $digits === '' ? null : substr($digits, -4);
+        }
+
+        $customer->fill($changes);
+        $dirty = $customer->getDirty();
+        /* The prior values of exactly the columns about to change — so the
+           audit row answers "what was it before?" and not just "it changed". */
+        $before = array_intersect_key($customer->getOriginal(), $dirty);
+        $customer->save();
+
+        if ($dirty !== []) {
+            $audit->log(AuditAction::CustomerUpdated, $customer, before: $before, after: $dirty, actor: $actor);
+        }
+
+        return ApiResponse::data(new CustomerResource($customer->refresh()));
     }
 }

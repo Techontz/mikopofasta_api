@@ -32,11 +32,12 @@ use RuntimeException;
  * transcribed and invented:
  *
  *   - The three branch names — umeme, MAJI, SODA — and the four branch requests
- *     totalling 92,000 come from the legacy Expenses screens by way of the
- *     frontend's lib/mock-data/operations.ts, which records them as read off
- *     those screenshots. They are not in LegacySource because that file holds
- *     only what was transcribed directly into this repository; the captures
- *     themselves are the frontend team's.
+ *     totalling 92,000 come from the legacy Expenses screens, by way of a
+ *     frontend fixture that recorded them as read off those screenshots. That
+ *     fixture has since been deleted, so this seeder is now the only record of
+ *     the figures. They are not in Database\Seeders\Legacy\LegacySource because
+ *     that class holds only what was transcribed directly into this repository;
+ *     the captures themselves are the frontend team's.
  *   - Rent and Usafiri are named in the business documentation (ACCOUNT
  *     OVERVIEW §G, "Super Admin ata-create categories: Umeme, Rent, Usafiri").
  *   - MISHAHARA, Bank Charges and Stationery are the headquarters register from

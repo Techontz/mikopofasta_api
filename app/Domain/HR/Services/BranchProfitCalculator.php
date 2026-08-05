@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Hr\Services;
 
 use App\Domain\Ledger\Enums\AccountType;
+use App\Domain\Ledger\Enums\JournalSourceType;
 use App\Models\Branch;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -25,13 +26,27 @@ use InvalidArgumentException;
  * it. The alternative — a figure typed in by Finance — would make commission
  * an assertion rather than a consequence.
  *
- * ## On the Reserve
+ * ## On the Reserve — Decision Register D1
  *
- * §8's parenthetical "(Reserve already netted out)" is satisfied by how the
- * reserve cut is posted, not by anything here: §5 takes it as Dr Interest
- * Income · Cr Reserve on the same entry as the collection, so the income
- * account already carries interest net of reserve by the time it is summed.
- * Subtracting the reserve again here would remove it twice.
+ * §8's parenthetical "(Reserve already netted out)" USED to be satisfied by how
+ * the reserve was posted: §5 took it as `Dr Interest Income · Cr Reserve` on the
+ * same entry as the collection, so the income account already carried interest
+ * net of reserve by the time it was summed here.
+ *
+ * D1 moved the appropriation into the month-end close, so that is no longer
+ * true. What this class returns is now GROSS of reserve, and the deduction is
+ * made explicitly by CommissionCalculator::computePool() from the figure the
+ * close actually appropriated. The comment is left in place rather than deleted
+ * because the change is easy to misread as a bug in the other direction.
+ *
+ * ## On closing entries
+ *
+ * The close sweeps income and expense into Profit by posting to those same
+ * accounts. Counting those postings would net every closed period to exactly
+ * zero — a branch that had a profitable August would show no profit at all the
+ * moment August was closed, and its commission would vanish with it. So they
+ * are excluded, which is also what makes this figure stable: running it before
+ * and after a close gives the same answer.
  */
 final class BranchProfitCalculator
 {
@@ -51,6 +66,7 @@ final class BranchProfitCalculator
             ->where('jel.branch_id', $branch->getKey())
             ->whereIn('coa.type', [AccountType::Income->value, AccountType::Expense->value])
             ->whereBetween('je.entry_date', [$start->toDateString(), $end->toDateString()])
+            ->whereNotIn('je.source_type', JournalSourceType::periodClosingValues())
             ->select('coa.type')
             ->selectRaw('SUM(jel.debit_amount) AS debit_total, SUM(jel.credit_amount) AS credit_total')
             ->groupBy('coa.type')

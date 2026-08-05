@@ -11,12 +11,12 @@ answer is a consequence of what the data actually drives.
 
 There is no create route and no delete route, on either side of the system.
 
-`code` is not a label. It is a branch in the interest engine: SIMPLE, FLAT and
-REDUCING are the three `LoanScheduleGenerator` implements. The frontend reached
-the same conclusion independently and says so in its own comment —
-
-> `code` is fixed because lib/domain/loan-schedule.ts branches on
-> SIMPLE/FLAT/REDUCING by code; it isn't a free-text CRUD field.
+`code` is not a label. It is the key `InterestStrategyRegistry` resolves a
+pricing strategy by, so every code must have a class in
+`app/Domain/Loans/Engine/Strategies` implementing it. The frontend reached the
+same conclusion independently and agrees today — schedules are priced
+server-side and previewed through `/loans/schedule-preview`, so nothing in the
+browser branches on the code at all.
 
 A fourth row would be a formula nothing knows how to compute. A product could be
 configured with it and every loan priced from that product would fail at
@@ -231,8 +231,8 @@ email to SMS hides the subject field but leaves the typed value in form state,
 and the API refuses a subject on an SMS. The payload now drops it, so a template
 that looks fine on screen is not rejected on save.
 
-`lib/mock-data/{audit-logs,notification-templates,repayment-schedules}.ts` were
-deleted once nothing referenced them.
+The frontend's audit-log, notification-template and repayment-schedule fixtures
+were deleted once nothing referenced them; all three screens read the API.
 
 ## Factories
 

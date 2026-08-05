@@ -17,8 +17,9 @@ use App\Models\StaffPerformanceRecord;
  * Not one of §15.6's twenty-one; Phase 8 names it, and §2.9 defines the table
  * it reads. Nothing is invented: `targets_json`, `achieved_json` and `rating`
  * are stored fields, and the achievement rate is the mean of achieved ÷ target
- * across the metrics — the same derivation the frontend uses to pick a rating
- * in `lib/mock-data/staff-performance.ts`.
+ * across the metrics — the derivation the frontend used to perform itself. It
+ * no longer does: the rate and the rating are both served from here, and
+ * PerformanceRating is the vocabulary they share.
  *
  * The rating shown is the one the MANAGER recorded, not the one the
  * achievement rate implies. A manager who disagrees with the arithmetic is the

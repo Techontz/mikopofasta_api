@@ -121,6 +121,45 @@ final readonly class Percentage implements Stringable
     }
 
     /**
+     * Pro-rates the rate by a ratio, in one exact step.
+     *
+     * `24.000%` scaled by 30/365 is `1.973%`. Used where a rate stated for one
+     * span is charged over another — an annual rate applied to a monthly
+     * installment, for instance.
+     *
+     * ## Why this is not `times()` then `dividedBy()`
+     *
+     * Because that overflows on ordinary inputs. `times()` builds an
+     * intermediate Percentage, and a Percentage cannot exceed 999.999 — so
+     * 24% × 360 days is 8,640%, which throws long before the division that
+     * would have brought it back to 23.7%. Doing both on the underlying
+     * integer means only the RESULT has to be a storable rate, which is the
+     * only thing that was ever true.
+     *
+     * Rounds half-up, away from zero, matching `dividedBy()`.
+     */
+    public function scaledBy(int $numerator, int $denominator): self
+    {
+        if ($denominator === 0) {
+            throw new InvalidArgumentException('Cannot scale a rate by a zero denominator.');
+        }
+
+        $product = $this->thousandthsOfPercent * $numerator;
+
+        $negative = ($product < 0) !== ($denominator < 0);
+        $abs = abs($product);
+        $absDenominator = abs($denominator);
+
+        $quotient = intdiv($abs, $absDenominator);
+
+        if (($abs % $absDenominator) * 2 >= $absDenominator) {
+            $quotient++;
+        }
+
+        return self::ofThousandths($negative ? -$quotient : $quotient);
+    }
+
+    /**
      * The decimal string a DECIMAL(6,3) column stores, e.g. "8.000".
      */
     public function toDecimalString(): string

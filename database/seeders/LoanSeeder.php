@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Domain\Loans\DTOs\ScheduleRequest;
+use App\Domain\Loans\Engine\LoanEngine;
+use App\Domain\Loans\Engine\LoanTerms;
 use App\Domain\Loans\Enums\DisbursementChannel;
 use App\Domain\Loans\Enums\DisbursementStatus;
 use App\Domain\Loans\Enums\EMandateStatus;
@@ -12,7 +13,6 @@ use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Enums\TelcoVerificationStatus;
 use App\Domain\Loans\Services\LoanFeeCalculator;
 use App\Domain\Loans\Services\LoanNumberGenerator;
-use App\Domain\Loans\Services\LoanScheduleGenerator;
 use App\Models\CategoryProductEligibility;
 use App\Models\Customer;
 use App\Models\Loan;
@@ -25,9 +25,9 @@ use Illuminate\Support\Facades\Date;
 /**
  * A loan book covering every stage of the §10 lifecycle.
  *
- * The schedules here are produced by the SAME LoanScheduleGenerator the
+ * The schedules here are produced by the SAME LoanEngine the
  * approval endpoint uses — not by a parallel copy of the interest arithmetic.
- * That is the point: if the generator is wrong, the seed is wrong too, and the
+ * That is the point: if the engine is wrong, the seed is wrong too, and the
  * tests that assert against both catch it. A seeder with its own maths would
  * quietly disagree with production and make every schedule assertion
  * meaningless.
@@ -40,7 +40,7 @@ final class LoanSeeder extends Seeder
 {
     public function run(): void
     {
-        $generator = app(LoanScheduleGenerator::class);
+        $engine = app(LoanEngine::class);
         $numbers = app(LoanNumberGenerator::class);
 
         $officer = User::query()->where('phone', '0754000005')->first();
@@ -137,7 +137,7 @@ final class LoanSeeder extends Seeder
             $this->advance($loan, LoanStatus::PendingManagerApproval, $officer, 'Application submitted', $appliedAt);
 
             if ($target !== LoanStatus::PendingManagerApproval) {
-                $this->walkForward($loan, $target, $product, $schedule->frequency_days, $generator, $manager, $creditOfficer, $finance, $appliedAt);
+                $this->walkForward($loan, $target, $product, $schedule->frequency_days, $engine, $manager, $creditOfficer, $finance, $appliedAt);
             }
 
             $index++;
@@ -153,7 +153,7 @@ final class LoanSeeder extends Seeder
         LoanStatus $target,
         LoanProduct $product,
         int $frequencyDays,
-        LoanScheduleGenerator $generator,
+        LoanEngine $engine,
         User $manager,
         ?User $creditOfficer,
         User $finance,
@@ -170,23 +170,23 @@ final class LoanSeeder extends Seeder
         $approvedAt = $appliedAt->addDays(2);
         $product->loadMissing('interestFormula');
 
-        $request = new ScheduleRequest(
+        $terms = LoanTerms::create(
             principal: $loan->principal(),
             interestRate: $loan->interestRate(),
             tenureDays: $loan->tenure_days,
             frequencyDays: $frequencyDays,
-            formula: $product->interestFormula->code,
             startDate: $approvedAt->startOfDay(),
+            gracePeriodDays: $product->grace_period_days ?? 0,
         );
 
-        foreach ($generator->generate($request) as $installment) {
+        foreach ($engine->scheduleFor($terms, $product->interestFormula->code) as $installment) {
             $loan->schedules()->create($installment->toDatabaseRow($loan->getKey()));
         }
 
         $loan->update([
             'approved_by' => $manager->getKey(),
             'approved_at' => $approvedAt,
-            'expected_completion_date' => $generator->expectedCompletionDate($request)->toDateString(),
+            'expected_completion_date' => $terms->finalDueDate()->toDateString(),
         ]);
 
         if ($loan->requires_mandate_snapshot) {

@@ -11,7 +11,6 @@ use App\Domain\Repayments\DTOs\AllocationResult;
 use App\Models\ChartOfAccount;
 use App\Models\Loan;
 use App\Support\Money;
-use App\Support\Percentage;
 
 /**
  * Builds the journal lines for one allocated repayment — spec §5.
@@ -23,15 +22,33 @@ use App\Support\Percentage;
  *     Cr Interest Income            (interest component)
  *     Cr Loan Receivable            (principal component)
  *
- * plus §5's real-time reserve cut, taken on every interest collection:
+ * ## The reserve is no longer taken here — Decision Register D1
  *
- *   Dr Interest Income              (10% of the interest collected)
- *     Cr Reserve Account
+ * This builder used to add two more lines to every entry, `Dr Interest Income ·
+ * Cr Reserve`, at a hardcoded 10% of the interest collected. §5 called it a
+ * real-time cut.
  *
- * The reserve cut is two extra lines on the SAME entry rather than a second
- * entry, because it is not an independent event — it is part of recognising
- * that interest. Netting it against the income line instead would hide the
- * gross interest earned, which the P&L needs.
+ * The client's ruling replaced it: reserve is "calculated from realised profit
+ * during the accounting closing process", requires Admin approval to spend, and
+ * belongs to Headquarters rather than to any branch. Their reasoning is that the
+ * reserve protects capital out of what the business actually earned — "kwenye
+ * hiyo faida reserve inatolewa kwanza maana ndo inalinda mtaji" — which is a
+ * statement about profit, not about each individual payment.
+ *
+ * So interest is now recognised gross here, and ClosePeriodAction appropriates
+ * the reserve once a month from what survived expenses. See
+ * App\Domain\Accounting\Actions\ClosePeriodAction.
+ *
+ * Two consequences worth knowing:
+ *
+ *   - Interest Income reads gross during a period. It was previously net of
+ *     reserve from the instant of collection.
+ *   - Branch profit is therefore gross of reserve too, so the commission engine
+ *     deducts it explicitly instead of relying on it having already been netted
+ *     out. See CommissionCalculator::computePool().
+ *
+ * Historical entries carrying the old cut are left exactly as they are. This
+ * ledger is reversal-only and history is not rewritten.
  *
  * One builder, three callers (§7's "three intake channels, one allocation
  * core"): the provider webhook, teller cash, and suspense resolution. The only
@@ -40,13 +57,6 @@ use App\Support\Percentage;
  */
 final class RepaymentPostingBuilder
 {
-    /**
-     * §5: "Reserve cut: Dr Interest Income · Cr Reserve Account (real-time, on
-     * every interest collection)." The rate mirrors the frontend's
-     * RESERVE_RATE of 0.1.
-     */
-    public const string RESERVE_RATE = '10.000';
-
     public function __construct(private readonly AccountResolver $accounts) {}
 
     /**
@@ -61,15 +71,62 @@ final class RepaymentPostingBuilder
         $customerId = $loan->customer_id;
         $loanId = (int) $loan->getKey();
 
-        $lines = [
-            JournalLine::debit(
+        $lines = [];
+
+        /*
+         * Cash in — everything that actually arrived, including any surplus.
+         *
+         * Note this is the CASH figure, not the allocated total. When part of
+         * an installment is settled from an advance credit the borrower paid
+         * earlier, that shilling reached the books when it was received;
+         * debiting cash for it again would recognise the same money twice.
+         */
+        $cashIn = $allocation->cashApplied()->add($allocation->unallocated);
+
+        if ($cashIn->isPositive()) {
+            $lines[] = JournalLine::debit(
                 (int) $debitAccount->getKey(),
-                $allocation->allocatedTotal(),
+                $cashIn,
                 $branchId,
                 $customerId,
                 $loanId,
-            ),
-        ];
+            );
+        }
+
+        /*
+         * Advance consumed — the credit is spent, so the liability falls.
+         *
+         * Dr Customer Advance. The matching credits to income and receivable
+         * are the same lines the cash portion produces below; the two sources
+         * differ only in what is debited.
+         */
+        if ($allocation->advanceConsumed->isPositive()) {
+            $lines[] = JournalLine::debit(
+                $this->accounts->systemId(SystemAccountCode::CustomerAdvance),
+                $allocation->advanceConsumed,
+                $branchId,
+                $customerId,
+                $loanId,
+            );
+        }
+
+        /*
+         * Surplus out — money the schedule could not absorb becomes a credit
+         * the borrower is owed against future installments.
+         *
+         * Cr Customer Advance. It is deliberately NOT income: nothing has
+         * fallen due to earn it, and recognising it would report profit the
+         * lender has not made.
+         */
+        if ($allocation->unallocated->isPositive()) {
+            $lines[] = JournalLine::credit(
+                $this->accounts->systemId(SystemAccountCode::CustomerAdvance),
+                $allocation->unallocated,
+                $branchId,
+                $customerId,
+                $loanId,
+            );
+        }
 
         if ($allocation->totalPenalty()->isPositive()) {
             $lines[] = JournalLine::credit(
@@ -98,33 +155,30 @@ final class RepaymentPostingBuilder
             );
         }
 
-        $reserveCut = $this->reserveCut($allocation->totalInterest());
-
-        if ($reserveCut->isPositive()) {
-            $lines[] = JournalLine::debit(
-                $this->accounts->systemId(SystemAccountCode::InterestIncome),
-                $reserveCut,
-                $branchId,
-                loanId: $loanId,
-            );
-
-            $lines[] = JournalLine::credit(
-                $this->accounts->systemId(SystemAccountCode::Reserve),
-                $reserveCut,
-                $branchId,
-                loanId: $loanId,
-            );
-        }
-
         return $lines;
     }
 
     /**
-     * The reserve taken from an interest collection.
+     * A held advance being spent on an installment that has reached its due
+     * date, with no cash involved at all.
+     *
+     *   Dr Customer Advance          (the liability falls)
+     *     Cr Penalty / Interest Income / Loan Receivable
+     *
+     * `build()` already produces exactly this when the allocation carries no
+     * cash — it emits no debit line for a zero cash figure. So this is that
+     * call with the debit account made explicitly irrelevant, rather than a
+     * second set of posting rules that could disagree with the first.
+     *
+     * @return list<JournalLine>
      */
-    public function reserveCut(Money $interestCollected): Money
+    public function buildAdvanceConsumption(Loan $loan, AllocationResult $allocation): array
     {
-        return $interestCollected->percentage(Percentage::of(self::RESERVE_RATE));
+        return $this->build(
+            $loan,
+            $allocation,
+            $this->accounts->system(SystemAccountCode::CustomerAdvance),
+        );
     }
 
     /**

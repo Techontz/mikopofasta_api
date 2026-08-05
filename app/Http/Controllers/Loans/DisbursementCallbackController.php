@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Loans;
 
+use App\Domain\Ledger\Services\SystemActor;
 use App\Domain\Loans\Actions\SettleDisbursementAction;
 use App\Domain\Loans\Enums\DisbursementStatus;
 use App\Domain\Loans\Exceptions\LoanStateException;
@@ -40,7 +41,10 @@ use Illuminate\Http\JsonResponse;
  */
 final class DisbursementCallbackController extends Controller
 {
-    public function __construct(private readonly BranchScopeGuard $guard) {}
+    public function __construct(
+        private readonly SystemActor $system,
+        private readonly BranchScopeGuard $guard,
+    ) {}
 
     /**
      * POST /api/v1/loans/{loan}/settle-disbursement
@@ -68,10 +72,20 @@ final class DisbursementCallbackController extends Controller
             ->where('batch_reference', (string) $request->validated('batchReference'))
             ->firstOrFail();
 
-        // Provider callbacks carry no user. Attributing the posting to the
-        // officer who requested the batch keeps `created_by` meaningful:
-        // the entry traces back to the person who initiated the money movement.
-        $actor = $batch->requestedBy ?? User::query()->orderBy('id')->firstOrFail();
+        /*
+         * Provider callbacks carry no user.
+         *
+         * Attributing the posting to the officer who requested the batch keeps
+         * `created_by` meaningful — the entry traces back to the person who
+         * initiated the money movement, and they genuinely did initiate it.
+         *
+         * When the batch has no requester, the fallback is the SYSTEM account
+         * and nothing else. It used to be `User::query()->orderBy('id')->first()`,
+         * which put whichever employee happened to be seeded first against a
+         * posting they had no part in. A provider callback with no requester is
+         * automated work, and automated work has exactly one identity.
+         */
+        $actor = $batch->requestedBy ?? $this->system->resolve();
 
         return $this->apply($batch->loan, $action, $actor, $request->validated(), $batch);
     }

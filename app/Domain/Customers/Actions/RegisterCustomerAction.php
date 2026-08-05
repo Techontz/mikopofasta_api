@@ -46,25 +46,41 @@ final class RegisterCustomerAction
      */
     public function handle(array $payload, User $actor): Customer
     {
-        $category = CustomerCategory::query()->findOrFail($payload['customerCategoryId']);
+        /* Optional — see RegisterCustomerRequest. No category means no
+           category-specific questions to validate. */
+        $category = isset($payload['customerCategoryId'])
+            ? CustomerCategory::query()->findOrFail($payload['customerCategoryId'])
+            : null;
 
         /*
          * Checked before the transaction opens as well as by the UNIQUE index.
          * The index alone would surface as a 500; this gives the wizard a
          * field error it can render on the NIDA input.
          */
-        if (Customer::query()->where('nida_number', $payload['nidaNumber'])->exists()) {
+        $nidaNumber = $payload['nidaNumber'] ?? null;
+
+        if ($nidaNumber !== null
+            && Customer::query()->where('nida_number', $nidaNumber)->exists()) {
             throw new CustomerAlreadyRegisteredException;
         }
 
-        $dynamicData = $this->dynamicForm->validate($category, (array) ($payload['dynamicFormData'] ?? []));
+        $dynamicData = $category === null
+            ? []
+            : $this->dynamicForm->validate($category, (array) ($payload['dynamicFormData'] ?? []));
 
-        return DB::transaction(function () use ($payload, $category, $dynamicData, $actor): Customer {
+        return DB::transaction(function () use ($payload, $category, $dynamicData, $actor, $nidaNumber): Customer {
             $customer = Customer::query()->create([
                 'customer_number' => $this->numbers->next(),
-                'nida_number' => $payload['nidaNumber'],
+                'nida_number' => $nidaNumber,
 
-                // Identity comes from NIDA, never typed (§9).
+                /*
+                 * Identity is typed by the officer while manual registration is
+                 * the only option. §9 says NIDA is the source of truth and these
+                 * are never hand-entered — which is right, and is what a
+                 * `NidaIdentityProvider` will restore. It cannot be true today:
+                 * there is no registry to read, and the simulator that pretended
+                 * to be one invented the name it filled in.
+                 */
                 'first_name' => $payload['firstName'],
                 'middle_name' => $payload['middleName'] ?? null,
                 'last_name' => $payload['lastName'],
@@ -72,9 +88,15 @@ final class RegisterCustomerAction
                 'gender' => $payload['gender'],
                 'phone' => $payload['phone'],
 
-                'nida_verified_at' => $payload['nidaVerifiedAt'],
-                'otp_verified_at' => $payload['otpVerifiedAt'],
-                'face_verified_at' => $payload['faceVerifiedAt'],
+                /*
+                 * Null on a manual registration, and null is the honest value:
+                 * no check ran. The KYC evaluator reads these, so a
+                 * hand-entered customer is correctly rated as unverified rather
+                 * than inheriting a verified status it never earned.
+                 */
+                'nida_verified_at' => $payload['nidaVerifiedAt'] ?? null,
+                'otp_verified_at' => $payload['otpVerifiedAt'] ?? null,
+                'face_verified_at' => $payload['faceVerifiedAt'] ?? null,
 
                 'marital_status' => $payload['maritalStatus'] ?? null,
                 'region_id' => $payload['regionId'] ?? null,
@@ -83,7 +105,90 @@ final class RegisterCustomerAction
                 'street_id' => $payload['streetId'] ?? null,
                 'residence_type' => $payload['residenceType'] ?? null,
 
-                'customer_category_id' => $category->getKey(),
+                /*
+                 * The KYC detail block. Written as real columns so a teller can
+                 * search a TIN or an account number, and so reporting can group
+                 * by occupation or employment type — neither of which is
+                 * possible against `dynamic_form_data`, which stays for the
+                 * per-category questions it was built for.
+                 */
+                'alternative_phone' => $payload['alternativePhone'] ?? null,
+                'email' => $payload['email'] ?? null,
+                'nationality' => $payload['nationality'] ?? null,
+                'national_id_number' => $payload['nationalIdNumber'] ?? null,
+                'tin_number' => $payload['tinNumber'] ?? null,
+                'passport_number' => $payload['passportNumber'] ?? null,
+
+                'village' => $payload['village'] ?? null,
+                'house_number' => $payload['houseNumber'] ?? null,
+                'postal_code' => $payload['postalCode'] ?? null,
+                'landmark' => $payload['landmark'] ?? null,
+
+                'occupation' => $payload['occupation'] ?? null,
+                'employer' => $payload['employer'] ?? null,
+                'monthly_income' => $payload['monthlyIncome'] ?? null,
+                'employment_type' => $payload['employmentType'] ?? null,
+
+                'business_name' => $payload['businessName'] ?? null,
+                'business_type' => $payload['businessType'] ?? null,
+                'business_address' => $payload['businessAddress'] ?? null,
+
+                /*
+                 * Mirrored from the bank block the wizard already sends, so a
+                 * search by account number is one indexed lookup instead of a
+                 * join. `customer_bank_details` remains the record of account.
+                 */
+                'bank_name' => $payload['bankDetails']['bankName'] ?? null,
+                'bank_branch' => $payload['bankBranch'] ?? null,
+                'account_name' => $payload['accountName'] ?? $payload['bankDetails']['accountName'] ?? null,
+                'account_number' => $payload['bankDetails']['accountNumber'] ?? null,
+                'mobile_money_provider' => $payload['mobileMoneyProvider'] ?? null,
+                'wallet_number' => $payload['walletNumber'] ?? null,
+
+                /* Server-decided, not client-supplied: a record must not be
+                   able to claim it came from NIDA when it was typed by hand. */
+                'registration_source' => ($payload['nidaVerifiedAt'] ?? null) !== null ? 'nida' : 'manual',
+                'created_device' => $payload['createdDevice'] ?? null,
+
+                // ---- legacy step 1 ----
+                'employee_id' => $payload['employeeId'] ?? null,
+                'loan_type_id' => $payload['loanTypeId'] ?? null,
+                'customer_type_id' => $payload['customerTypeId'] ?? null,
+
+                // ---- legacy step 2 ----
+                'nickname' => $payload['nickname'] ?? null,
+                'account_type_id' => $payload['accountTypeId'] ?? null,
+                'work_type_id' => $payload['workTypeId'] ?? null,
+                'employment_type_id' => $payload['employmentTypeId'] ?? null,
+                'occupation_id' => $payload['occupationId'] ?? null,
+                'marital_status_id' => $payload['maritalStatusId'] ?? null,
+                'department' => $payload['department'] ?? null,
+                'council_number' => $payload['councilNumber'] ?? null,
+                'place_of_employment' => $payload['placeOfEmployment'] ?? null,
+                'retirement_date' => $payload['retirementDate'] ?? null,
+                'dependents_count' => $payload['dependentsCount'] ?? null,
+                'basic_salary' => $payload['basicSalary'] ?? null,
+                'take_home' => $payload['takeHome'] ?? null,
+                'check_number' => $payload['checkNumber'] ?? null,
+
+                // ---- legacy step 3 ----
+                'voter_id_number' => $payload['voterIdNumber'] ?? null,
+                'driver_licence_number' => $payload['driverLicenceNumber'] ?? null,
+                'work_id_number' => $payload['workIdNumber'] ?? null,
+                'bank_id' => $payload['bankId'] ?? null,
+                'mobile_money_provider_id' => $payload['mobileMoneyProviderId'] ?? null,
+                /*
+                 * Only the last four digits survive. The full number arrived in
+                 * the request and dies with it — nothing writes a PAN, so there
+                 * is nothing for a breach to leak and no PCI scope to inherit.
+                 */
+                'card_last_four' => isset($payload['cardNumber'])
+                    ? substr(preg_replace('/\\D/', '', (string) $payload['cardNumber']), -4)
+                    : null,
+                'card_expiry_month' => $payload['cardExpiryMonth'] ?? null,
+                'card_expiry_year' => $payload['cardExpiryYear'] ?? null,
+
+                'customer_category_id' => $category?->getKey(),
                 'dynamic_form_data' => $dynamicData,
                 'branch_id' => $payload['branchId'],
 
@@ -94,7 +199,9 @@ final class RegisterCustomerAction
                  * demands it registers `pending` and is not loan-eligible
                  * until someone with customers.approve decides.
                  */
-                'approval_status' => $category->needsApproval()
+                /* No category means no category-driven approval rule, so the
+                   record needs none — it is unassigned, not pending. */
+                'approval_status' => $category?->needsApproval()
                     ? CustomerApprovalStatus::Pending
                     : CustomerApprovalStatus::NotRequired,
 

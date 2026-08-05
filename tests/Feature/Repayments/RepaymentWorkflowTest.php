@@ -8,7 +8,6 @@ use App\Domain\Ledger\Services\AccountResolver;
 use App\Domain\Ledger\Services\TrialBalanceBuilder;
 use App\Domain\Loans\Enums\LoanScheduleStatus;
 use App\Domain\Loans\Enums\LoanStatus;
-use App\Domain\Repayments\Services\RepaymentPostingBuilder;
 use App\Enums\AuditAction;
 use App\Models\AuditLog;
 use App\Models\JournalEntry;
@@ -114,15 +113,23 @@ describe('disbursement completion', function (): void {
 });
 
 describe('allocation', function (): void {
-    it('applies penalty then interest then principal, oldest installment first', function (): void {
-        $loan = activeLoan();
+    it('applies penalty then principal then interest, oldest installment first', function (): void {
+        /*
+         * The client-confirmed order: Penalty → Advance → Principal → Interest.
+         *
+         * This test previously asserted Penalty → Interest → Principal, which
+         * was the reading carried while P1 was open. The two source documents
+         * disagreed with each other; the client has settled it, and PRINCIPAL
+         * now comes before interest.
+         */
+        $loan = matureLoan();
 
         $first = $loan->schedules->sortBy('installment_number')->first();
         $first->update(['penalty_due' => '5000.00', 'status' => LoanScheduleStatus::Overdue]);
 
-        // Exactly the first installment's penalty + interest, and nothing
-        // towards principal — so the order is visible in the result.
-        $amount = Money::of('5000.00')->add($first->interestDue());
+        // Exactly the penalty plus the principal, so the order is visible in
+        // the result: interest must be untouched.
+        $amount = Money::of('5000.00')->add($first->principalDue());
 
         officerAt($loan->branch->name, RoleName::Teller);
         $this->postJson('/api/v1/payments/cash', [
@@ -133,13 +140,14 @@ describe('allocation', function (): void {
         $first->refresh();
 
         expect($first->penalty_paid)->toBe('5000.00')
-            ->and($first->interest_paid)->toBe($first->interestDue()->toDecimalString())
-            ->and($first->principal_paid)->toBe('0.00')
+            ->and($first->principal_paid)->toBe($first->principalDue()->toDecimalString())
+            ->and($first->interest_paid)->toBe('0.00')
             ->and($first->status)->toBe(LoanScheduleStatus::Partial);
     });
 
     it('clears an installment fully before moving to the next', function (): void {
-        $loan = activeLoan();
+        // Two installments due, so there is a "next" for the spill to reach.
+        $loan = matureLoan(2);
 
         $ordered = $loan->schedules->sortBy('installment_number')->values();
         $amount = $ordered[0]->totalDue()->add(Money::of('1000.00'));
@@ -157,7 +165,7 @@ describe('allocation', function (): void {
     });
 
     it('writes one allocation row per installment touched', function (): void {
-        $loan = activeLoan();
+        $loan = matureLoan(2);
 
         $amount = installmentTotal($loan, 2);
 
@@ -171,7 +179,7 @@ describe('allocation', function (): void {
     });
 
     it('leaves a partial payment outstanding without closing the installment', function (): void {
-        $loan = activeLoan();
+        $loan = matureLoan();
         $first = $loan->schedules->sortBy('installment_number')->first();
 
         officerAt($loan->branch->name, RoleName::Teller);
@@ -207,7 +215,7 @@ describe('allocation', function (): void {
 
 describe('settlement', function (): void {
     it('closes the loan and opens the cooldown when it is fully repaid', function (): void {
-        $loan = activeLoan();
+        $loan = fullyDueLoan();
 
         officerAt($loan->branch->name, RoleName::Teller);
         $this->postJson('/api/v1/payments/cash', [
@@ -224,25 +232,44 @@ describe('settlement', function (): void {
             ->and($loan->frozen_until)->not->toBeNull();
     });
 
-    it('settles early in one payment, ahead of every due date', function (): void {
+    it('holds an early full payment as an advance and leaves the schedule alone', function (): void {
+        /*
+         * The client's confirmed rule, at its most visible.
+         *
+         * Paying the entire balance before anything is due used to close the
+         * loan on the spot. It no longer does: the money is held as a Customer
+         * Advance, the repayment schedule is untouched, and each installment is
+         * settled from that credit as it reaches its due date.
+         *
+         * This test previously asserted the opposite ("settles early in one
+         * payment, ahead of every due date"). The behaviour it described was
+         * overturned by the client, not broken by this change.
+         */
         $loan = activeLoan();
 
-        // Every installment is still in the future — an early settlement, not
-        // a final one.
+        // Every installment is still in the future — nothing is payable yet.
         expect($loan->schedules->every(fn (LoanSchedule $s): bool => $s->due_date->isFuture()))->toBeTrue();
+
+        $balance = $loan->outstandingTotal();
 
         officerAt($loan->branch->name, RoleName::Teller);
         $this->postJson('/api/v1/payments/cash', [
             'loanId' => $loan->getKey(),
-            'amount' => $loan->outstandingTotal()->toDecimalString(),
+            'amount' => $balance->toDecimalString(),
         ])->assertCreated();
 
-        expect($loan->fresh()->status)->toBe(LoanStatus::Closed)
-            ->and($loan->fresh(['schedules'])->outstandingTotal()->isZero())->toBeTrue();
+        $loan->refresh()->load('schedules');
+
+        expect($loan->status)->toBe(LoanStatus::Active)
+            // The schedule is exactly as it was. Nothing was paid down early.
+            ->and($loan->outstandingTotal()->toDecimalString())->toBe($balance->toDecimalString())
+            // Every shilling is held, and it is a liability rather than income.
+            ->and(App\Models\LoanAdvance::balanceFor((int) $loan->getKey())->toDecimalString())
+            ->toBe($balance->toDecimalString());
     });
 
     it('refuses a payment against a closed loan', function (): void {
-        $loan = activeLoan();
+        $loan = fullyDueLoan();
 
         officerAt($loan->branch->name, RoleName::Teller);
         $this->postJson('/api/v1/payments/cash', [
@@ -258,7 +285,7 @@ describe('settlement', function (): void {
 
 describe('repayment postings', function (): void {
     it('credits penalty, interest and principal separately', function (): void {
-        $loan = activeLoan();
+        $loan = matureLoan();
         $accounts = app(AccountResolver::class);
 
         $first = $loan->schedules->sortBy('installment_number')->first();
@@ -281,8 +308,8 @@ describe('repayment postings', function (): void {
             ->and($entry->isBalanced())->toBeTrue();
     });
 
-    it('takes the 10% reserve cut on the same entry as the interest', function (): void {
-        $loan = activeLoan();
+    it('takes no reserve cut, and recognises interest gross', function (): void {
+        $loan = matureLoan();
         $accounts = app(AccountResolver::class);
         $first = $loan->schedules->sortBy('installment_number')->first();
 
@@ -294,19 +321,34 @@ describe('repayment postings', function (): void {
 
         $entry = JournalEntry::query()->with('lines')->where('source_type', 'repayment')->latest('id')->firstOrFail();
 
-        $expected = app(RepaymentPostingBuilder::class)->reserveCut($first->interestDue());
+        /*
+         * Decision Register D1 replaced §5's real-time cut.
+         *
+         * This entry used to carry two extra lines, `Dr Interest Income · Cr
+         * Reserve`, at a hardcoded 10% of the interest collected. The client
+         * ruled that reserve is calculated from REALISED PROFIT during the
+         * accounting close instead — reserve protects capital out of what the
+         * business actually earned, which is a statement about profit rather
+         * than about each individual payment.
+         *
+         * So a repayment now touches the Reserve account not at all, and
+         * Interest Income is credited in full with no offsetting debit.
+         * ClosePeriodAction is where the reserve is taken.
+         */
+        $reserveLines = $entry->lines
+            ->where('account_id', $accounts->systemId(SystemAccountCode::Reserve));
 
-        $reserve = $entry->lines->firstWhere('account_id', $accounts->systemId(SystemAccountCode::Reserve));
         $interestDebit = $entry->lines->first(
             fn ($l): bool => $l->account_id === $accounts->systemId(SystemAccountCode::InterestIncome)
                 && $l->debitAmount()->isPositive(),
         );
 
-        // §5: Dr Interest Income · Cr Reserve, on every interest collection.
-        expect($reserve->credit_amount)->toBe($expected->toDecimalString())
-            ->and($interestDebit->debit_amount)->toBe($expected->toDecimalString())
-            // Gross interest is still visible: the cut is a second pair of
-            // lines, not a netted-down income line.
+        $interestCredit = $entry->lines
+            ->firstWhere('account_id', $accounts->systemId(SystemAccountCode::InterestIncome));
+
+        expect($reserveLines)->toBeEmpty()
+            ->and($interestDebit)->toBeNull()
+            ->and($interestCredit->credit_amount)->toBe($first->interestDue()->toDecimalString())
             ->and($entry->isBalanced())->toBeTrue();
     });
 
@@ -355,7 +397,7 @@ describe('repayment postings', function (): void {
 
 describe('the provider webhook', function (): void {
     it('matches on loan number and allocates', function (): void {
-        $loan = activeLoan();
+        $loan = matureLoan();
         forgetAuthGuards();
 
         $response = postPaymentWebhook([
@@ -415,7 +457,10 @@ describe('the provider webhook', function (): void {
     });
 
     it('suspends money aimed at a loan that cannot take it', function (): void {
-        $loan = activeLoan();
+        // Fully due, so paying the balance genuinely closes the loan — an
+        // early payment would now merely park itself as an advance and the
+        // loan would still be open to take the webhook's money.
+        $loan = fullyDueLoan();
 
         officerAt($loan->branch->name, RoleName::Teller);
         $this->postJson('/api/v1/payments/cash', [

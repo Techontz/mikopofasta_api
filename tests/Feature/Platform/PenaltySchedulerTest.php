@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Console\Commands\ApplyPenaltiesCommand;
+use App\Domain\Ledger\Services\SystemActor;
 use App\Domain\Loans\Enums\LoanScheduleStatus;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Repayments\Enums\TriggeredBy;
@@ -64,9 +65,19 @@ describe('execution', function (): void {
         $run = PenaltyRun::query()->sole();
 
         expect($run->triggered_by)->toBe(TriggeredBy::Cron)
-            // No actor: the scheduler is not a person, and attributing the run
-            // to one would put a name against a decision nobody made.
-            ->and($run->triggered_by_user_id)->toBeNull()
+            /*
+             * The run names the System account.
+             *
+             * This assertion used to require null, on the reasoning that the
+             * scheduler is not a person and naming one would put an employee
+             * against a decision they did not make. That reasoning still holds;
+             * what changed is that automated work now has an identity of its
+             * own, so the run is attributable without being misattributed.
+             *
+             * `triggered_by` still records `cron`: the account says WHO, the
+             * enum says HOW, and neither substitutes for the other.
+             */
+            ->and($run->triggered_by_user_id)->toBe(app(SystemActor::class)->resolve()->getKey())
             ->and($run->loans_processed)->toBeGreaterThan(0)
             ->and($loan->fresh()->status)->toBe(LoanStatus::Arrears);
     });

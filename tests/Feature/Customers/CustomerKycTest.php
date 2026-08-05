@@ -170,9 +170,8 @@ describe('face verification and documents', function (): void {
         officerAt();
         $customer = registeredCustomer();
 
-        $this->postJson("/api/v1/customers/{$customer->id}/face-verify", [
-            'capture' => UploadedFile::fake()->image('liveness.jpg'),
-        ])->assertOk();
+        $this->postJson("/api/v1/customers/{$customer->id}/face-verify", faceScanPayload())
+            ->assertOk();
 
         $customer->refresh();
 
@@ -186,9 +185,8 @@ describe('face verification and documents', function (): void {
         officerAt();
         $customer = registeredCustomer();
 
-        $this->postJson("/api/v1/customers/{$customer->id}/face-verify", [
-            'capture' => UploadedFile::fake()->image('liveness.jpg'),
-        ])->assertOk();
+        $this->postJson("/api/v1/customers/{$customer->id}/face-verify", faceScanPayload())
+            ->assertOk();
 
         $photoPath = $this->getJson("/api/v1/customers/{$customer->id}")->json('data.photoPath');
 
@@ -203,9 +201,10 @@ describe('face verification and documents', function (): void {
         officerAt();
         $customer = registeredCustomer();
 
-        $this->postJson("/api/v1/customers/{$customer->id}/face-verify", [
-            'capture' => UploadedFile::fake()->create('malware.exe', 100),
-        ])
+        $this->postJson(
+            "/api/v1/customers/{$customer->id}/face-verify",
+            faceScanPayload(['capture' => UploadedFile::fake()->create('malware.exe', 100)]),
+        )
             ->assertStatus(422)
             ->assertJsonValidationErrors(['capture']);
     });
@@ -228,6 +227,54 @@ describe('face verification and documents', function (): void {
         expect($response->json('data.filePath'))
             ->toContain('signature=')
             ->and($response->json('data.filePath'))->not->toContain($document->file_path);
+    });
+
+    it('refuses a document type that is not on the admin-managed list', function (): void {
+        officerAt();
+        $customer = registeredCustomer();
+
+        // The free-text box that used to be here put a document filed under
+        // "HJK" into this database. A category requiring `salary_slip` is not
+        // satisfied by anything an officer happens to type.
+        $this->postJson("/api/v1/customers/{$customer->id}/documents", [
+            'documentType' => 'HJK',
+            'file' => UploadedFile::fake()->create('mystery.pdf', 20, 'application/pdf'),
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['documentType']);
+
+        expect($customer->documents()->count())->toBe(0);
+    });
+
+    it('refuses a document type that has been withdrawn', function (): void {
+        officerAt();
+        $customer = registeredCustomer();
+
+        App\Models\MasterData\DocumentType::query()
+            ->where('code', 'salary_slip')
+            ->update(['is_active' => false]);
+
+        // Still readable on the documents that hold it; no longer offerable.
+        $this->postJson("/api/v1/customers/{$customer->id}/documents", [
+            'documentType' => 'salary_slip',
+            'file' => UploadedFile::fake()->create('slip.pdf', 20, 'application/pdf'),
+        ])->assertStatus(422);
+    });
+
+    it('offers the document types a category actually requires', function (): void {
+        officerAt();
+
+        $codes = collect($this->getJson('/api/v1/master-data/document-types?active=1')->json('data'))
+            ->pluck('code');
+
+        // Every code the shipped categories name has a row, or the checklist
+        // is asking for something no officer can file.
+        $required = CustomerCategory::query()
+            ->pluck('required_documents')
+            ->flatten()
+            ->unique();
+
+        expect($required->diff($codes)->all())->toBe([]);
     });
 
     it('generates its own filename rather than trusting the upload', function (): void {
@@ -389,6 +436,26 @@ describe('approval, freeze and status', function (): void {
             ->and($freeze->isOpen())->toBeTrue();
     });
 
+    it('reads the freeze history back, open and closed', function (): void {
+        officerAt('Kakonko', RoleName::BranchManager);
+        $customer = registeredCustomer();
+
+        $this->postJson("/api/v1/customers/{$customer->id}/freeze", ['reason' => 'Suspected fraud'])->assertOk();
+        $this->postJson("/api/v1/customers/{$customer->id}/unfreeze")->assertOk();
+        $this->postJson("/api/v1/customers/{$customer->id}/freeze", ['reason' => 'Court order'])->assertOk();
+
+        $history = $this->getJson("/api/v1/customers/{$customer->id}/freezes")->assertOk()->json('data');
+
+        // Newest first, and the closed one is still there — a customer frozen
+        // three times must not look like one frozen once.
+        expect($history)->toHaveCount(2)
+            ->and($history[0]['reason'])->toBe('Court order')
+            ->and($history[0]['unfrozenAt'])->toBeNull()
+            ->and($history[1]['reason'])->toBe('Suspected fraud')
+            ->and($history[1]['unfrozenAt'])->not->toBeNull()
+            ->and($history[1]['unfrozenBy'])->not->toBeNull();
+    });
+
     it('closes the open freeze on unfreeze rather than deleting it', function (): void {
         officerAt();
         $customer = registeredCustomer();
@@ -414,22 +481,116 @@ describe('approval, freeze and status', function (): void {
         $this->postJson("/api/v1/customers/{$customer->id}/unfreeze")->assertStatus(409);
     });
 
+    it('refuses to change status without a reason', function (): void {
+        officerAt();
+        $customer = registeredCustomer();
+
+        // Suspension stops a customer borrowing. It used to need nothing but a
+        // boolean, so an account could be suspended with no recorded grounds.
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", ['active' => false])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason']);
+
+        // And lifting one is a decision too.
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", ['active' => true])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason']);
+
+        expect($customer->refresh()->status)->toBe(CustomerStatus::Active)
+            ->and($customer->status_reason)->toBeNull();
+    });
+
+    it('records the reason, remarks and operator on a suspension', function (): void {
+        $officer = officerAt();
+        $customer = registeredCustomer();
+
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", [
+            'active' => false,
+            'reason' => 'Suspected identity mismatch',
+            'remarks' => 'Case REF-8891; customer notified by SMS.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.statusReason', 'Suspected identity mismatch')
+            ->assertJsonPath('data.statusRemarks', 'Case REF-8891; customer notified by SMS.');
+
+        $customer->refresh();
+
+        expect($customer->status_changed_by)->toBe($officer->getKey())
+            ->and($customer->status_changed_at)->not->toBeNull();
+    });
+
+    it('audits a status change with operator, branch, address and client', function (): void {
+        $officer = officerAt();
+        $customer = registeredCustomer();
+
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", [
+            'active' => false,
+            'reason' => 'Court order',
+            'remarks' => 'Order 44/2026',
+        ])->assertOk();
+
+        $entry = AuditLog::query()
+            ->where('action', AuditAction::CustomerSuspended->value)
+            ->latest('id')
+            ->sole();
+
+        // Exactly the record a freeze or a rejection leaves.
+        expect($entry->user_id)->toBe($officer->getKey())
+            ->and($entry->after_json['reason'])->toBe('Court order')
+            ->and($entry->after_json['remarks'])->toBe('Order 44/2026')
+            ->and($entry->after_json['operator'])->toBe($officer->name)
+            ->and($entry->after_json['branch'])->not->toBeNull()
+            ->and($entry->after_json['branch_id'])->toBe($customer->branch_id)
+            ->and($entry->after_json['changed_at'])->not->toBeNull()
+            ->and($entry->before_json['status'])->toBe('active')
+            ->and($entry->ip_address)->not->toBeNull()
+            ->and($entry->user_agent)->not->toBeNull()
+            ->and($entry->created_at)->not->toBeNull();
+    });
+
+    it('records the reason for a reactivation too', function (): void {
+        officerAt();
+        $customer = registeredCustomer();
+
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", [
+            'active' => false, 'reason' => 'Under review',
+        ])->assertOk();
+
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", [
+            'active' => true, 'reason' => 'Review closed, no findings',
+        ])->assertOk();
+
+        expect($customer->refresh()->status_reason)->toBe('Review closed, no findings');
+
+        expect(AuditLog::query()->where('action', AuditAction::CustomerReactivated->value)->sole()
+            ->after_json['reason'])->toBe('Review closed, no findings');
+    });
+
     it('suspends and reactivates, but refuses to touch a frozen account', function (): void {
         officerAt();
         $customer = registeredCustomer();
 
-        $this->patchJson("/api/v1/customers/{$customer->id}/status", ['active' => false])
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", [
+            'active' => false,
+            'reason' => 'Repeated missed appointments',
+        ])
             ->assertOk()
             ->assertJsonPath('data.status', 'suspended');
 
-        $this->patchJson("/api/v1/customers/{$customer->id}/status", ['active' => true])
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", [
+            'active' => true,
+            'reason' => 'Customer attended and explained',
+        ])
             ->assertOk()
             ->assertJsonPath('data.status', 'active');
 
         $this->postJson("/api/v1/customers/{$customer->id}/freeze", ['reason' => 'Fraud'])->assertOk();
 
         // A freeze needs an explicit unfreeze — it is not a status toggle.
-        $this->patchJson("/api/v1/customers/{$customer->id}/status", ['active' => true])
+        $this->patchJson("/api/v1/customers/{$customer->id}/status", [
+            'active' => true,
+            'reason' => 'Trying to toggle a frozen account',
+        ])
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'INVALID_CUSTOMER_STATE');
 

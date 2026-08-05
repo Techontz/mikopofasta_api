@@ -32,7 +32,7 @@ final class UpdateUserRequest extends FormRequest
             'name' => ['required', 'string', 'min:2', 'max:150'],
             'phone' => ['required', 'string', 'min:9', 'max:20', Rule::unique('users', 'phone')->ignore($userId)],
             'email' => ['nullable', 'email', 'max:150', Rule::unique('users', 'email')->ignore($userId)],
-            'role' => ['required', 'string', Rule::in(RoleName::values())],
+            'role' => ['required', 'string', Rule::in(RoleName::assignable())],
 
             // Existence validated as of Phase 3 — see StoreUserRequest.
             'branchId' => ['nullable', 'integer', Rule::exists('branches', 'id')->whereNull('deleted_at')],

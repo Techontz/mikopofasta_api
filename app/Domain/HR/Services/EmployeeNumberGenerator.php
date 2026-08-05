@@ -7,8 +7,11 @@ namespace App\Domain\Hr\Services;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Generates `staff_profiles.employee_number` in the frontend's format: EMP-0001
- * (lib/domain/id-generators.ts).
+ * Generates `staff_profiles.employee_number` in the legacy system's format:
+ * EMP-0001.
+ *
+ * The frontend used to mint these itself; it no longer does, and this is now
+ * the only place they are produced.
  *
  * Derived from the highest existing number rather than from MAX(id), for the
  * same reason as every other generator here: an auto-increment gap — a rolled

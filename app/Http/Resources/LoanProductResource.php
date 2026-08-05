@@ -44,7 +44,7 @@ final class LoanProductResource extends JsonResource
 
             'interestFormulaCode' => $this->whenLoaded(
                 'interestFormula',
-                fn (): ?string => $this->interestFormula?->code->value,
+                fn (): ?string => $this->interestFormula?->code,
             ),
             'allowedRepaymentScheduleIds' => $this->whenLoaded(
                 'repaymentSchedules',

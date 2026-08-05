@@ -24,7 +24,7 @@ final class UpdateUserStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', Rule::in(UserStatus::values())],
+            'status' => ['required', 'string', Rule::in(UserStatus::assignable())],
         ];
     }
 }

@@ -16,12 +16,37 @@ use App\Support\Money;
 final readonly class AllocationResult
 {
     /**
+     * How much of an existing advance credit this allocation spent.
+     *
+     * Held apart from the cash figures because it is not new money: the ledger
+     * already recognised it when the borrower paid early. Posting it again
+     * would recognise the same shilling twice, so the caller debits the advance
+     * rather than cash for this portion.
+     */
+    public Money $advanceConsumed;
+
+    /**
      * @param list<AllocationLine> $lines
      */
     public function __construct(
         public array $lines,
         public Money $unallocated,
-    ) {}
+        ?Money $advanceConsumed = null,
+    ) {
+        // Money's constructor is private, so zero cannot be a default argument.
+        $this->advanceConsumed = $advanceConsumed ?? Money::zero();
+    }
+
+    /**
+     * The cash this payment actually moved — what the ledger posts.
+     *
+     * The allocated total LESS whatever came out of the advance credit, because
+     * that part was banked and recognised when it was first received.
+     */
+    public function cashApplied(): Money
+    {
+        return $this->allocatedTotal()->subtract($this->advanceConsumed);
+    }
 
     public function totalPenalty(): Money
     {

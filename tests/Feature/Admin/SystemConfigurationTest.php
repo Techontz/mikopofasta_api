@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domain\Auth\Enums\RoleName;
+use App\Domain\Loans\Engine\LoanEngine;
 use App\Domain\Loans\Enums\InterestFormulaCode;
 use App\Domain\Notifications\Enums\NotificationChannel;
 use App\Domain\Notifications\Enums\NotificationTriggerEvent;
@@ -57,19 +58,37 @@ function templatePayload(array $overrides = []): array
 // ---------------------------------------------------------------------------
 
 describe('interest formulas', function (): void {
-    it('lists the three the engine implements, with what each is carrying', function (): void {
+    it('lists every formula the engine implements, with what each is carrying', function (): void {
         actingAsRole(RoleName::LoanOfficer);
 
         $rows = $this->getJson('/api/v1/interest-formulas')->assertOk()->json('data');
 
+        /*
+         * Compared against the STRATEGY REGISTRY rather than a fixed list.
+         *
+         * The registry is the authority on what can actually be priced, so this
+         * asserts the real invariant: every configurable formula has an
+         * implementation behind it, and every implementation is offered. A
+         * hardcoded list would have to be edited by whoever adds a formula —
+         * which is exactly the coupling the registry exists to remove.
+         */
         expect(array_column($rows, 'code'))
-            ->toEqualCanonicalizing(array_map(
-                static fn (InterestFormulaCode $c): string => $c->value,
-                InterestFormulaCode::cases(),
-            ));
+            ->toEqualCanonicalizing(array_keys(app(LoanEngine::class)->availableFormulas()));
 
         // The count is what makes an edit feel weighty on the settings screen.
         expect($rows[0])->toHaveKey('productCount');
+    });
+
+    it('flags exactly one formula as the default for new products', function (): void {
+        actingAsRole(RoleName::LoanOfficer);
+
+        $rows = $this->getJson('/api/v1/interest-formulas')->assertOk()->json('data');
+
+        $defaults = array_values(array_filter($rows, static fn (array $r): bool => $r['isDefault'] === true));
+
+        // Client Decision 2 — Reducing EMI, and only it.
+        expect($defaults)->toHaveCount(1)
+            ->and($defaults[0]['code'])->toBe('REDUCING_EMI');
     });
 
     it('renames a formula and rewrites its description', function (): void {
@@ -81,8 +100,17 @@ describe('interest formulas', function (): void {
             'description' => 'Interest accrues on what is still owed, not on the original principal.',
         ])->assertOk()->assertJsonPath('data.name', 'Reducing balance');
 
-        // The code is untouched — it is what the schedule generator branches on.
-        expect($formula->fresh()->code)->toBe(InterestFormulaCode::Reducing);
+        /*
+         * The code is untouched — InterestStrategyRegistry resolves it to a
+         * strategy, so renaming a formula must never change which arithmetic
+         * runs.
+         *
+         * Compared as a STRING: `interest_formulas.code` is no longer an ENUM
+         * column cast to InterestFormulaCode. It is administrator-managed free
+         * text now, and the enum survives only as named constants for the three
+         * formulas the system seeds.
+         */
+        expect($formula->fresh()->code)->toBe(InterestFormulaCode::Reducing->value);
     });
 
     it('records the rename in the audit trail', function (): void {
@@ -117,9 +145,14 @@ describe('interest formulas', function (): void {
     });
 
     /*
-     * The absence is the point, so it is asserted rather than assumed. A fourth
-     * formula would be a row the interest engine has no branch for: every loan
-     * priced from a product using it would fail at origination.
+     * The absence is the point, so it is asserted rather than assumed.
+     *
+     * Not because the engine cannot take another formula — it can; the registry
+     * makes adding one a class plus a row. But a formula created through the API
+     * would have no strategy behind it, and every loan priced from a product
+     * using it would be refused at origination. Introducing one is a deliberate
+     * act with code attached, not something an administrator does by typing a
+     * name into a settings screen.
      */
     it('exposes no way to create or delete a formula', function (): void {
         actingAsAdmin();

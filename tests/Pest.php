@@ -26,6 +26,24 @@ use Laravel\Sanctum\Sanctum;
 
 pest()->extend(Tests\TestCase::class)
     ->use(RefreshDatabase::class)
+    /*
+     * Every feature test starts from the platform floor: permissions, roles and
+     * the System account — the same three seeders `migrate:fresh --seed` runs
+     * before anything else, in the same order.
+     *
+     * This is here rather than in each test because the System account is
+     * infrastructure, not a fixture. A test that forgot it would not fail on
+     * the missing account; it would fail somewhere else entirely, on a 503 from
+     * whichever automated path it happened to touch. `FoundationTest`'s health
+     * check found exactly that, and the answer is for the foundation to mirror
+     * production rather than for each test to remember.
+     *
+     * `seedRbac()` short-circuits once seeded, so the explicit calls throughout
+     * the suite cost one query each and are left in place: they document what a
+     * test depends on, and a test that spells out its own preconditions still
+     * reads correctly on its own.
+     */
+    ->beforeEach(fn () => seedRbac())
     ->in('Feature');
 
 /*
@@ -50,8 +68,36 @@ pest()->extend(Tests\TestCase::class)->in('Unit');
  */
 function seedRbac(): void
 {
+    /*
+     * Idempotent, because it now runs from the global beforeEach AND from the
+     * dozens of tests that call it explicitly. The System role is the marker
+     * rather than any other: it is created by RoleSeeder and is the one thing
+     * no factory or fixture ever produces, so its presence means the whole
+     * platform floor is down and not merely part of it.
+     */
+    if (App\Models\Role::query()->where('name', RoleName::System->value)->exists()) {
+        return;
+    }
+
     test()->seed(PermissionSeeder::class);
     test()->seed(RoleSeeder::class);
+
+    /*
+     * The System account is infrastructure, not a fixture.
+     *
+     * Every automated path resolves it — the provider webhook, the disbursement
+     * callback, the nightly advance consumption, the penalty run — and
+     * SystemActor REFUSES rather than substituting a human. A test foundation
+     * without it would make those paths 503, which is precisely what the
+     * refusal is for.
+     *
+     * Seeded HERE rather than per test, so the test infrastructure mirrors
+     * production: on a real installation the account exists from the moment the
+     * seeders run, and no test should have to remember to create it.
+     *
+     * After RoleSeeder, because the account needs the `system` role.
+     */
+    test()->seed(Database\Seeders\SystemUserSeeder::class);
 }
 
 /**
@@ -247,6 +293,45 @@ function registeredCustomer(array $overrides = []): App\Models\Customer
 }
 
 /**
+ * A complete, passing face-scan payload for POST /face-verify.
+ *
+ * The endpoint requires every measurement — a capture that cannot say what it
+ * measured is not a verification — so a test that only wants "a scan happened"
+ * would otherwise carry thirty lines of scores. Pass overrides to make one
+ * fail, or to change a single score.
+ *
+ * @param array<string, mixed> $overrides
+ * @return array<string, mixed>
+ */
+function faceScanPayload(array $overrides = []): array
+{
+    $checks = array_merge(
+        array_fill_keys(App\Http\Requests\Customers\FaceVerifyRequest::CHECKS, true),
+        (array) ($overrides['checks'] ?? []),
+    );
+
+    unset($overrides['checks']);
+
+    return array_merge([
+        'capture' => Illuminate\Http\UploadedFile::fake()->image('liveness.jpg'),
+        'status' => 'passed',
+        'qualityScore' => 92,
+        'brightnessScore' => 88,
+        'blurScore' => 90,
+        'distanceScore' => 95,
+        'centeringScore' => 93,
+        'eyesOpenScore' => 99,
+        'scannerVersion' => 'mediapipe-face-landmarker@1.0.0',
+        'livenessPassed' => true,
+        'poseSequenceCompleted' => true,
+        'captureDevice' => 'FaceTime HD Camera',
+        'captureResolution' => '1280x720',
+        'captureDurationMs' => 8420,
+        'checks' => $checks,
+    ], $overrides);
+}
+
+/**
  * Seeds everything a loan needs: the customer foundation plus the loan
  * configuration layer (formulas, cadences, products and the §2.3 eligibility
  * pivot).
@@ -255,6 +340,9 @@ function seedLoanFoundation(): void
 {
     seedCustomerFoundation();
     test()->seed(Database\Seeders\LoanProductSeeder::class);
+
+    // The approval chain is configuration a loan cannot move without.
+    test()->seed(Database\Seeders\LoanApprovalStageSeeder::class);
 }
 
 /**
@@ -339,7 +427,24 @@ function submittedLoan(string $product = 'BODA_WC', string $category = 'BODA'): 
     return App\Models\Loan::query()->latest('id')->firstOrFail();
 }
 
-/** A mandate-product loan approved and waiting on its OTP. */
+/**
+ * Clears the zone tier — stage two of the client's approval chain.
+ *
+ * A separate identity from the branch manager on purpose: the chain exists so
+ * that two different people look at a loan, and a helper that quietly used one
+ * user for both would make every downstream test pass under a rule the system
+ * is supposed to refuse.
+ */
+function approveAtZone(App\Models\Loan $loan): App\Models\Loan
+{
+    officerAt('Head Office', RoleName::ZoneManager);
+
+    test()->postJson("/api/v1/loans/{$loan->id}/approval/decide", ['decision' => 'approved'])->assertOk();
+
+    return $loan->refresh();
+}
+
+/** A mandate-product loan approved through branch and zone, waiting on its OTP. */
 function approvedMandateLoan(): App\Models\Loan
 {
     $loan = submittedLoan(product: 'SALARY_ADVANCE', category: 'PUBLIC_SERVANT');
@@ -347,12 +452,16 @@ function approvedMandateLoan(): App\Models\Loan
     officerAt('Kakonko', RoleName::BranchManager);
     test()->postJson("/api/v1/loans/{$loan->id}/approve-manager", ['decision' => 'approve'])->assertOk();
 
+    // The mandate opens when the stage BEFORE credit clears, because credit is
+    // the stage that requires a live mandate.
+    approveAtZone($loan);
+
     officerAt('Kakonko', RoleName::LoanOfficer);
 
     return $loan->refresh();
 }
 
-/** A loan approved onto the credit-review step. */
+/** A loan approved through branch and zone, onto the credit-review step. */
 function loanAtCreditReview(): App\Models\Loan
 {
     $loan = submittedLoan();
@@ -360,7 +469,7 @@ function loanAtCreditReview(): App\Models\Loan
     officerAt('Kakonko', RoleName::BranchManager);
     test()->postJson("/api/v1/loans/{$loan->id}/approve-manager", ['decision' => 'approve'])->assertOk();
 
-    return $loan->refresh();
+    return approveAtZone($loan);
 }
 
 /** A loan that has cleared credit review and is waiting on Finance. */
@@ -466,6 +575,68 @@ function activeLoan(): App\Models\Loan
         ->assertOk();
 
     return $loan->fresh(['schedules', 'customer', 'branch']);
+}
+
+/**
+ * Pays cash against a loan as a teller of its branch.
+ *
+ * Shared because more than one suite needs it: a Pest helper declared inside a
+ * test file is not visible to the others.
+ */
+function payCash(App\Models\Loan $loan, string $amount): Illuminate\Testing\TestResponse
+{
+    officerAt($loan->branch->name, RoleName::Teller);
+
+    return test()->postJson('/api/v1/payments/cash', [
+        'loanId' => $loan->getKey(),
+        'amount' => $amount,
+    ]);
+}
+
+/**
+ * Moves the clock to the day installment `$number` falls due.
+ *
+ * Needed since the client's advance ruling: a payment now settles only
+ * installments that have REACHED their due date, and everything else is held as
+ * a Customer Advance. A loan disbursed today has nothing due today, so a test
+ * that wants to exercise settlement has to say when it is paying.
+ *
+ * Travels to the due date itself, not past it — the installment is due, and not
+ * yet overdue, so no penalty is in play unless the test asks for one.
+ */
+function atDueDate(App\Models\Loan $loan, int $number = 1): App\Models\Loan
+{
+    $schedule = $loan->schedules()->where('installment_number', $number)->firstOrFail();
+
+    test()->travelTo($schedule->due_date->copy()->startOfDay()->addHours(9));
+
+    return $loan;
+}
+
+/**
+ * An active loan whose first `$number` installments have fallen due.
+ *
+ * The ordinary starting point for a repayment test: money arriving against a
+ * debt that is actually payable.
+ */
+function matureLoan(int $number = 1): App\Models\Loan
+{
+    return atDueDate(activeLoan(), $number);
+}
+
+/**
+ * An active loan every installment of which has fallen due.
+ *
+ * What a test needs to settle a loan in full. Paying the whole balance BEFORE
+ * the final due date no longer closes the loan — the surplus is held as a
+ * Customer Advance and consumed installment by installment — so a settlement
+ * test has to put the clock where the debt actually is.
+ */
+function fullyDueLoan(): App\Models\Loan
+{
+    $loan = activeLoan();
+
+    return atDueDate($loan, (int) $loan->schedules->max('installment_number'));
 }
 
 /**

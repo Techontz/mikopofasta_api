@@ -75,8 +75,34 @@ final class LoanPolicy
         return $actor->hasPermission(PermissionName::LoansDisburse);
     }
 
+    /**
+     * Closing a loan early forgives interest that was contractually owed, so it
+     * carries its own grant — the roles that originate a loan must not also be
+     * able to discount it.
+     */
+    public function settleEarly(User $actor, Loan $loan): bool
+    {
+        return $actor->hasPermission(PermissionName::LoansSettleEarly);
+    }
+
     public function cancel(User $actor, Loan $loan): bool
     {
         return $actor->hasPermission(PermissionName::LoansApprove);
+    }
+
+    /**
+     * Writing a loan off is the only operation here that reduces what a
+     * borrower owes without anyone paying, so it carries its own grant rather
+     * than riding on `loans.approve` — the role that originates a loan must not
+     * be the role that can forgive it.
+     */
+    public function writeOff(User $actor, Loan $loan): bool
+    {
+        return $actor->hasPermission(PermissionName::LoansWriteOff);
+    }
+
+    public function recover(User $actor, Loan $loan): bool
+    {
+        return $actor->hasPermission(PermissionName::LoansRecover);
     }
 }

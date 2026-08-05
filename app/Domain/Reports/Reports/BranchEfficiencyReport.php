@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Reports\Reports;
 
-use App\Domain\Ledger\Enums\AccountType;
 use App\Domain\Reports\Contracts\Report;
 use App\Domain\Reports\DTOs\ReportColumn;
 use App\Domain\Reports\DTOs\ReportFilters;
@@ -54,10 +53,12 @@ final class BranchEfficiencyReport implements Report
         $rows = [];
 
         foreach ($this->sources->branches($filters) as $branch) {
-            $trial = $this->sources->trialBalance($filters->forBranch((int) $branch->getKey()));
+            // Period-scoped, and excluding the month-end close's sweep of
+            // income into Profit — see ReportSources::periodIncomeExpense().
+            [$income, $expense] = $this->sources->periodIncomeExpense(
+                $filters->forBranch((int) $branch->getKey()),
+            );
 
-            $income = $this->sources->balanceOfTypeFrom($trial, AccountType::Income);
-            $expense = $this->sources->balanceOfTypeFrom($trial, AccountType::Expense);
             $profit = $income->subtract($expense);
 
             $headcount = StaffProfile::query()

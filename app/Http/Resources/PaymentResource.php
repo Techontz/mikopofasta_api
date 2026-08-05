@@ -42,6 +42,15 @@ final class PaymentResource extends JsonResource
 
             'allocations' => PaymentAllocationResource::collection($this->whenLoaded('allocations')),
             'loanNumber' => $this->whenLoaded('loan', fn (): ?string => $this->loan?->loan_number),
+
+            /*
+             * Only when the relation is loaded, like `loanNumber` beside it.
+             *
+             * Added for the cash-deposit screen: a teller selecting which
+             * takings a deposit covers needs to recognise the customer, and a
+             * payment reference alone is not something anyone recognises.
+             */
+            'customerName' => $this->whenLoaded('customer', fn (): ?string => $this->customer?->fullName()),
         ];
     }
 

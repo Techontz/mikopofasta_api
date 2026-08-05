@@ -156,18 +156,47 @@ describe('registration', function (): void {
             ->assertJsonPath('errors.nidaNumber.0', 'A customer with this NIDA number is already registered.');
     });
 
-    it('refuses registration without the three verification timestamps', function (): void {
+    it('registers a customer manually, with no National ID and no verification', function (): void {
         officerAt();
 
         $payload = registrationPayload();
-        unset($payload['nidaVerifiedAt'], $payload['otpVerifiedAt'], $payload['faceVerifiedAt']);
+        unset(
+            $payload['nidaNumber'],
+            $payload['nidaVerifiedAt'],
+            $payload['otpVerifiedAt'],
+            $payload['faceVerifiedAt'],
+        );
 
-        // §9 makes NIDA + OTP + liveness the gate. Accepting a payload without
-        // them would let a client register an unverified identity by skipping
-        // the wizard.
+        /*
+         * §9 made NIDA + OTP + liveness the gate, and this test used to assert
+         * a 422 without them. That gate only means something when there is a
+         * registry behind it. There is not — what filled those fields was
+         * `NidaRegistry`, which invented a name and a date of birth from a hash
+         * of the number typed — so requiring them did not prove an identity had
+         * been checked, it proved the simulator had run.
+         *
+         * Manual registration is the supported flow until the integration
+         * exists. The record is accepted and rated `incomplete`, which is the
+         * true statement about it: a real person, entered by an officer, whose
+         * identity nothing has verified.
+         */
+        $this->postJson('/api/v1/customers', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.nidaNumber', null)
+            ->assertJsonPath('data.kycStatus', 'incomplete');
+    });
+
+    it('still requires the NIDA timestamp when a National ID is supplied', function (): void {
+        officerAt();
+
+        $payload = registrationPayload();
+        unset($payload['nidaVerifiedAt']);
+
+        // The pair travels together: a National ID without the verification
+        // that produced it is the fabricated-identity case all over again.
         $this->postJson('/api/v1/customers', $payload)
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['nidaVerifiedAt', 'otpVerifiedAt', 'faceVerifiedAt']);
+            ->assertJsonValidationErrors(['nidaVerifiedAt']);
     });
 
     it('validates dynamic form data against the category schema', function (): void {

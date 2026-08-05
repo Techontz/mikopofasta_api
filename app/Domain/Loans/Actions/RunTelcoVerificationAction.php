@@ -57,7 +57,16 @@ final class RunTelcoVerificationAction
             if (! $passed) {
                 $this->states->transition($loan, LoanStatus::Rejected, $creditOfficer, 'Telco verification failed');
 
-                $loan->update(['rejected_reason' => 'Telco KYC verification failed.']);
+                /*
+                 * The loan has left the approval chain, so it no longer sits at
+                 * a stage. Cleared here as well as on the generic decision path
+                 * — a stale stage id would keep a rejected application in an
+                 * approver's queue count.
+                 */
+                $loan->update([
+                    'rejected_reason' => 'Telco KYC verification failed.',
+                    'approval_stage_id' => null,
+                ]);
 
                 $this->audit->log(AuditAction::LoanRejected, $loan, after: ['reason' => 'telco_failed'], actor: $creditOfficer);
 
@@ -65,6 +74,9 @@ final class RunTelcoVerificationAction
             }
 
             $this->states->transition($loan, LoanStatus::PendingFinance, $creditOfficer, 'Telco verification passed');
+
+            // Credit was the last tier; the loan is with Finance now.
+            $loan->update(['approval_stage_id' => null]);
 
             $this->audit->log(AuditAction::LoanTelcoVerified, $loan, after: ['matched' => true], actor: $creditOfficer);
 

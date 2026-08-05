@@ -13,9 +13,9 @@ use Illuminate\Database\Seeder;
 /**
  * Tanzanian administrative geography: region → district → ward → street.
  *
- * The five regions and their districts/wards/streets mirror the frontend's
- * seed data (lib/mock-data/{regions,districts,wards,streets}.ts) so the demo
- * narrative continues to work against the real API — the same Mwanza,
+ * The five regions and their districts/wards/streets were transcribed from the
+ * frontend's original seed data, since removed, so the demo narrative
+ * continues to work against the real API — the same Mwanza,
  * Kigoma, Kagera, Lindi and Mbeya, with the same real district and ward names.
  *
  * Idempotent throughout: re-seeding adds anything new without duplicating what

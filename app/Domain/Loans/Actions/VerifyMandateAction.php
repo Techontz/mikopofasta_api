@@ -7,6 +7,7 @@ namespace App\Domain\Loans\Actions;
 use App\Domain\Loans\Enums\EMandateStatus;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Exceptions\LoanStateException;
+use App\Domain\Loans\Services\LoanApprovalWorkflow;
 use App\Domain\Loans\Services\LoanStateMachine;
 use App\Domain\Loans\Services\MandateGateway;
 use App\Enums\AuditAction;
@@ -30,6 +31,7 @@ final class VerifyMandateAction
     public function __construct(
         private readonly MandateGateway $gateway,
         private readonly LoanStateMachine $states,
+        private readonly LoanApprovalWorkflow $workflow,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -71,13 +73,23 @@ final class VerifyMandateAction
             ]);
 
             /*
-             * §10 routes mandate_active → pending_credit_review, and there is
-             * nothing to wait for in between, so both moves happen here. Two
-             * history rows rather than one, because the mandate genuinely did
-             * become active before the loan moved on.
+             * §10 routes mandate_active → the stage that was waiting on the
+             * mandate, and there is nothing to wait for in between, so both
+             * moves happen here. Two history rows rather than one, because the
+             * mandate genuinely did become active before the loan moved on.
+             *
+             * The destination is ASKED of the workflow rather than named, so
+             * that an administrator who reorders or deactivates the credit
+             * stage does not strand mandate-bearing loans in a status nothing
+             * picks up.
              */
+            $stage = $this->workflow->stageAfterMandate();
+            $next = $stage === null ? LoanStatus::PendingCreditReview : $stage->loan_status;
+
             $this->states->transition($loan, LoanStatus::MandateActive, $actor, 'Mandate verified');
-            $this->states->transition($loan, LoanStatus::PendingCreditReview, $actor, 'Mandate active');
+            $this->states->transition($loan, $next, $actor, 'Mandate active');
+
+            $loan->update(['approval_stage_id' => $stage?->getKey()]);
 
             $this->audit->log(
                 AuditAction::LoanMandateVerified,

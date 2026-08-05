@@ -258,13 +258,18 @@ describe('manager approval', function (): void {
         seedLoanFoundation();
     });
 
-    it('approves, generates the schedule, and moves to credit review', function (): void {
+    it('approves, generates the schedule, and moves to zone approval', function (): void {
         $loan = submittedLoan();
         $manager = officerAt('Kakonko', RoleName::BranchManager);
 
         $response = $this->postJson("/api/v1/loans/{$loan->id}/approve-manager", ['decision' => 'approve']);
 
-        $response->assertOk()->assertJsonPath('data.status', 'pending_credit_review');
+        /*
+         * Stage one of the client's chain, not the whole of it. Branch
+         * approval now hands the loan to the Zone Manager; credit review is
+         * stage three.
+         */
+        $response->assertOk()->assertJsonPath('data.status', 'pending_zone_approval');
 
         $loan->refresh();
 
@@ -337,10 +342,19 @@ describe('manager approval', function (): void {
 
         $this->postJson("/api/v1/loans/{$loan->id}/approve-manager", ['decision' => 'approve'])
             ->assertOk()
-            // §10's conditional branch, decided by the SNAPSHOT.
-            ->assertJsonPath('data.status', 'mandate_pending_otp');
+            ->assertJsonPath('data.status', 'pending_zone_approval');
 
-        expect($loan->refresh()->mandates()->count())->toBe(1);
+        /*
+         * §10's conditional branch, decided by the SNAPSHOT — and it fires when
+         * the stage BEFORE credit clears, because credit is the stage flagged
+         * as requiring a live mandate. No mandate exists before then.
+         */
+        expect($loan->refresh()->mandates()->count())->toBe(0);
+
+        approveAtZone($loan);
+
+        expect($loan->refresh()->status)->toBe(LoanStatus::MandatePendingOtp)
+            ->and($loan->mandates()->count())->toBe(1);
     });
 });
 
@@ -478,7 +492,11 @@ describe('state machine', function (): void {
         $history = $loan->statusHistory()->orderBy('id')->get();
 
         expect($history->pluck('to_status')->map(fn ($s) => $s->value)->all())
-            ->toBe(['draft', 'pending_manager_approval', 'pending_credit_review', 'pending_finance'])
+            ->toBe([
+                'draft', 'pending_manager_approval',
+                // The zone tier the client added, between branch and credit.
+                'pending_zone_approval', 'pending_credit_review', 'pending_finance',
+            ])
             ->and($history->every(fn ($h): bool => $h->changed_by !== null))->toBeTrue();
     });
 });
@@ -567,5 +585,100 @@ describe('index balances', function (): void {
         // start from a page that already has loans on it — otherwise it would
         // measure that skip rather than the aggregate.
         expect($count(50))->toBe($count(1));
+    });
+});
+
+describe('schedule preview', function (): void {
+    beforeEach(function (): void {
+        seedLoanFoundation();
+    });
+
+    /**
+     * The preview used to be computed in the browser, from a TypeScript copy of
+     * the interest formulas. These tests exist to keep it in one place: what an
+     * officer shows a customer must be what the customer will owe.
+     */
+    it('prices a plan through the same engine approval will use', function (): void {
+        officerAt('Kakonko', RoleName::LoanOfficer);
+
+        $product = bodaProduct();
+        $schedule = $product->repaymentSchedules->firstWhere('code', 'WEEKLY');
+
+        $preview = $this->postJson('/api/v1/loans/schedule-preview', [
+            'loanProductId' => $product->getKey(),
+            'repaymentScheduleId' => $schedule->getKey(),
+            'principalAmount' => '500000.00',
+            'tenureDays' => 90,
+        ])->assertOk()->json('data');
+
+        $principal = Money::sum(array_map(
+            static fn (array $i): Money => Money::of($i['principalDue']),
+            $preview['installments'],
+        ));
+
+        expect($preview['formulaCode'])->toBe($product->interestFormula->code)
+            ->and($preview['installmentCount'])->toBe(count($preview['installments']))
+            // The plan repays the loan exactly — the same invariant the real
+            // schedule is held to.
+            ->and($principal->toDecimalString())->toBe('500000.00')
+            ->and($preview['totalPrincipal'])->toBe('500000.00');
+    });
+
+    it('matches the schedule the loan is actually given at approval', function (): void {
+        /*
+         * The whole point. A preview that differed from the generated schedule
+         * — as the browser copy admitted it did, "by a cent or two" — is a
+         * figure quoted to a customer that the system will not honour.
+         */
+        $loan = loanAtCreditReview();
+
+        // The SAME terms the loan carries — a preview of different terms would
+        // prove nothing about whether the two agree.
+        officerAt('Kakonko', RoleName::LoanOfficer);
+
+        $preview = $this->postJson('/api/v1/loans/schedule-preview', [
+            'loanProductId' => $loan->loan_product_id,
+            'repaymentScheduleId' => $loan->repayment_schedule_id,
+            'principalAmount' => $loan->principal_amount,
+            'tenureDays' => $loan->tenure_days,
+        ])->assertOk()->json('data.installments');
+
+        $actual = $loan->schedules()->orderBy('installment_number')->get()
+            ->map(fn (LoanSchedule $s): array => [
+                'principalDue' => $s->principalDue()->toDecimalString(),
+                'interestDue' => $s->interestDue()->toDecimalString(),
+            ])->all();
+
+        $previewed = array_map(static fn (array $i): array => [
+            'principalDue' => $i['principalDue'],
+            'interestDue' => $i['interestDue'],
+        ], $preview);
+
+        expect($previewed)->toBe($actual);
+    });
+
+    it('refuses a preview to someone who cannot raise an application', function (): void {
+        officerAt('Kakonko', RoleName::Teller);
+
+        $product = bodaProduct();
+
+        $this->postJson('/api/v1/loans/schedule-preview', [
+            'loanProductId' => $product->getKey(),
+            'repaymentScheduleId' => $product->repaymentSchedules->first()->getKey(),
+            'principalAmount' => '500000.00',
+            'tenureDays' => 90,
+        ])->assertForbidden();
+    });
+
+    it('validates the terms it is asked to price', function (): void {
+        officerAt('Kakonko', RoleName::LoanOfficer);
+
+        $this->postJson('/api/v1/loans/schedule-preview', [
+            'loanProductId' => 999999,
+            'repaymentScheduleId' => 999999,
+            'principalAmount' => '0.00',
+            'tenureDays' => 0,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['loanProductId', 'repaymentScheduleId', 'principalAmount', 'tenureDays']);
     });
 });

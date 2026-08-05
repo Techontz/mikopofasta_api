@@ -38,11 +38,17 @@ use Illuminate\Support\Facades\DB;
  * @property int $tenure_days
  * @property bool $requires_mandate_snapshot
  * @property LoanStatus $status
+ * @property int|null $approval_stage_id
+ * @property LoanStatus|null $hold_resume_status
  * @property CarbonImmutable|null $disbursement_date
  * @property CarbonImmutable|null $expected_completion_date
  * @property int|null $approved_by
  * @property CarbonImmutable|null $approved_at
  * @property string|null $rejected_reason
+ * @property string $interest_waived
+ * @property CarbonImmutable|null $early_settled_at
+ * @property int|null $early_settled_by
+ * @property int|null $early_settlement_payment_id
  * @property CarbonImmutable|null $closed_at
  * @property CarbonImmutable|null $frozen_until
  * @property int|null $created_by
@@ -59,8 +65,11 @@ class Loan extends Model
         'branch_id', 'officer_id', 'principal_amount',
         'interest_rate_snapshot', 'penalty_rate_snapshot', 'tenure_days', 'requires_mandate_snapshot',
         'fee_type_snapshot', 'fee_amount_snapshot', 'insurance_amount_snapshot', 'fee_charged',
-        'status', 'disbursement_date', 'expected_completion_date',
-        'approved_by', 'approved_at', 'rejected_reason', 'closed_at', 'frozen_until', 'created_by',
+        'status', 'approval_stage_id', 'hold_resume_status',
+        'disbursement_date', 'expected_completion_date',
+        'approved_by', 'approved_at', 'rejected_reason',
+        'interest_waived', 'early_settled_at', 'early_settled_by', 'early_settlement_payment_id',
+        'closed_at', 'frozen_until', 'created_by',
     ];
 
     /**
@@ -120,6 +129,34 @@ class Loan extends Model
     }
 
     /**
+     * The officer who chose to close the loan early.
+     *
+     * Separate from the settlement payment rather than read off it, because a
+     * loan whose whole remaining balance was unearned interest is settled by
+     * the waiver alone and has no payment — but it always had somebody decide.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function earlySettledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'early_settled_by');
+    }
+
+    /**
+     * The payment that settled the loan, if any money changed hands.
+     *
+     * Linked rather than copied: the reference and the amount live on the
+     * payment, and duplicating them here would give them a second place to be
+     * wrong.
+     *
+     * @return BelongsTo<Payment, $this>
+     */
+    public function earlySettlementPayment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class, 'early_settlement_payment_id');
+    }
+
+    /**
      * @return HasMany<LoanSchedule, $this>
      */
     public function schedules(): HasMany
@@ -141,6 +178,34 @@ class Loan extends Model
     public function mandates(): HasMany
     {
         return $this->hasMany(EMandate::class);
+    }
+
+    /**
+     * Which tier of the approval chain this loan is waiting on.
+     *
+     * Null once it has left the chain — approved through, rejected, returned to
+     * the officer, or already disbursing. A HELD loan keeps its stage, because
+     * that is where releasing puts it back.
+     *
+     * @return BelongsTo<LoanApprovalStage, $this>
+     */
+    public function approvalStage(): BelongsTo
+    {
+        return $this->belongsTo(LoanApprovalStage::class, 'approval_stage_id');
+    }
+
+    /**
+     * Every decision taken on this loan, newest last.
+     *
+     * The chain's own record, distinct from `statusHistory`: a status change
+     * says where the loan went, a decision says who decided it, at which stage,
+     * and why.
+     *
+     * @return HasMany<LoanApprovalDecision, $this>
+     */
+    public function approvalDecisions(): HasMany
+    {
+        return $this->hasMany(LoanApprovalDecision::class)->orderBy('created_at')->orderBy('id');
     }
 
     /**
@@ -261,6 +326,7 @@ class Loan extends Model
     {
         return [
             'status' => LoanStatus::class,
+            'hold_resume_status' => LoanStatus::class,
             'requires_mandate_snapshot' => 'boolean',
             'fee_type_snapshot' => ChargeValueType::class,
             'fee_amount_snapshot' => 'decimal:3',
@@ -271,6 +337,7 @@ class Loan extends Model
             'expected_completion_date' => 'date',
             'frozen_until' => 'date',
             'approved_at' => 'datetime',
+            'early_settled_at' => 'datetime',
             'closed_at' => 'datetime',
         ];
     }

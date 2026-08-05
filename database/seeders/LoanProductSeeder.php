@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Domain\Loans\Engine\Bases\AsConfiguredBasis;
+use App\Domain\Loans\Engine\Bases\PerAnnumBasis;
 use App\Domain\Loans\Enums\InterestFormulaCode;
 use App\Domain\Loans\Enums\PenaltyType;
 use App\Enums\ActiveStatus;
 use App\Models\CategoryProductEligibility;
 use App\Models\CustomerCategory;
 use App\Models\InterestFormula;
+use App\Models\InterestRateBasis;
 use App\Models\LoanProduct;
+use App\Models\PenaltyType as PenaltyTypeModel;
 use App\Models\RepaymentSchedule;
 use Illuminate\Database\Seeder;
 
@@ -32,6 +36,7 @@ final class LoanProductSeeder extends Seeder
     public function run(): void
     {
         $this->seedFormulas();
+        $this->seedRateBases();
         $this->seedSchedules();
         $this->seedProducts();
         $this->seedEligibility();
@@ -49,23 +54,73 @@ final class LoanProductSeeder extends Seeder
         $formulas = [
             [
                 'name' => 'Simple Formula',
-                'code' => InterestFormulaCode::Simple,
+                'code' => InterestFormulaCode::Simple->value,
                 'description' => 'Interest computed once on the original principal for the full tenure.',
+                'is_default' => null,
             ],
             [
                 'name' => 'Flat Rate Formula',
-                'code' => InterestFormulaCode::Flat,
+                'code' => InterestFormulaCode::Flat->value,
                 'description' => 'Interest charged per installment on the original principal.',
+                'is_default' => null,
             ],
             [
-                'name' => 'Reducing Formula',
-                'code' => InterestFormulaCode::Reducing,
-                'description' => 'Interest charged per installment on the outstanding balance.',
+                'name' => 'Reducing Formula (Equal Principal)',
+                'code' => InterestFormulaCode::Reducing->value,
+                'description' => 'Interest charged per installment on the outstanding balance; the principal share is equal each period.',
+                'is_default' => null,
+            ],
+            /*
+             * Client Decision 2. The EMI strategy has existed since the engine
+             * was built but had no master row, so nobody could select it — this
+             * is the row that makes it a product option, and the default one.
+             *
+             * Equal Principal above is explicitly retained. The client asked
+             * for both, and removing it would reprice every product currently
+             * on it.
+             */
+            [
+                'name' => 'Reducing Formula (Equal Instalment / EMI)',
+                'code' => 'REDUCING_EMI',
+                'description' => 'Equal instalment amortisation; interest on the outstanding balance, with the principal share growing each period.',
+                'is_default' => true,
             ],
         ];
 
         foreach ($formulas as $formula) {
             InterestFormula::query()->updateOrCreate(['code' => $formula['code']], $formula);
+        }
+    }
+
+    /**
+     * P2's two answers, as master data — client Decision 4.
+     *
+     * AS_CONFIGURED is the default and is active: it is what every existing
+     * product means, and it converts nothing. PER_ANNUM is seeded INACTIVE, so
+     * the option is implemented and present but cannot be chosen until the
+     * client confirms. Enabling it is one row update.
+     */
+    private function seedRateBases(): void
+    {
+        $bases = [
+            [
+                'name' => 'As Configured',
+                'code' => AsConfiguredBasis::CODE,
+                'description' => 'The rate is used exactly as entered, applied per installment or across the tenure as the formula defines.',
+                'is_default' => true,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Per Annum (APR)',
+                'code' => PerAnnumBasis::CODE,
+                'description' => 'The rate is annual; the engine pro-rates it to the loan\'s cadence on an actual/365 basis. Awaiting client confirmation — not selectable.',
+                'is_default' => null,
+                'is_active' => false,
+            ],
+        ];
+
+        foreach ($bases as $basis) {
+            InterestRateBasis::query()->updateOrCreate(['code' => $basis['code']], $basis);
         }
     }
 
@@ -95,6 +150,10 @@ final class LoanProductSeeder extends Seeder
     private function seedProducts(): void
     {
         $formulas = InterestFormula::query()->pluck('id', 'code');
+
+        // The penalty-type master rows the engine migration created, keyed by
+        // the code the enum still uses.
+        $penaltyTypes = PenaltyTypeModel::query()->pluck('id', 'code');
         $schedules = RepaymentSchedule::query()->pluck('id', 'code');
 
         foreach ($this->products() as $definition) {
@@ -109,13 +168,23 @@ final class LoanProductSeeder extends Seeder
             $columns = [
                 'name' => $definition['name'],
                 'code' => $definition['code'],
-                'interest_formula_id' => $formulas[$definition['interest_formula_code']->value],
+                'interest_formula_id' => $formulas[$definition['interest_formula_code']],
                 'interest_rate' => $definition['interest_rate'],
                 'min_amount' => $definition['min_amount'],
                 'max_amount' => $definition['max_amount'],
                 'min_tenure_days' => $definition['min_tenure_days'],
                 'max_tenure_days' => $definition['max_tenure_days'],
                 'penalty_type' => $definition['penalty_type'],
+
+                /*
+                 * The master-data row matching the enum.
+                 *
+                 * The migration backfills existing products, but seeders run
+                 * AFTER migrations — so a freshly seeded product would be
+                 * created with a null foreign key and the backfill would have
+                 * nothing to match. Resolved here instead.
+                 */
+                'penalty_type_id' => $penaltyTypes[$definition['penalty_type']->value] ?? null,
                 'penalty_rate' => $definition['penalty_rate'],
                 'penalty_grace_days' => $definition['penalty_grace_days'],
                 'penalty_cap_amount' => $definition['penalty_cap_amount'],
@@ -140,7 +209,7 @@ final class LoanProductSeeder extends Seeder
             [
                 'name' => 'Boda Boda Working Capital',
                 'code' => 'BODA_WC',
-                'interest_formula_code' => InterestFormulaCode::Reducing,
+                'interest_formula_code' => InterestFormulaCode::Reducing->value,
                 'interest_rate' => '8.000',
                 'min_amount' => '100000.00',
                 'max_amount' => '1000000.00',
@@ -157,7 +226,7 @@ final class LoanProductSeeder extends Seeder
             [
                 'name' => 'Entrepreneur Growth Loan',
                 'code' => 'SME_GROWTH',
-                'interest_formula_code' => InterestFormulaCode::Simple,
+                'interest_formula_code' => InterestFormulaCode::Simple->value,
                 'interest_rate' => '12.000',
                 'min_amount' => '300000.00',
                 'max_amount' => '5000000.00',
@@ -175,7 +244,7 @@ final class LoanProductSeeder extends Seeder
                 // The OSC-2 case: penalty_rate here is 10,000 TZS, not 10%.
                 'name' => 'Salary Advance E-Mandate',
                 'code' => 'SALARY_ADVANCE',
-                'interest_formula_code' => InterestFormulaCode::Flat,
+                'interest_formula_code' => InterestFormulaCode::Flat->value,
                 'interest_rate' => '3.000',
                 'min_amount' => '200000.00',
                 'max_amount' => '3000000.00',
@@ -192,7 +261,7 @@ final class LoanProductSeeder extends Seeder
             [
                 'name' => 'Public Servant Loan',
                 'code' => 'PUBLIC_SERVANT_LOAN',
-                'interest_formula_code' => InterestFormulaCode::Reducing,
+                'interest_formula_code' => InterestFormulaCode::Reducing->value,
                 'interest_rate' => '9.000',
                 'min_amount' => '500000.00',
                 'max_amount' => '8000000.00',
@@ -209,7 +278,7 @@ final class LoanProductSeeder extends Seeder
             [
                 'name' => 'Group Solidarity Loan',
                 'code' => 'GROUP_SOLIDARITY',
-                'interest_formula_code' => InterestFormulaCode::Flat,
+                'interest_formula_code' => InterestFormulaCode::Flat->value,
                 'interest_rate' => '2.500',
                 'min_amount' => '50000.00',
                 'max_amount' => '500000.00',

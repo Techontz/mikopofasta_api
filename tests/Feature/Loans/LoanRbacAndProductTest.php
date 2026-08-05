@@ -43,19 +43,33 @@ describe('rbac — separation of duties', function (): void {
         $this->postJson('/api/v1/loans', $payload)->assertForbidden();
     });
 
-    it('keeps approval, credit review and disbursement in three different hands', function (): void {
+    it('keeps every tier of the approval chain in a different pair of hands', function (): void {
         $loan = submittedLoan();
 
         // A Loan Officer raises applications but cannot approve one.
         officerAt('Kakonko', RoleName::LoanOfficer);
         $this->postJson("/api/v1/loans/{$loan->id}/approve-manager", ['decision' => 'approve'])->assertForbidden();
 
-        // A Branch Manager approves but does not run credit review...
+        // A Branch Manager clears stage one, and no more than stage one.
         officerAt('Kakonko', RoleName::BranchManager);
         $this->postJson("/api/v1/loans/{$loan->id}/approve-manager", ['decision' => 'approve'])->assertOk();
+
+        /*
+         * Stage two is the Zone Manager's, and `loans.approve` does not reach
+         * it. This is the whole reason zone approval has a grant of its own: a
+         * Branch Manager holding both could walk their own branch's loan
+         * through two consecutive tiers.
+         */
+        $this->postJson("/api/v1/loans/{$loan->id}/approval/decide", ['decision' => 'approved'])
+            ->assertForbidden();
+
+        officerAt('Head Office', RoleName::ZoneManager);
+        $this->postJson("/api/v1/loans/{$loan->id}/approval/decide", ['decision' => 'approved'])->assertOk();
+
+        // ...and the Zone Manager cannot run credit review.
         $this->postJson("/api/v1/loans/{$loan->id}/telco-verify", ['passed' => true])->assertForbidden();
 
-        // ...the Credit Officer does, but cannot then disburse.
+        // The Credit Officer does, but cannot then disburse.
         officerAt('Kakonko', RoleName::CreditOfficer);
         $this->postJson("/api/v1/loans/{$loan->id}/telco-verify", ['passed' => true])->assertOk();
         $this->postJson("/api/v1/loans/{$loan->id}/prepare-disbursement", ['channel' => 'vodacom'])->assertForbidden();
@@ -291,7 +305,8 @@ describe('configuration lookups', function (): void {
     it('serves interest formulas and repayment schedules', function (): void {
         officerAt('Kakonko', RoleName::LoanOfficer);
 
-        expect($this->getJson('/api/v1/interest-formulas')->assertOk()->json('data'))->toHaveCount(3)
+        // Four since the client made Reducing EMI a selectable product option.
+        expect($this->getJson('/api/v1/interest-formulas')->assertOk()->json('data'))->toHaveCount(4)
             ->and($this->getJson('/api/v1/repayment-schedules')->assertOk()->json('data'))->toHaveCount(4);
     });
 

@@ -103,6 +103,42 @@ enum ErrorCode: string
     | Platform (§1)
     |--------------------------------------------------------------------------
     */
+    /*
+     * The loan product engine. A product is the single source of truth for
+     * pricing, so a product that cannot be priced must fail loudly rather than
+     * fall back to an arithmetic nobody chose.
+     */
+    case UnknownInterestFormula = 'UNKNOWN_INTEREST_FORMULA';
+    case UnknownRateBasis = 'UNKNOWN_RATE_BASIS';
+
+    /*
+     * The platform has not been initialised — the System account is missing.
+     *
+     * Deliberately not an INVALID_STATE or a generic server error. This is a
+     * DEPLOYMENT fault, and the operator who sees it needs to be told to run
+     * the seeders rather than to go looking for a bug in the request.
+     */
+    case SystemUserNotInitialized = 'SYSTEM_USER_NOT_INITIALIZED';
+    case InvalidProductConfiguration = 'INVALID_PRODUCT_CONFIGURATION';
+    case InvalidSettlement = 'INVALID_SETTLEMENT';
+
+    /*
+     * Month-end close and the Reserve fund — Decision Register D1.
+     */
+    case PeriodAlreadyClosed = 'PERIOD_ALREADY_CLOSED';
+    case PeriodNotEnded = 'PERIOD_NOT_ENDED';
+    case PriorPeriodOpen = 'PRIOR_PERIOD_OPEN';
+    case PeriodEmpty = 'PERIOD_EMPTY';
+    case InsufficientReserve = 'INSUFFICIENT_RESERVE';
+    case InvalidReserveUtilisationState = 'INVALID_RESERVE_UTILISATION_STATE';
+
+    /*
+     * Write-off and recovery — §5's Write-Off and Recovered Loans accounts.
+     */
+    case LoanNotWriteOffEligible = 'LOAN_NOT_WRITE_OFF_ELIGIBLE';
+    case LoanAlreadyWrittenOff = 'LOAN_ALREADY_WRITTEN_OFF';
+    case LoanNotWrittenOff = 'LOAN_NOT_WRITTEN_OFF';
+
     case InvalidWebhookSignature = 'INVALID_WEBHOOK_SIGNATURE';
     case IdempotencyKeyConflict = 'IDEMPOTENCY_KEY_CONFLICT';
     case IdempotencyKeyRequired = 'IDEMPOTENCY_KEY_REQUIRED';

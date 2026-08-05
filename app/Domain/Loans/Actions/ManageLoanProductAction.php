@@ -142,6 +142,7 @@ final class ManageLoanProductAction
             'code' => 'code',
             'interestFormulaId' => 'interest_formula_id',
             'interestRate' => 'interest_rate',
+            'interestRateBasisId' => 'interest_rate_basis_id',
             'minAmount' => 'min_amount',
             'maxAmount' => 'max_amount',
             'minTenureDays' => 'min_tenure_days',

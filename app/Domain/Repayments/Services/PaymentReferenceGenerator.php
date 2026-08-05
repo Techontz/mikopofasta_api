@@ -7,8 +7,13 @@ namespace App\Domain\Repayments\Services;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Generates `payments.payment_reference` in the frontend's format: PAY-0000001
- * (lib/domain/id-generators.ts).
+ * Generates `payments.payment_reference` in the legacy system's format:
+ * PAY-0000001.
+ *
+ * The frontend used to mint these itself; it no longer does, and this is now
+ * the only place they are produced — including the reference a settled loan
+ * shows as its Settlement Reference. The format is pinned by
+ * tests/Feature/Repayments/RepaymentWorkflowTest.php.
  *
  * Derived from the highest existing reference, for the same reason as the
  * customer and loan generators: numbering off MAX(id) skips visibly the moment

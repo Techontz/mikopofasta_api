@@ -22,6 +22,13 @@ Artisan::command('inspire', function (): void {
 | the earlier slot means a borrower's arrears are current before anyone opens
 | the collections screen.
 |
+| It does one thing first: ApplyDueAdvancesAction spends any held Customer
+| Advance on the installments that have just fallen due. That is the client's
+| prepaid-credit rule, and the ordering is the point — an installment the
+| borrower has already funded was never late, so the penalty pass must only ever
+| see genuine shortfalls. There is no separate schedule entry for it, because a
+| second job could drift out of order with this one.
+|
 | `withoutOverlapping()` is the requirement that a second run cannot start
 | while the first is still going. It takes an atomic cache lock (Redis in
 | production, per CACHE_STORE), and the expiry is what releases the lock if the
