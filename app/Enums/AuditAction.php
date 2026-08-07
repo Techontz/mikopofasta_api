@@ -26,12 +26,20 @@ enum AuditAction: string
     case UserStatusChanged = 'USER_STATUS_CHANGED';
     case UserDeleted = 'USER_DELETED';
     case PasswordChanged = 'PASSWORD_CHANGED';
+    /* A member of staff editing their own personal details. Distinct from
+       USER_UPDATED, which is an administrator changing somebody else's
+       record — the two answer different questions in an investigation. */
+    case UserProfileUpdated = 'USER_PROFILE_UPDATED';
+    /* "Sign out my other devices" — deliberate, and the thing somebody does
+       when they think an account is compromised, so it is worth its own row. */
+    case UserSessionsRevoked = 'USER_SESSIONS_REVOKED';
     case PasswordResetRequested = 'PASSWORD_RESET_REQUESTED';
     case PasswordReset = 'PASSWORD_RESET';
     case RolePermissionsUpdated = 'ROLE_PERMISSIONS_UPDATED';
 
     // Organization (Phase 3)
     case BranchCreated = 'BRANCH_CREATED';
+    case BranchApprovalRouteChanged = 'BRANCH_APPROVAL_ROUTE_CHANGED';
     case BranchUpdated = 'BRANCH_UPDATED';
     case BranchDeleted = 'BRANCH_DELETED';
     case HeadOfficeChanged = 'HEAD_OFFICE_CHANGED';

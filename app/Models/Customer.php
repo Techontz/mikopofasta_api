@@ -36,6 +36,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property CarbonImmutable|null $nida_verified_at
  * @property CarbonImmutable|null $otp_verified_at
  * @property CarbonImmutable|null $face_verified_at
+ * @property int|null $active_face_scan_id
+ * @property FaceScanStatus|null $face_scan_status
+ * @property int|null $face_scan_quality
+ * @property string|null $face_scan_version
+ * @property CarbonImmutable|null $face_scanned_at
+ * @property int|null $face_scanned_by
+ * @property CarbonImmutable|null $retirement_date
+ * @property string|null $status_reason
+ * @property string|null $status_remarks
+ * @property CarbonImmutable|null $status_changed_at
+ * @property int|null $status_changed_by
  * @property MaritalStatus|null $marital_status
  * @property int|null $region_id
  * @property int|null $district_id

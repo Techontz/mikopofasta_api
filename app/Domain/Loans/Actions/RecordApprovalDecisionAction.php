@@ -9,6 +9,7 @@ use App\Domain\Loans\Enums\EMandateStatus;
 use App\Domain\Loans\Enums\LoanApprovalDecision as Decision;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Exceptions\LoanApprovalException;
+use App\Domain\Loans\Services\CustomerReferenceGenerator;
 use App\Domain\Loans\Services\LoanApprovalWorkflow;
 use App\Domain\Loans\Services\LoanStateMachine;
 use App\Enums\AuditAction;
@@ -49,6 +50,7 @@ final class RecordApprovalDecisionAction
         private readonly LoanApprovalWorkflow $workflow,
         private readonly LoanStateMachine $states,
         private readonly LoanEngine $engine,
+        private readonly CustomerReferenceGenerator $references,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -65,7 +67,7 @@ final class RecordApprovalDecisionAction
         $stage = $this->workflow->requireStage($loan);
 
         return $this->decide($loan, $stage, $actor, Decision::Approved, $reason, function (Loan $loan) use ($stage, $actor): LoanStatus {
-            if ($this->isFirstStage($stage)) {
+            if ($this->isFirstStage($loan, $stage)) {
                 $this->generateSchedule($loan);
 
                 /*
@@ -76,6 +78,19 @@ final class RecordApprovalDecisionAction
                  * read from.
                  */
                 $loan->update(['approved_by' => $actor->getKey(), 'approved_at' => Date::now()]);
+            }
+
+            /*
+             * D6 / N4 — the customer-facing reference is minted HERE, when the
+             * issuing stage clears, and nowhere else.
+             *
+             * Which stage issues it is a property of the stage, not a code
+             * comparison: the chain is configurable, and a rule that tested for
+             * 'HEAD_OFFICE_CREDIT' would break the day somebody renamed or
+             * reordered it.
+             */
+            if ($stage->issues_payment_reference) {
+                $this->issuePaymentReference($loan);
             }
 
             $target = $this->workflow->statusAfterApproval($loan, $stage);
@@ -156,7 +171,7 @@ final class RecordApprovalDecisionAction
         }
 
         $resume = $loan->hold_resume_status ?? throw LoanApprovalException::holdResumeUnknown();
-        $stage = LoanApprovalStage::forStatus($resume) ?? $this->workflow->firstStage();
+        $stage = LoanApprovalStage::forStatus($resume) ?? $this->workflow->firstStage($loan);
 
         return $this->decide($loan, $stage, $actor, Decision::Released, $reason, function (Loan $loan) use ($stage): LoanStatus {
             $loan->update(['hold_resume_status' => null]);
@@ -180,7 +195,7 @@ final class RecordApprovalDecisionAction
             throw LoanApprovalException::notReturned();
         }
 
-        $first = $this->workflow->firstStage();
+        $first = $this->workflow->firstStage($loan);
 
         return DB::transaction(function () use ($loan, $actor, $note, $first): Loan {
             $from = $loan->status;
@@ -329,9 +344,44 @@ final class RecordApprovalDecisionAction
         ]);
     }
 
-    private function isFirstStage(LoanApprovalStage $stage): bool
+    /**
+     * Mints the customer-facing payment reference, once.
+     *
+     * ## Why it is guarded
+     *
+     * A loan can clear the issuing stage more than once. It can be held and
+     * released, or returned to the officer, corrected, and sent back up the
+     * whole chain — and every one of those paths passes through credit approval
+     * again. Minting a second reference would leave the customer holding one
+     * that no longer matches, while payments quoting it silently stopped
+     * arriving.
+     *
+     * So the first one stands. The reference belongs to the agreement, not to
+     * the approval event that happened to create it.
+     *
+     * ## Why the timestamp is separate from `approved_at`
+     *
+     * `approved_at` is the FIRST approver, by long-standing meaning. The
+     * reference is issued much later in the chain, by a different person, and
+     * conflating the two would misdate the moment the customer could first pay.
+     */
+    private function issuePaymentReference(Loan $loan): void
     {
-        return $this->workflow->firstStage()->getKey() === $stage->getKey();
+        if ($loan->payment_reference !== null) {
+            return;
+        }
+
+        $loan->loadMissing('branch');
+
+        $loan->update([
+            'payment_reference' => $this->references->next($loan->branch),
+            'payment_reference_issued_at' => Date::now(),
+        ]);
+    }
+
+    private function isFirstStage(Loan $loan, LoanApprovalStage $stage): bool
+    {
+        return $this->workflow->firstStage($loan)->getKey() === $stage->getKey();
     }
 
     /**

@@ -76,9 +76,20 @@ final class MasterDataController extends Controller
         $model = $this->resolve($list);
 
         $data = $this->toColumns($request->validate($this->rules($model, null)));
-        $data['created_by'] = $request->user()?->getKey();
 
-        return ApiResponse::data(new MasterDataResource($model::query()->create($data)), [], 201);
+        /* Assigned field by field rather than through a `mixed` array: every
+           lookup list shares these six columns and nothing else is writable
+           here, so naming them is both safer and clearer than a bag. */
+        $row = new $model;
+        $row->code = $data['code'];
+        $row->name = $data['name'];
+        $row->description = $data['description'] ?? null;
+        $row->sort_order = $data['sort_order'] ?? null;
+        $row->is_active = (bool) ($data['is_active'] ?? true);
+        $row->created_by = $request->user()?->getKey();
+        $row->save();
+
+        return ApiResponse::data(new MasterDataResource($row), [], 201);
     }
 
     public function update(Request $request, string $list, int $id): JsonResponse

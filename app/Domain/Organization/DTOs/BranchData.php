@@ -23,6 +23,11 @@ final readonly class BranchData
 {
     public function __construct(
         public string $name,
+        /**
+         * The segment that appears in every customer payment reference this
+         * branch issues. Null means "derive one" — see BranchCodeGenerator.
+         */
+        public ?string $code,
         public ?int $regionId,
         public ?int $zoneId,
         public string $phone,
@@ -38,6 +43,7 @@ final readonly class BranchData
     {
         return new self(
             name: (string) $validated['name'],
+            code: self::nullableString($validated['code'] ?? null),
             regionId: self::nullableInt($validated['regionId'] ?? null),
             zoneId: self::nullableInt($validated['zoneId'] ?? null),
             phone: (string) $validated['phone'],
@@ -45,6 +51,13 @@ final readonly class BranchData
             parentBranchId: self::nullableInt($validated['parentBranchId'] ?? null),
             status: ActiveStatus::from((string) ($validated['status'] ?? ActiveStatus::Active->value)),
         );
+    }
+
+    private static function nullableString(mixed $value): ?string
+    {
+        $trimmed = trim((string) ($value ?? ''));
+
+        return $trimmed === '' ? null : strtoupper($trimmed);
     }
 
     private static function nullableInt(mixed $value): ?int

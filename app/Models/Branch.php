@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Domain\Organization\Enums\BranchType;
+use App\Domain\Organization\Services\BranchCodeGenerator;
 use App\Enums\ActiveStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,6 +28,7 @@ use Illuminate\Support\Collection;
  *
  * @property int $id
  * @property string $name
+ * @property string $code
  * @property int|null $region_id
  * @property int|null $zone_id
  * @property string $phone
@@ -48,6 +50,7 @@ class Branch extends Model
      */
     protected $fillable = [
         'name',
+        'code',
         'region_id',
         'zone_id',
         'phone',
@@ -179,6 +182,33 @@ class Branch extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', ActiveStatus::Active);
+    }
+
+    /**
+     * A branch always has a code, whoever created it.
+     *
+     * The code is a segment of every customer payment reference the branch
+     * issues (`MF-YYYY-BRANCHCODE-000001`), so a branch without one cannot
+     * originate a loan — and the moment that surfaces is credit approval, after
+     * an officer, a manager, a zone and a reviewer have all signed off. That is
+     * the worst possible time to discover it.
+     *
+     * A NOT NULL column with no SQL-expressible default leaves every creation
+     * path responsible for remembering: the API action, three seeders, the test
+     * fixtures, and whatever is written next. This is that default, in the one
+     * place all of them pass through. An explicitly supplied code always wins.
+     *
+     * Not a substitute for choosing one — the admin form offers the field, and
+     * a derived code is meant to be corrected. It is a guarantee that the
+     * invariant holds even when nobody chose.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $branch): void {
+            if (trim((string) $branch->code) === '') {
+                $branch->code = app(BranchCodeGenerator::class)->forName((string) $branch->name);
+            }
+        });
     }
 
     /**

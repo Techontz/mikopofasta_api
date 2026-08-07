@@ -186,6 +186,23 @@ return new class extends Migration
 
         Schema::dropIfExists('penalty_types');
 
+        /*
+         * Clear codes the original ENUM cannot hold, before narrowing back to it.
+         *
+         * up() widened this column to VARCHAR precisely so formulas could be
+         * added without a deploy, and LoanProductSeeder then adds REDUCING_EMI.
+         * Narrowing the column with that row present truncates it — MySQL
+         * raises 1265 and the rollback dies here. `migrate:rollback` on any
+         * seeded database therefore failed at this migration.
+         *
+         * Deleting them is what restoring the previous state means: they are
+         * values the old schema was incapable of storing, so they cannot have
+         * existed before up() ran.
+         */
+        DB::table('interest_formulas')
+            ->whereNotIn('code', ['SIMPLE', 'FLAT', 'REDUCING'])
+            ->delete();
+
         DB::statement(
             "ALTER TABLE `interest_formulas` MODIFY COLUMN `code` ENUM('SIMPLE','FLAT','REDUCING') NOT NULL",
         );

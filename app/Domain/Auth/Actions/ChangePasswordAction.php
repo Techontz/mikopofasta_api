@@ -8,9 +8,13 @@ use App\Domain\Auth\Exceptions\CurrentPasswordIncorrectException;
 use App\Domain\Auth\Services\TokenIssuer;
 use App\Enums\AuditAction;
 use App\Models\User;
+use App\Notifications\PasswordChangedNotification;
 use App\Services\AuditLogger;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Throwable;
 
 /**
  * Changes the authenticated user's own password.
@@ -24,6 +28,7 @@ final class ChangePasswordAction
     public function __construct(
         private readonly TokenIssuer $tokens,
         private readonly AuditLogger $audit,
+        private readonly Request $request,
     ) {}
 
     /**
@@ -46,6 +51,28 @@ final class ChangePasswordAction
             $this->tokens->revokeAll($user);
 
             $this->audit->log(AuditAction::PasswordChanged, $user, actor: $user);
+
+            /*
+             * Told out of band, because the value is in the case where the
+             * user did NOT do this: an unexplained password change is often
+             * the only signal an account has been taken over.
+             *
+             * Best-effort and non-fatal. Sign-in here is by phone and an email
+             * is optional, so a missing address must not roll back a password
+             * change the user has already been told succeeded — and neither
+             * must an unreachable mail server. The audit entry above is the
+             * record that always exists.
+             */
+            if ($user->email !== null && $user->email !== '') {
+                try {
+                    $user->notify(new PasswordChangedNotification(
+                        $this->request->ip() ?? 'an unknown address',
+                        Date::now()->toDayDateTimeString(),
+                    ));
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            }
 
             // The caller just invalidated their own token; hand back a new one
             // so a password change does not read as a random logout.

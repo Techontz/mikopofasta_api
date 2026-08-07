@@ -31,6 +31,18 @@ final class LoanResource extends JsonResource
         return [
             'id' => (string) $this->id,
             'loanNumber' => $this->loan_number,
+
+            /*
+             * The customer-facing reference — D6 / N4. Null until credit
+             * approves, because until then there is nothing to pay towards.
+             *
+             * Distinct from `loanNumber`, which identifies the APPLICATION from
+             * the moment somebody applies. Both are served because both are
+             * quoted: staff work from the application number, customers from
+             * this.
+             */
+            'paymentReference' => $this->payment_reference,
+            'paymentReferenceIssuedAt' => $this->payment_reference_issued_at?->toIso8601String(),
             'customerId' => (string) $this->customer_id,
             'loanProductId' => (string) $this->loan_product_id,
             'repaymentScheduleId' => (string) $this->repayment_schedule_id,

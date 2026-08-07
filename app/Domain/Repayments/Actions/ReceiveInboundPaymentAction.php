@@ -21,9 +21,10 @@ use Illuminate\Support\Facades\Log;
 /**
  * Channel 1 — the provider callback (`POST /webhooks/payments`, §15.3).
  *
- * §7's reference matching: the payload's `reference` is looked up against
- * `loans.loan_number`; a miss becomes an unmatched payment plus a suspense
- * item rather than being dropped.
+ * §7's reference matching: the payload's `reference` is looked up against the
+ * customer-facing `loans.payment_reference` (D6) and, for loans that predate it,
+ * against `loans.loan_number`; a miss becomes an unmatched payment plus a
+ * suspense item rather than being dropped.
  *
  * §15.3 documents the response shapes precisely, and they are worth honouring
  * exactly: an unmatched payment still returns **200**, because the payment was
@@ -69,9 +70,21 @@ final class ReceiveInboundPaymentAction
             throw new DuplicateTransactionException($transactionId);
         }
 
+        /*
+         * Either identifier resolves the loan.
+         *
+         * `payment_reference` (MF-YYYY-BRANCHCODE-000001) is what a customer is
+         * given once credit approves — D6 — and is what they quote from here on.
+         * `loan_number` still matches because loans disbursed before that
+         * decision have no payment reference and their customers were told the
+         * application number; a matcher that dropped it would strand every one
+         * of them the day this deployed.
+         *
+         * Both columns are UNIQUE, so "either" cannot mean "ambiguous".
+         */
         $loan = Loan::query()
             ->with(['schedules', 'branch'])
-            ->where('loan_number', $reference)
+            ->where(fn ($q) => $q->where('payment_reference', $reference)->orWhere('loan_number', $reference))
             ->first();
 
         if ($loan === null || ! $loan->status->isOpenBook()) {

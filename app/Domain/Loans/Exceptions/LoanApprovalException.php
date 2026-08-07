@@ -79,6 +79,26 @@ final class LoanApprovalException extends DomainException
         );
     }
 
+    /**
+     * The branch has no code, so no customer reference can be built for it.
+     *
+     * An administrator's mistake rather than a state problem, and named as such:
+     * the officer reading this cannot fix it, but they can say precisely what is
+     * wrong to somebody who can. Every branch is given a code by migration, so
+     * this means one was cleared afterwards.
+     */
+    public static function branchHasNoCode(string $branch): self
+    {
+        return new self(
+            sprintf(
+                'Branch "%s" has no branch code, so a customer payment reference cannot be issued. Set the branch code before approving this loan.',
+                $branch,
+            ),
+            ErrorCode::InvalidLoanState,
+            Response::HTTP_UNPROCESSABLE_ENTITY,
+        );
+    }
+
     public static function notOnHold(): self
     {
         return new self(

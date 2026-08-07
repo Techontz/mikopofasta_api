@@ -24,6 +24,7 @@ final class BranchResource extends JsonResource
         return [
             'id' => (string) $this->id,
             'name' => $this->name,
+            'code' => $this->code,
             'regionId' => self::id($this->region_id),
             'zoneId' => self::id($this->zone_id),
             'phone' => $this->phone,

@@ -35,7 +35,8 @@ class LoanApprovalStage extends Model
     /** @var list<string> */
     protected $fillable = [
         'name', 'code', 'description', 'sequence',
-        'loan_status', 'required_permission', 'requires_mandate_before', 'is_active',
+        'loan_status', 'required_permission', 'requires_mandate_before',
+        'requires_branch_zone', 'issues_payment_reference', 'is_active',
     ];
 
     /** @return HasMany<LoanApprovalDecision, $this> */
@@ -86,6 +87,8 @@ class LoanApprovalStage extends Model
             'loan_status' => LoanStatus::class,
             'sequence' => 'integer',
             'requires_mandate_before' => 'boolean',
+            'requires_branch_zone' => 'boolean',
+            'issues_payment_reference' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

@@ -30,6 +30,13 @@ final class UpdateBranchRequest extends FormRequest
                 'required', 'string', 'min:2', 'max:150',
                 Rule::unique('branches', 'name')->ignore($branchId)->whereNull('deleted_at'),
             ],
+            /*
+             * Optional: derived from the name when absent. Uppercase and
+             * alphanumeric because it is a segment of a payment reference a
+             * customer reads aloud — punctuation and case would not survive the
+             * journey to a teller window intact.
+             */
+            'code' => ['nullable', 'string', 'min:2', 'max:12', 'regex:/^[A-Za-z0-9]+$/', Rule::unique('branches', 'code')->ignore($branchId)],
             'regionId' => ['nullable', 'integer', Rule::exists('regions', 'id')],
             'zoneId' => ['nullable', 'integer', Rule::exists('zones', 'id')->whereNull('deleted_at')],
             'phone' => ['required', 'string', 'min:9', 'max:20'],

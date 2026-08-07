@@ -45,6 +45,13 @@ final class LoanApprovalStageSeeder extends Seeder
                 'loan_status' => LoanStatus::PendingZoneApproval->value,
                 'required_permission' => PermissionName::LoansZoneApprove->value,
                 'requires_mandate_before' => false,
+                /*
+                 * D4 — zone review applies only where the branch belongs to a
+                 * zone. A branch with none routes straight to Head Office
+                 * Credit. Held as data so nothing has to test for the string
+                 * 'ZONE_MANAGER'.
+                 */
+                'requires_branch_zone' => true,
                 'description' => 'Zone oversight of the branch decision, across the branches the zone covers.',
                 'is_active' => true,
             ],
@@ -60,7 +67,13 @@ final class LoanApprovalStageSeeder extends Seeder
                  * workflow does not have to test a status name.
                  */
                 'requires_mandate_before' => true,
-                'description' => 'Credit review at head office, including telco verification. The last approval before the loan goes to Finance.',
+                /*
+                 * D6 / N4 — the customer-facing payment reference is minted
+                 * when THIS stage clears. Held as data so the rule survives the
+                 * chain being renamed or reordered.
+                 */
+                'issues_payment_reference' => true,
+                'description' => 'Credit review at head office, including telco verification. The last approval before the loan goes to Finance. Issues the customer payment reference.',
                 'is_active' => true,
             ],
         ];

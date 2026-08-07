@@ -16,7 +16,6 @@ use App\Http\Resources\LoanApprovalDecisionResource;
 use App\Http\Resources\LoanApprovalStageResource;
 use App\Http\Resources\LoanResource;
 use App\Models\Loan;
-use App\Models\LoanApprovalStage;
 use App\Models\User;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -63,7 +62,14 @@ final class LoanApprovalController extends Controller
             'loanId' => (string) $loan->getKey(),
             'status' => $loan->status->value,
             'currentStage' => $stage === null ? null : new LoanApprovalStageResource($stage),
-            'chain' => LoanApprovalStageResource::collection(LoanApprovalStage::chain()),
+            /*
+             * THIS loan's chain, not the institution's — D4.
+             *
+             * A loan raised at a branch with no zone never had a zone stage, and
+             * showing one on its approval panel would tell the officer their
+             * file still has a tier to clear that it will never be sent to.
+             */
+            'chain' => LoanApprovalStageResource::collection($workflow->chainFor($loan)),
             'isOwnApplication' => $loan->created_by === $actor->getKey(),
             'canDecide' => $canDecide,
             'availableDecisions' => $this->availableDecisions($loan, $canDecide, $actor),

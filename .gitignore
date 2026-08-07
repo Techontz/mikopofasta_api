@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Database dumps. These contain real records and password hashes; they are an
+# operational artefact of a machine, never something a repository should carry.
+/storage/backups

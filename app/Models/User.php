@@ -12,6 +12,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -82,6 +83,19 @@ class User extends Authenticatable
         'status',
         'last_login_at',
         'created_by',
+
+        /*
+         * The self-service half — see the 2026_08_17 migration. Fillable
+         * because the profile endpoint writes them from a strict allowlist;
+         * nothing organisational was added here, and nothing was moved out of
+         * HR's control.
+         */
+        'photo_path',
+        'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship',
+        'next_of_kin_name', 'next_of_kin_phone', 'next_of_kin_relationship',
+        'address', 'preferred_language', 'notification_preferences',
+        /* Presentation preferences — see the 2026_08_26 migration. */
+        'timezone', 'date_format', 'number_format', 'theme',
     ];
 
     /**
@@ -139,6 +153,37 @@ class User extends Authenticatable
     public function region(): BelongsTo
     {
         return $this->belongsTo(Region::class);
+    }
+
+    /**
+     * The employment record HR maintains — employee number, salary,
+     * employment status, hire date. Read-only from this side: the profile
+     * endpoint never writes through it.
+     *
+     * @return HasOne<StaffProfile, $this>
+     */
+    public function staffProfile(): HasOne
+    {
+        return $this->hasOne(StaffProfile::class);
+    }
+
+    /**
+     * Who this person reports to.
+     *
+     * Derived rather than stored: the only reporting edge this schema records
+     * is `zones.zone_manager_id`, so a user in a zone reports to that zone's
+     * manager and everybody else has no recorded supervisor. Inventing a
+     * column here would be inventing an org chart.
+     */
+    public function supervisor(): ?User
+    {
+        $managerId = $this->zone?->zone_manager_id;
+
+        if ($managerId === null || $managerId === $this->getKey()) {
+            return null;
+        }
+
+        return User::query()->find($managerId);
     }
 
     public function roleName(): RoleName
@@ -256,6 +301,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'status' => UserStatus::class,
             'last_login_at' => 'datetime',
+            'notification_preferences' => 'array',
         ];
     }
 }

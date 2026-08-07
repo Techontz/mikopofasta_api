@@ -461,6 +461,33 @@ function approvedMandateLoan(): App\Models\Loan
     return $loan->refresh();
 }
 
+/**
+ * Takes a decision at whatever stage a loan is at, as the current user.
+ *
+ * Shared rather than owned by one test file: the approval chain is now touched
+ * by the workflow tests, the payment-reference tests and everything Batch 2
+ * onward adds, and a second copy would be a second thing to keep in step with
+ * the endpoint.
+ */
+function decide(App\Models\Loan $loan, string $decision, ?string $reason = null): Illuminate\Testing\TestResponse
+{
+    return test()->postJson("/api/v1/loans/{$loan->id}/approval/decide", array_filter([
+        'decision' => $decision,
+        'reason' => $reason,
+    ]));
+}
+
+/**
+ * What the approval panel reports for a loan: its stage, its chain, and what
+ * the current user may do about it.
+ *
+ * @return array<string, mixed>
+ */
+function approvalState(App\Models\Loan $loan): array
+{
+    return test()->getJson("/api/v1/loans/{$loan->id}/approval")->assertOk()->json('data');
+}
+
 /** A loan approved through branch and zone, onto the credit-review step. */
 function loanAtCreditReview(): App\Models\Loan
 {

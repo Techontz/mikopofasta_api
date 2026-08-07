@@ -6,6 +6,7 @@ namespace App\Domain\Loans\Actions;
 
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Exceptions\LoanNotEligibleException;
+use App\Domain\Loans\Services\BranchApprovalRouter;
 use App\Domain\Loans\Services\LoanEligibilityChecker;
 use App\Domain\Loans\Services\LoanFeeCalculator;
 use App\Domain\Loans\Services\LoanNumberGenerator;
@@ -34,6 +35,7 @@ final class ApplyForLoanAction
     public function __construct(
         private readonly LoanEligibilityChecker $eligibility,
         private readonly LoanNumberGenerator $numbers,
+        private readonly BranchApprovalRouter $router,
         private readonly LoanStateMachine $states,
         private readonly LoanFeeCalculator $fees,
         private readonly AuditLogger $audit,
@@ -102,6 +104,21 @@ final class ApplyForLoanAction
                 'status' => LoanStatus::Draft,
                 'created_by' => $officer->getKey(),
             ]);
+
+            /*
+             * The approval route is fixed here, at application time — D4.
+             *
+             * A branch with a zone gets the zone stage; one without routes
+             * straight to Head Office Credit. Snapshotting it rather than
+             * computing it live is what stops a configuration change from
+             * rerouting a loan already in flight: moving a branch into a zone
+             * next week must not insert a zone review into an application that
+             * has already cleared its branch manager.
+             *
+             * Alongside the rate and fee snapshots above, for the same reason —
+             * the terms of an agreement are what they were when it was made.
+             */
+            $this->router->snapshotFor($loan);
 
             // Recorded as draft → pending, matching the frontend, so the
             // history shows the application was raised and then submitted

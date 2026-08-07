@@ -17,6 +17,7 @@ describe('traversal', function (): void {
         // A third level, to prove the walk is not just one hop.
         $depot = Branch::query()->create([
             'name' => 'Kalenge Depot',
+            'code' => 'KLD',
             'phone' => '0700000099',
             'type' => BranchType::Sub,
             'parent_branch_id' => $kalenge->getKey(),
@@ -34,6 +35,7 @@ describe('traversal', function (): void {
         $kalenge = Branch::query()->where('name', 'NEW KALENGE')->sole();
         $depot = Branch::query()->create([
             'name' => 'Kalenge Depot',
+            'code' => 'KLD',
             'phone' => '0700000099',
             'type' => BranchType::Sub,
             'parent_branch_id' => $kalenge->getKey(),

@@ -52,6 +52,10 @@ function contractSchemas(): array
             // fetched individually. The `earlySettlement` block is deliberately
             // NOT here — it is absent unless the caller loaded it.
             'earlySettledAt', 'interestWaived',
+            // D6: the customer-facing reference, and when it was issued. Flat
+            // on every loan including the list — null until credit approves,
+            // which is a true statement about most loans at any moment.
+            'paymentReference', 'paymentReferenceIssuedAt',
         ],
         'LoanScheduleSchema' => [
             'id', 'loanId', 'installmentNumber', 'dueDate', 'principalDue', 'interestDue',

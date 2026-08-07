@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Organization;
 
+use App\Domain\Loans\Services\BranchApprovalRouter;
+use App\Domain\Organization\Actions\ConfigureBranchRouteAction;
 use App\Domain\Organization\Actions\CreateBranchAction;
 use App\Domain\Organization\Actions\DeleteBranchAction;
 use App\Domain\Organization\Actions\SetHeadOfficeAction;
@@ -15,9 +17,12 @@ use App\Domain\Organization\Services\BranchScopeGuard;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\IndexBranchRequest;
 use App\Http\Requests\Organization\StoreBranchRequest;
+use App\Http\Requests\Organization\UpdateBranchApprovalRouteRequest;
 use App\Http\Requests\Organization\UpdateBranchRequest;
 use App\Http\Resources\BranchResource;
 use App\Models\Branch;
+use App\Models\BranchApprovalRoute;
+use App\Models\LoanApprovalStage;
 use App\Models\User;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -159,6 +164,43 @@ final class BranchController extends Controller
     }
 
     /**
+     * GET /api/v1/branches/{branch}/approval-route
+     *
+     * The chain an application raised at this branch would walk today, stage by
+     * stage, with the reason each one is in or out. The reason is served rather
+     * than inferred in the browser: "included because the branch has a zone" and
+     * "included because an administrator said so" look identical from a boolean,
+     * and they are the difference between routing that follows the branch and
+     * routing somebody pinned.
+     */
+    public function approvalRoute(Request $request, Branch $branch, BranchApprovalRouter $router): JsonResponse
+    {
+        $this->authorize('view', $branch);
+
+        return ApiResponse::data($this->routePayload($branch, $router));
+    }
+
+    /**
+     * PUT /api/v1/branches/{branch}/approval-route — D4's configurability.
+     *
+     * Overrides are replaced wholesale rather than merged: the screen sends the
+     * complete picture it is showing, and a partial update would leave a stage
+     * pinned by a rule nobody can see on the form they just submitted.
+     */
+    public function updateApprovalRoute(
+        UpdateBranchApprovalRouteRequest $request,
+        Branch $branch,
+        ConfigureBranchRouteAction $action,
+        BranchApprovalRouter $router,
+    ): JsonResponse {
+        $this->authorize('update', $branch);
+
+        $action->handle($branch, $request->overrides(), $this->actor($request));
+
+        return ApiResponse::data($this->routePayload($branch->fresh(), $router));
+    }
+
+    /**
      * DELETE /api/v1/branches/{branch} — soft delete.
      */
     public function destroy(Request $request, Branch $branch, DeleteBranchAction $action): JsonResponse
@@ -168,6 +210,40 @@ final class BranchController extends Controller
         $action->handle($branch, $this->actor($request));
 
         return ApiResponse::data(['message' => 'Branch deleted.']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function routePayload(Branch $branch, BranchApprovalRouter $router): array
+    {
+        $route = $router->routeFor($branch)->keyBy(fn (LoanApprovalStage $s): int => (int) $s->getKey());
+
+        $overrides = BranchApprovalRoute::query()
+            ->where('branch_id', $branch->getKey())
+            ->pluck('is_required', 'loan_approval_stage_id');
+
+        return [
+            'branchId' => (string) $branch->getKey(),
+            'branchName' => $branch->name,
+            'zoneId' => $branch->zone_id === null ? null : (string) $branch->zone_id,
+            'stages' => LoanApprovalStage::chain()->map(function (LoanApprovalStage $stage) use ($route, $overrides): array {
+                $id = (int) $stage->getKey();
+                $override = $overrides->has($id) ? (bool) $overrides->get($id) : null;
+
+                return [
+                    'stageId' => (string) $id,
+                    'code' => $stage->code,
+                    'name' => $stage->name,
+                    'sequence' => $stage->sequence,
+                    'requiresBranchZone' => (bool) $stage->requires_branch_zone,
+                    'included' => $route->has($id),
+                    // Null means "following the default"; true/false means an
+                    // administrator pinned it either way.
+                    'override' => $override,
+                ];
+            })->values()->all(),
+        ];
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Domain\Loans\Exceptions\LoanApprovalException;
 use App\Models\Loan;
 use App\Models\LoanApprovalStage;
 use App\Models\User;
+use Illuminate\Support\Collection;
 
 /**
  * The approval chain, read once and answered from.
@@ -34,6 +35,8 @@ use App\Models\User;
  */
 final class LoanApprovalWorkflow
 {
+    public function __construct(private readonly BranchApprovalRouter $router) {}
+
     /** The stage this loan is waiting on, or null if it is not in the chain. */
     public function currentStage(Loan $loan): ?LoanApprovalStage
     {
@@ -41,15 +44,21 @@ final class LoanApprovalWorkflow
     }
 
     /**
-     * The stage after `$stage`, skipping anything switched off.
+     * The stage after `$stage` **on this loan's route**.
+     *
+     * The route is the loan's own — the snapshot taken when it was raised (D4).
+     * A branch with no zone has no zone stage in its route at all, so the branch
+     * manager's approval falls straight through to Head Office Credit without
+     * anything here testing for a zone.
+     *
+     * Takes the loan rather than only the stage because the answer genuinely
+     * depends on it: two loans sitting at the same stage, raised at different
+     * branches, go to different places next.
      */
-    public function nextStage(LoanApprovalStage $stage): ?LoanApprovalStage
+    public function nextStage(Loan $loan, LoanApprovalStage $stage): ?LoanApprovalStage
     {
-        return LoanApprovalStage::query()
-            ->where('is_active', true)
-            ->where('sequence', '>', $stage->sequence)
-            ->orderBy('sequence')
-            ->first();
+        return $this->router->stagesFor($loan)
+            ->first(fn (LoanApprovalStage $candidate): bool => $candidate->sequence > $stage->sequence);
     }
 
     /**
@@ -67,7 +76,7 @@ final class LoanApprovalWorkflow
      */
     public function statusAfterApproval(Loan $loan, LoanApprovalStage $stage): LoanStatus
     {
-        $next = $this->nextStage($stage);
+        $next = $this->nextStage($loan, $stage);
 
         if ($next === null) {
             return LoanStatus::PendingFinance;
@@ -82,32 +91,40 @@ final class LoanApprovalWorkflow
 
     /**
      * The stage a loan re-enters the chain at after being returned and
-     * resubmitted — the first live one.
+     * resubmitted — the first one **on its own route**.
      *
-     * @throws LoanApprovalException when no stage is active at all
+     * Its own, not the institution's: a resubmitted application restarts from
+     * the Loan Officer and walks the chain it was given, so a loan from an
+     * unzoned branch still never sees a zone.
+     *
+     * @throws LoanApprovalException when the loan has no chain at all
      */
-    public function firstStage(): LoanApprovalStage
+    public function firstStage(Loan $loan): LoanApprovalStage
     {
-        return LoanApprovalStage::query()
-            ->where('is_active', true)
-            ->orderBy('sequence')
-            ->first()
+        return $this->router->stagesFor($loan)->first()
             ?? throw LoanApprovalException::noChainConfigured();
     }
 
     /**
      * The stage a loan should return to once its e-mandate is live.
      *
-     * Asked rather than hardcoded so that deactivating the credit stage does
-     * not strand a mandate-bearing loan in a status nothing will pick up.
+     * Read off the loan's route so a mandate completed at an unzoned branch
+     * cannot deposit the loan back at a zone stage that branch never had.
      */
-    public function stageAfterMandate(): ?LoanApprovalStage
+    public function stageAfterMandate(Loan $loan): ?LoanApprovalStage
     {
-        return LoanApprovalStage::query()
-            ->where('is_active', true)
-            ->where('requires_mandate_before', true)
-            ->orderBy('sequence')
-            ->first();
+        return $this->router->stagesFor($loan)
+            ->first(fn (LoanApprovalStage $stage): bool => $stage->requires_mandate_before);
+    }
+
+    /**
+     * The whole chain this loan is walking — for the approval screen.
+     *
+     * @return Collection<int, LoanApprovalStage>
+     */
+    public function chainFor(Loan $loan): Collection
+    {
+        return $this->router->stagesFor($loan);
     }
 
     /**

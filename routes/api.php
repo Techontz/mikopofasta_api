@@ -7,6 +7,7 @@ use App\Http\Controllers\Accounting\ReserveUtilisationController;
 use App\Http\Controllers\Admin\SystemConfigurationController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Auth\ProfileController;
 use App\Http\Controllers\Customers\CustomerCategoryController;
 use App\Http\Controllers\Customers\CustomerController;
 use App\Http\Controllers\Customers\CustomerDocumentController;
@@ -127,6 +128,23 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/change-password', [AuthController::class, 'changePassword'])
             ->middleware('throttle:auth')
             ->name('change-password');
+
+        /*
+         * Self-service profile. Every route acts on the authenticated user and
+         * takes no id, so there is nothing to tamper with — managing other
+         * people stays on UserController behind the admin grants.
+         */
+        Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::post('/profile/photo', [ProfileController::class, 'updatePhoto'])->name('profile.photo');
+        Route::delete('/profile/photo', [ProfileController::class, 'destroyPhoto'])->name('profile.photo.destroy');
+
+        /* Account Settings — Security and Activity, assembled from records
+           that already exist rather than from a second copy of them. */
+        Route::get('/profile/security', [ProfileController::class, 'security'])->name('profile.security');
+        Route::get('/profile/activity', [ProfileController::class, 'activity'])->name('profile.activity');
+        Route::post('/sessions/revoke-others', [ProfileController::class, 'revokeOtherSessions'])
+            ->name('sessions.revoke-others');
     });
 
     /*
@@ -184,6 +202,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/branches/hierarchy', [BranchController::class, 'hierarchy'])->name('branches.hierarchy');
     Route::post('/branches/{branch}/head-office', [BranchController::class, 'setHeadOffice'])
         ->name('branches.head-office');
+
+    /*
+     * D4 — which approval stages a branch's applications must clear. Read is
+     * open to anyone who may view the branch (the loan screens explain a
+     * chain); the write is an administrator's, gated by the branch policy.
+     */
+    Route::get('/branches/{branch}/approval-route', [BranchController::class, 'approvalRoute'])
+        ->name('branches.approval-route');
+    Route::put('/branches/{branch}/approval-route', [BranchController::class, 'updateApprovalRoute'])
+        ->name('branches.approval-route.update');
     Route::apiResource('branches', BranchController::class);
 
     Route::apiResource('zones', ZoneController::class);
@@ -890,6 +918,9 @@ Route::middleware('signed')->group(function (): void {
 
     Route::get('/customers/{customer}/photo', [CustomerDocumentController::class, 'photo'])
         ->name('customers.photo');
+
+    /* A staff portrait, on the same signed terms as every other photograph. */
+    Route::get('/users/{user}/photo', [ProfileController::class, 'photo'])->name('users.photo');
 
     /* Every scan in the history, current and superseded. An <img> cannot carry
        a bearer token, so the signature is the credential here too. */

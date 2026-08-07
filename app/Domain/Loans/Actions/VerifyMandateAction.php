@@ -83,7 +83,7 @@ final class VerifyMandateAction
              * stage does not strand mandate-bearing loans in a status nothing
              * picks up.
              */
-            $stage = $this->workflow->stageAfterMandate();
+            $stage = $this->workflow->stageAfterMandate($loan);
             $next = $stage === null ? LoanStatus::PendingCreditReview : $stage->loan_status;
 
             $this->states->transition($loan, LoanStatus::MandateActive, $actor, 'Mandate verified');

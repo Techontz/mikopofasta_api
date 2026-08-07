@@ -40,6 +40,12 @@ final class UpdateBranchAction
 
             $branch->update([
                 'name' => $data->name,
+                /*
+                 * Kept when the caller omits it. Renaming a branch must not
+                 * silently re-derive a new code: references already issued
+                 * carry the old one, and customers are quoting them.
+                 */
+                'code' => $data->code ?? $branch->code,
                 'region_id' => $data->regionId,
                 'zone_id' => $data->zoneId,
                 'phone' => $data->phone,

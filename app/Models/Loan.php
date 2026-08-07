@@ -46,6 +46,8 @@ use Illuminate\Support\Facades\DB;
  * @property CarbonImmutable|null $approved_at
  * @property string|null $rejected_reason
  * @property string $interest_waived
+ * @property string|null $payment_reference
+ * @property CarbonImmutable|null $payment_reference_issued_at
  * @property CarbonImmutable|null $early_settled_at
  * @property int|null $early_settled_by
  * @property int|null $early_settlement_payment_id
@@ -61,7 +63,8 @@ class Loan extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'loan_number', 'customer_id', 'loan_product_id', 'repayment_schedule_id', 'group_id',
+        'loan_number', 'payment_reference', 'payment_reference_issued_at',
+        'customer_id', 'loan_product_id', 'repayment_schedule_id', 'group_id',
         'branch_id', 'officer_id', 'principal_amount',
         'interest_rate_snapshot', 'penalty_rate_snapshot', 'tenure_days', 'requires_mandate_snapshot',
         'fee_type_snapshot', 'fee_amount_snapshot', 'insurance_amount_snapshot', 'fee_charged',
@@ -310,7 +313,11 @@ class Loan extends Model
         $like = '%'.$term.'%';
 
         return $query->where(function (Builder $q) use ($like): void {
+            // Both identifiers: staff quote the application number, customers
+            // quote the payment reference, and a teller taking a call should
+            // find the loan from whichever they are read.
             $q->where('loan_number', 'like', $like)
+                ->orWhere('payment_reference', 'like', $like)
                 ->orWhereHas('customer', function (Builder $c) use ($like): void {
                     $c->where('customer_number', 'like', $like)
                         ->orWhere('phone', 'like', $like)
@@ -337,6 +344,7 @@ class Loan extends Model
             'expected_completion_date' => 'date',
             'frozen_until' => 'date',
             'approved_at' => 'datetime',
+            'payment_reference_issued_at' => 'datetime',
             'early_settled_at' => 'datetime',
             'closed_at' => 'datetime',
         ];

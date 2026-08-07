@@ -67,8 +67,25 @@ final class VerifyCustomerFaceAction
             // invariant holds even if an earlier write left two behind.
             $customer->faceScans()->where('is_active', true)->update(['is_active' => false]);
 
+            /* Written out rather than spread: the spread erased the key type
+               (`array<string, mixed>`), and listing them keeps what this
+               endpoint actually persists readable at the call site. */
             $scan = FaceScan::create([
-                ...$report,
+                'status' => $status,
+                'quality_score' => $report['quality_score'],
+                'brightness_score' => $report['brightness_score'],
+                'blur_score' => $report['blur_score'],
+                'distance_score' => $report['distance_score'],
+                'centering_score' => $report['centering_score'],
+                'eyes_open_score' => $report['eyes_open_score'],
+                'scanner_version' => $report['scanner_version'],
+                'liveness_passed' => $report['liveness_passed'],
+                'pose_sequence_completed' => $report['pose_sequence_completed'],
+                'checks' => $report['checks'],
+                'capture_device' => $report['capture_device'],
+                'capture_resolution' => $report['capture_resolution'],
+                'capture_duration_ms' => $report['capture_duration_ms'],
+                'reason' => $report['reason'],
                 'customer_id' => $customer->getKey(),
                 'photo_path' => $path,
                 'scanned_by' => $actor->getKey(),

@@ -30,20 +30,6 @@ beforeEach(function (): void {
     seedLoanFoundation();
 });
 
-/** Takes a decision at whatever stage the loan is at, as the current user. */
-function decide(Loan $loan, string $decision, ?string $reason = null): Illuminate\Testing\TestResponse
-{
-    return test()->postJson("/api/v1/loans/{$loan->id}/approval/decide", array_filter([
-        'decision' => $decision,
-        'reason' => $reason,
-    ]));
-}
-
-function approvalState(Loan $loan): array
-{
-    return test()->getJson("/api/v1/loans/{$loan->id}/approval")->assertOk()->json('data');
-}
-
 describe('the chain', function (): void {
     it('is seeded as branch manager, zone manager, then head office credit', function (): void {
         $chain = LoanApprovalStage::chain();

@@ -64,7 +64,11 @@ final class PaymentController extends Controller
                     $term = '%'.$filters['search'].'%';
                     $q->where('payment_reference', 'like', $term)
                         ->orWhere('transaction_id', 'like', $term)
-                        ->orWhereHas('loan', fn ($l) => $l->where('loan_number', 'like', $term));
+                        // The loan's own two identifiers as well as the
+                        // payment's: a customer chasing a payment quotes the
+                        // reference they were given, not the payment's.
+                        ->orWhereHas('loan', fn ($l) => $l->where('loan_number', 'like', $term)
+                            ->orWhere('loans.payment_reference', 'like', $term));
                 }),
             )
             ->when(! empty($filters['status']), fn ($q) => $q->whereIn('status', $filters['status']))
