@@ -125,10 +125,19 @@ function seedOrganization(): void
 /**
  * Seeds the organization plus the customer categories — everything a customer
  * needs to exist. Implies seedOrganization().
+ *
+ * The lookup lists and their requirement profiles are part of that foundation
+ * now, not decoration. Which fields a registration must carry is decided by
+ * `account_type_requirements`, keyed to rows in `account_types`, so a suite
+ * without them can only ever exercise the default profile. (The default
+ * profile row itself comes from the 2026_08_26 migration, like the document
+ * types do — it is a schema invariant rather than seed data.)
  */
 function seedCustomerFoundation(): void
 {
     seedOrganization();
+    test()->seed(Database\Seeders\MasterDataSeeder::class);
+    test()->seed(Database\Seeders\AccountTypeRequirementSeeder::class);
     test()->seed(CustomerCategorySeeder::class);
 }
 
@@ -234,8 +243,20 @@ function registrationPayload(array $overrides = []): array
 
     return array_merge([
         'nidaNumber' => $nidaNumber,
-        'nidaVerifiedAt' => now()->toIso8601String(),
-        'otpVerifiedAt' => now()->toIso8601String(),
+        /*
+         * No `nidaVerifiedAt`, no `otpVerifiedAt`.
+         *
+         * The fixture used to stamp both with `now()`, which made every test
+         * customer claim a registry lookup and an SMS code that never happened
+         * — the exact fabrication this system refuses. Neither integration
+         * exists, so the API now rejects a claimed verification outright (see
+         * RegisterCustomerRequest::checkVerificationClaims), and a fixture that
+         * kept sending them would be testing a path no real client can take.
+         *
+         * `faceVerifiedAt` stays, because a liveness scan genuinely can be
+         * performed here — the scanner is real. Tests exercising the
+         * awaiting-verification path unset it.
+         */
         'faceVerifiedAt' => now()->toIso8601String(),
 
         'firstName' => $identity->firstName,
@@ -247,9 +268,15 @@ function registrationPayload(array $overrides = []): array
         'phone' => '0755123456',
         'maritalStatus' => 'married',
         'regionId' => App\Models\Region::query()->where('name', 'Kigoma')->value('id'),
-        'districtId' => null,
-        'wardId' => null,
-        'streetId' => null,
+        /*
+         * A district, because the default account-type requirement profile
+         * asks for one — region and district are the two levels our reference
+         * data is authoritative about, so both gate. Ward and street are typed
+         * and never required; see the 2026_08_26 migration.
+         */
+        'districtId' => App\Models\District::query()->where('name', 'Kakonko')->value('id'),
+        'wardName' => 'Kakonko Mjini',
+        'streetName' => 'Market Street',
         'residenceType' => 'owned',
         'branchId' => App\Models\Branch::query()->where('name', 'Kakonko')->value('id'),
         'customerCategoryId' => App\Models\CustomerCategory::query()->where('code', 'BODA')->value('id'),

@@ -119,6 +119,7 @@ enum ErrorCode: string
      * the seeders rather than to go looking for a bug in the request.
      */
     case SystemUserNotInitialized = 'SYSTEM_USER_NOT_INITIALIZED';
+    case RegistrationRequirementsMissing = 'REGISTRATION_REQUIREMENTS_MISSING';
     case InvalidProductConfiguration = 'INVALID_PRODUCT_CONFIGURATION';
     case InvalidSettlement = 'INVALID_SETTLEMENT';
 

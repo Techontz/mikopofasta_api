@@ -160,12 +160,16 @@ describe('registration', function (): void {
         officerAt();
 
         $payload = registrationPayload();
-        unset(
-            $payload['nidaNumber'],
-            $payload['nidaVerifiedAt'],
-            $payload['otpVerifiedAt'],
-            $payload['faceVerifiedAt'],
-        );
+        unset($payload['nidaNumber'], $payload['faceVerifiedAt']);
+
+        /*
+         * A voter's card instead. The requirement is AN identity document, not
+         * a NIDA card specifically — a customer holding a voter ID, a driving
+         * licence or a passport is identified just as well, and demanding one
+         * particular document would exclude people who have valid
+         * identification of another kind. See KycEvaluator::identityDocument.
+         */
+        $payload['voterIdNumber'] = 'VTR-4410992';
 
         /*
          * §9 made NIDA + OTP + liveness the gate, and this test used to assert
@@ -186,17 +190,35 @@ describe('registration', function (): void {
             ->assertJsonPath('data.kycStatus', 'incomplete');
     });
 
-    it('still requires the NIDA timestamp when a National ID is supplied', function (): void {
+    /*
+     * This used to assert the reverse: that a National ID could not be supplied
+     * without a verification timestamp beside it. That rule was written when a
+     * number could only have come from a lookup, and it inverted into a bug —
+     * an officer copying a National ID off the card in front of them could not
+     * register the customer at all.
+     *
+     * A number typed by hand is an identity DOCUMENT, captured. What must never
+     * happen is the opposite: a client asserting a verification that nothing
+     * performed. That is what is checked now.
+     */
+    it('refuses a claimed NIDA verification while the registry is unavailable', function (): void {
         officerAt();
 
-        $payload = registrationPayload();
-        unset($payload['nidaVerifiedAt']);
-
-        // The pair travels together: a National ID without the verification
-        // that produced it is the fabricated-identity case all over again.
-        $this->postJson('/api/v1/customers', $payload)
+        $this->postJson('/api/v1/customers', registrationPayload([
+            'nidaVerifiedAt' => now()->toIso8601String(),
+        ]))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['nidaVerifiedAt']);
+    });
+
+    it('refuses a claimed SMS verification while no gateway is configured', function (): void {
+        officerAt();
+
+        $this->postJson('/api/v1/customers', registrationPayload([
+            'otpVerifiedAt' => now()->toIso8601String(),
+        ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['otpVerifiedAt']);
     });
 
     it('validates dynamic form data against the category schema', function (): void {
@@ -276,12 +298,29 @@ describe('registration', function (): void {
         expect(Customer::query()->count())->toBe(0);
     });
 
-    it('leaves KYC incomplete when bank details are absent', function (): void {
+    /*
+     * This used to assert that missing bank details left KYC incomplete. That
+     * is no longer true of every customer and should not be: whether a bank
+     * account is required is now the account type's decision, and the default
+     * profile does not demand one — many microfinance customers have no bank
+     * account at all. The rule is exercised against an account type that does
+     * ask for one in CustomerRegistrationRequirementsTest.
+     *
+     * What is universally true, and what this test now covers, is the shape of
+     * the new workflow: a registration is SAVED without a face scan, and the
+     * customer is correctly rated incomplete until one passes. That is the
+     * whole point of face verification being a separate final step.
+     */
+    it('saves the registration without a face scan and leaves KYC incomplete', function (): void {
         officerAt();
 
-        $this->postJson('/api/v1/customers', registrationPayload(['bankDetails' => null]))
+        $payload = registrationPayload();
+        unset($payload['faceVerifiedAt']);
+
+        $this->postJson('/api/v1/customers', $payload)
             ->assertCreated()
             // Derived from the checklist, never asserted by the payload.
-            ->assertJsonPath('data.kycStatus', KycStatus::Incomplete->value);
+            ->assertJsonPath('data.kycStatus', KycStatus::Incomplete->value)
+            ->assertJsonPath('data.faceVerifiedAt', null);
     });
 });

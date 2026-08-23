@@ -38,6 +38,23 @@ class DatabaseSeeder extends Seeder
              */
             SystemUserSeeder::class,
 
+            /*
+             * The admin-managed lookup lists — loan types, customer types,
+             * account types, banks and the rest.
+             *
+             * THIS WAS MISSING. The seeder has existed since Phase 2 and was
+             * never called, so every one of those tables was empty on a freshly
+             * seeded database and every dropdown reading them rendered "No loan
+             * types are configured." The registration form was wired to the
+             * database correctly the whole time; there was simply nothing in it.
+             *
+             * Before CustomerCategorySeeder because a customer references an
+             * account type, and before AccountTypeRequirementSeeder, which
+             * configures the account types this creates.
+             */
+            MasterDataSeeder::class,
+            AccountTypeRequirementSeeder::class,
+
             // Categories before customers (a customer names one), and users
             // before both (customers record who registered them).
             CustomerCategorySeeder::class,

@@ -19,6 +19,21 @@ enum PermissionName: string
     case CustomersManage = 'customers.manage';
     case CustomersApprove = 'customers.approve';
 
+    /*
+     * Register a customer against an officer other than yourself.
+     *
+     * Its own grant, following §13/§14 Decision 1's rule that an extra ability
+     * is never implied by seniority. The "Employee" field on the registration
+     * form is the relationship owner — whose book the customer sits on, and
+     * therefore whose portfolio and commission they count towards. An officer
+     * filling that in for somebody else is reassigning revenue, so it is a
+     * supervisory act, not a data entry one.
+     *
+     * Without this grant the field is fixed to the signed-in user, which is
+     * the correct answer for the officer sitting with the customer.
+     */
+    case CustomersAssignOfficer = 'customers.assign_officer';
+
     // Loans
     case LoansView = 'loans.view';
     case LoansCreate = 'loans.create';
@@ -115,6 +130,7 @@ enum PermissionName: string
             self::CustomersView => 'View customers',
             self::CustomersManage => 'Create/edit customers',
             self::CustomersApprove => 'Approve/reject customer registrations',
+            self::CustomersAssignOfficer => 'Register a customer for another officer',
             self::LoansView => 'View loans',
             self::LoansCreate => 'Create loan applications',
             self::LoansApprove => 'Approve loans',
@@ -159,7 +175,8 @@ enum PermissionName: string
     public function group(): string
     {
         return match ($this) {
-            self::CustomersView, self::CustomersManage, self::CustomersApprove => 'Customers',
+            self::CustomersView, self::CustomersManage, self::CustomersApprove,
+            self::CustomersAssignOfficer => 'Customers',
             self::LoansView, self::LoansCreate, self::LoansApprove,
             self::LoansZoneApprove, self::LoansHold, self::LoansSettleEarly,
             self::LoansCreditReview, self::LoansDisburse, self::LoansReviewCrossBranch => 'Loans',

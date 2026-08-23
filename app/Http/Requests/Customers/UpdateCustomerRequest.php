@@ -87,8 +87,13 @@ final class UpdateCustomerRequest extends FormRequest
             // ---- address ----
             'regionId' => ['sometimes', 'nullable', 'integer', Rule::exists('regions', 'id')],
             'districtId' => ['sometimes', 'nullable', 'integer', Rule::exists('districts', 'id')],
+            /* The ids stay editable for records that already hold one; the
+               typed names are what the form writes. See the 2026_08_26
+               migration for why the two lowest levels stopped being lists. */
             'wardId' => ['sometimes', 'nullable', 'integer', Rule::exists('wards', 'id')],
             'streetId' => ['sometimes', 'nullable', 'integer', Rule::exists('streets', 'id')],
+            'wardName' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'streetName' => ['sometimes', 'nullable', 'string', 'max:120'],
             'village' => ['sometimes', 'nullable', 'string', 'max:120'],
             'houseNumber' => ['sometimes', 'nullable', 'string', 'max:40'],
             'postalCode' => ['sometimes', 'nullable', 'string', 'max:20'],
@@ -98,6 +103,10 @@ final class UpdateCustomerRequest extends FormRequest
             // ---- employment & business ----
             'occupation' => ['sometimes', 'nullable', 'string', 'max:120'],
             'employer' => ['sometimes', 'nullable', 'string', 'max:150'],
+            /* Free text, both of them. The `*_id` references above stay for
+               records captured before the change. */
+            'workType' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'employmentType' => ['sometimes', 'nullable', 'string', 'max:120'],
             'department' => ['sometimes', 'nullable', 'string', 'max:120'],
             'councilNumber' => ['sometimes', 'nullable', 'string', 'max:60'],
             'placeOfEmployment' => ['sometimes', 'nullable', 'string', 'max:150'],

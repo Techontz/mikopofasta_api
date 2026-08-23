@@ -19,7 +19,7 @@ describe('seed', function (): void {
             ->toEqualCanonicalizing(RoleName::values())
             ->and(Permission::query()->pluck('name')->all())
             ->toEqualCanonicalizing(PermissionName::values())
-            ->and(Permission::count())->toBe(37);
+            ->and(Permission::count())->toBe(38);
     });
 
     it('grants each role exactly the permissions the frontend matrix declares', function (): void {
@@ -40,7 +40,7 @@ describe('seed', function (): void {
     it('gives super admin every permission and teller only two', function (): void {
         seedRbac();
 
-        expect(Role::query()->where('name', 'super_admin')->sole()->permissions)->toHaveCount(37)
+        expect(Role::query()->where('name', 'super_admin')->sole()->permissions)->toHaveCount(38)
             ->and(Role::query()->where('name', 'teller')->sole()->permissions->pluck('name')->all())
             ->toEqualCanonicalizing([
                 PermissionName::RepaymentsView->value,
@@ -102,7 +102,7 @@ describe('roles endpoint', function (): void {
 
         $superAdmin = collect($response->json('data'))->firstWhere('name', 'super_admin');
         expect($superAdmin['editable'])->toBeFalse()
-            ->and($superAdmin['permissions'])->toHaveCount(37);
+            ->and($superAdmin['permissions'])->toHaveCount(38);
     });
 
     it('denies the roles list to a role without roles.view', function (): void {
@@ -119,7 +119,7 @@ describe('roles endpoint', function (): void {
         $response = $this->getJson('/api/v1/permissions');
 
         $response->assertOk()
-            ->assertJsonCount(37, 'data')
+            ->assertJsonCount(38, 'data')
             ->assertJsonStructure(['data' => [['name', 'label', 'group']], 'meta' => ['groups']]);
 
         expect(collect($response->json('meta.groups'))->pluck('label')->all())
@@ -165,7 +165,7 @@ describe('permission matrix', function (): void {
             ->assertStatus(409)
             ->assertJsonPath('error_code', 'ROLE_NOT_EDITABLE');
 
-        expect($superAdminRole->fresh()->permissions)->toHaveCount(37);
+        expect($superAdminRole->fresh()->permissions)->toHaveCount(38);
     });
 
     it('denies matrix edits to an admin, who may look but not change', function (): void {

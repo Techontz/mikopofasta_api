@@ -11,6 +11,7 @@ use App\Models\AccountFreeze;
 use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Models\CustomerCategory;
+use App\Models\MasterData\AccountType;
 use App\Models\Region;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -29,8 +30,18 @@ describe('kyc checklist', function (): void {
         $response->assertOk()
             ->assertJsonPath('data.isComplete', true)
             ->assertJsonPath('data.kycStatus', 'completed')
-            ->assertJsonPath('data.checklist.nidaVerified', true)
-            ->assertJsonPath('data.checklist.otpVerified', true)
+            /*
+             * Both FALSE, and the customer is complete anyway.
+             *
+             * That pairing is the point. Neither external check can be
+             * performed — there is no NIDA registry and no SMS gateway — so
+             * neither is claimed, and neither is required. These two used to
+             * assert `true` only because the test fixture stamped the
+             * timestamps itself, which is the fabrication the whole design
+             * refuses. See KycEvaluator.
+             */
+            ->assertJsonPath('data.checklist.nidaVerified', false)
+            ->assertJsonPath('data.checklist.otpVerified', false)
             ->assertJsonPath('data.checklist.faceVerified', true)
             ->assertJsonPath('data.checklist.additionalDataComplete', true)
             ->assertJsonPath('data.checklist.categoryAssigned', true);
@@ -56,13 +67,37 @@ describe('kyc checklist', function (): void {
             ->toBeTrue();
     });
 
-    it('reports incomplete when bank details are absent, and completes when supplied', function (): void {
+    /*
+     * The bank account requirement is the account type's, not a universal one.
+     *
+     * This test used to assert that any customer without bank details was
+     * incomplete. Many microfinance customers have no bank account and settle
+     * everything through a wallet, so the default profile does not ask for one
+     * — but a SAVINGS account plainly does, and the checklist must follow the
+     * account type rather than a fixed list. The arc is otherwise the original
+     * one: missing, then supplied, then complete, with nobody setting the
+     * column by hand.
+     */
+    it('requires a bank account only when the account type asks for one', function (): void {
         officerAt();
         $customer = registeredCustomer(['bankDetails' => null]);
+
+        // Default profile: no bank account demanded, so nothing is outstanding.
+        $this->getJson("/api/v1/customers/{$customer->id}/kyc-status")
+            ->assertJsonPath('data.isComplete', true);
+
+        $customer->update([
+            'account_type_id' => AccountType::query()->where('code', 'SAVINGS')->value('id'),
+        ]);
 
         $this->getJson("/api/v1/customers/{$customer->id}/kyc-status")
             ->assertJsonPath('data.checklist.additionalDataComplete', false)
             ->assertJsonPath('data.isComplete', false);
+
+        expect(
+            collect($this->getJson("/api/v1/customers/{$customer->id}/kyc-status")->json('data.requirements'))
+                ->firstWhere('key', 'bankAccount'),
+        )->toMatchArray(['required' => true, 'satisfied' => false]);
 
         $this->postJson("/api/v1/customers/{$customer->id}/additional-data", [
             'bankDetails' => [

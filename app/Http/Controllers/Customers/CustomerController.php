@@ -8,7 +8,10 @@ use App\Domain\Customers\Actions\DecideCustomerApprovalAction;
 use App\Domain\Customers\Actions\FreezeCustomerAction;
 use App\Domain\Customers\Actions\RegisterCustomerAction;
 use App\Domain\Customers\Actions\SetCustomerStatusAction;
+use App\Domain\Customers\DTOs\KycRequirement;
+use App\Domain\Customers\Services\ExternalVerificationStatus;
 use App\Domain\Customers\Services\KycEvaluator;
+use App\Domain\Customers\Services\RegistrationProgress;
 use App\Domain\Organization\Services\BranchScope;
 use App\Domain\Organization\Services\BranchScopeGuard;
 use App\Enums\AuditAction;
@@ -121,8 +124,13 @@ final class CustomerController extends Controller
      * The five-item checklist plus the overall status, and the required
      * documents still outstanding.
      */
-    public function kycStatus(Request $request, Customer $customer, KycEvaluator $kyc): JsonResponse
-    {
+    public function kycStatus(
+        Request $request,
+        Customer $customer,
+        KycEvaluator $kyc,
+        RegistrationProgress $progress,
+        ExternalVerificationStatus $external,
+    ): JsonResponse {
         $this->authorize('view', $customer);
         $this->guard->authorizeBranchId($this->actor($request), $customer->branch_id, Customer::class);
 
@@ -130,11 +138,33 @@ final class CustomerController extends Controller
 
         return ApiResponse::data([
             'customerId' => (string) $customer->getKey(),
+            /* The original five-key map. Published since Phase 2 and still
+               read by the frontend contract test, so it stays. */
             'checklist' => $kyc->checklist($customer),
+            /*
+             * The real checklist: one line per requirement, each saying
+             * whether it is satisfied, whether it is required for THIS
+             * customer's account type, and — for NIDA and SMS — whether it is
+             * required but impossible in this deployment. The flat map above
+             * cannot express any of that.
+             */
+            'requirements' => array_map(
+                static fn (KycRequirement $r): array => $r->toArray(),
+                $kyc->requirements($customer),
+            ),
             'kycStatus' => $customer->kyc_status->value,
             'isComplete' => $kyc->isComplete($customer),
             'missingDocuments' => $kyc->missingDocuments($customer),
             'isLoanEligible' => $customer->isLoanEligible(),
+            /*
+             * Where the registration stands, in the branch's own words, and
+             * what to do next. Derived — see RegistrationStage for why there
+             * is no column.
+             */
+            'progress' => $progress->describe($customer),
+            /* Whether this deployment can perform the external checks at all,
+               so the profile can say so rather than showing an unexplained ✗. */
+            'externalVerification' => $external->summary(),
         ]);
     }
 
@@ -273,9 +303,11 @@ final class CustomerController extends Controller
             'occupationId' => 'occupation_id', 'maritalStatusId' => 'marital_status_id',
             'bankId' => 'bank_id', 'mobileMoneyProviderId' => 'mobile_money_provider_id',
             'regionId' => 'region_id', 'districtId' => 'district_id', 'wardId' => 'ward_id',
-            'streetId' => 'street_id', 'village' => 'village', 'houseNumber' => 'house_number',
+            'streetId' => 'street_id', 'wardName' => 'ward_name', 'streetName' => 'street_name',
+            'village' => 'village', 'houseNumber' => 'house_number',
             'postalCode' => 'postal_code', 'landmark' => 'landmark', 'residenceType' => 'residence_type',
             'occupation' => 'occupation', 'employer' => 'employer', 'department' => 'department',
+            'workType' => 'work_type', 'employmentType' => 'employment_type',
             'councilNumber' => 'council_number', 'placeOfEmployment' => 'place_of_employment',
             'retirementDate' => 'retirement_date', 'dependentsCount' => 'dependents_count',
             'monthlyIncome' => 'monthly_income', 'basicSalary' => 'basic_salary', 'takeHome' => 'take_home',

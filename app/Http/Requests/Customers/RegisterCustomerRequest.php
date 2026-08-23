@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Customers;
 
+use App\Domain\Auth\Enums\PermissionName;
 use App\Domain\Customers\Enums\Gender;
 use App\Domain\Customers\Enums\GuarantorRelationship;
 use App\Domain\Customers\Enums\MaritalStatus;
 use App\Domain\Customers\Enums\ResidenceType;
+use App\Domain\Customers\Services\AccountTypeRequirementResolver;
+use App\Domain\Customers\Services\ExternalVerificationStatus;
+use App\Models\AccountTypeRequirement;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Implements the frontend's RegisterCustomerInputSchema (types/customer.ts)
@@ -35,26 +40,35 @@ final class RegisterCustomerRequest extends FormRequest
     {
         return [
             /*
-             * Identity is entered by hand until the NIDA registry exists.
+             * Identity is entered by hand, because there is nothing to look it
+             * up in.
              *
-             * These four were all `required`, which only made sense while a
-             * registry could be looked up. There is none — what filled them was
-             * a simulator that invented an identity from a hash — so a required
-             * `nidaVerifiedAt` meant every registration carried a timestamp for
-             * a check that never happened.
+             * These four were originally `required`, which only made sense
+             * while a registry could be queried. There is none — what filled
+             * them was a simulator that invented an identity from a hash of the
+             * number typed — so a required `nidaVerifiedAt` meant every
+             * registration carried a timestamp for a check that never ran.
              *
-             * They are now optional and travel together: supply the National ID
-             * and its verification timestamp, or supply neither. A
-             * `NidaIdentityProvider` will send all four again the day the
-             * integration lands, and this rule already accepts that.
+             * They were then made optional but tied together with
+             * `required_with:nidaNumber`, which inverted the problem: an
+             * officer copying a National ID off the card in front of them could
+             * not register the customer at all without also asserting a
+             * verification. That is the defect this replaces.
              *
-             * `faceVerifiedAt` stays required-with-nothing but is validated by
-             * the face-verify endpoint that actually stores the capture, which
-             * is where a liveness claim belongs.
+             * A National ID number is now what it actually is — an identity
+             * DOCUMENT, captured — and carries no implication that anybody
+             * checked it. The verification timestamps are accepted only from a
+             * deployment that can genuinely produce them; see
+             * `checkVerificationClaims` below, which is what stops a client
+             * asserting a check that could not have happened.
+             *
+             * `faceVerifiedAt` is likewise never required here. It is stamped
+             * by the face-verify endpoint that actually stores the capture,
+             * which is where a liveness claim belongs.
              */
             'nidaNumber' => ['nullable', 'string', 'min:10', 'max:30', Rule::unique('customers', 'nida_number')],
 
-            'nidaVerifiedAt' => ['nullable', 'date', 'required_with:nidaNumber'],
+            'nidaVerifiedAt' => ['nullable', 'date'],
             'otpVerifiedAt' => ['nullable', 'date'],
             'faceVerifiedAt' => ['nullable', 'date'],
 
@@ -69,8 +83,17 @@ final class RegisterCustomerRequest extends FormRequest
 
             'regionId' => ['nullable', 'integer', Rule::exists('regions', 'id')],
             'districtId' => ['nullable', 'integer', Rule::exists('districts', 'id')],
+            /*
+             * Kept, and still accepted, for anything that already holds one —
+             * the profile reads the relation when it is there. New
+             * registrations send the typed names below instead; see the
+             * 2026_08_26 migration for why the two lowest address levels
+             * stopped being dropdowns.
+             */
             'wardId' => ['nullable', 'integer', Rule::exists('wards', 'id')],
             'streetId' => ['nullable', 'integer', Rule::exists('streets', 'id')],
+            'wardName' => ['nullable', 'string', 'max:120'],
+            'streetName' => ['nullable', 'string', 'max:120'],
             'residenceType' => ['nullable', 'string', Rule::in(ResidenceType::values())],
 
             /*
@@ -100,7 +123,10 @@ final class RegisterCustomerRequest extends FormRequest
             'occupation' => ['nullable', 'string', 'max:120'],
             'employer' => ['nullable', 'string', 'max:150'],
             'monthlyIncome' => ['nullable', 'integer', 'min:0'],
-            'employmentType' => ['nullable', 'string', 'max:40'],
+            /* Typed, not chosen. No list of occupations is ever complete, and
+               one that is not complete forces a wrong answer. */
+            'employmentType' => ['nullable', 'string', 'max:120'],
+            'workType' => ['nullable', 'string', 'max:120'],
 
             'businessName' => ['nullable', 'string', 'max:150'],
             'businessType' => ['nullable', 'string', 'max:120'],
@@ -197,15 +223,298 @@ final class RegisterCustomerRequest extends FormRequest
     }
 
     /**
+     * The rules the Account Type decides — the client's requirement that
+     * "Account Type MUST control the subsequent registration steps".
+     *
+     * These cannot live in `rules()`. Which fields are mandatory depends on a
+     * database row that is not known until the request's own `accountTypeId`
+     * has been read, and Laravel builds the static rule array before any of
+     * that. `required_if` cannot express it either: the condition is not
+     * another field's value, it is what an administrator configured for that
+     * value.
+     *
+     * BACKEND VALIDATION, NOT A SECOND COPY OF THE FRONTEND'S. The wizard
+     * enforces the same profile so the officer is stopped at the step rather
+     * than at submit, but this is the enforcement — a payload posted straight
+     * at the API obeys exactly the same requirements.
+     *
+     * Face verification is deliberately NOT among them. It is the last step of
+     * the workflow, it happens after the record is saved and often on another
+     * device, and requiring it here is what made the whole flow impossible.
+     * KycEvaluator holds that requirement instead, where it gates loan
+     * eligibility rather than the save.
+     *
+     * @return array<int, callable>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $profile = app(AccountTypeRequirementResolver::class)
+                    ->for($this->integerOrNull('accountTypeId'));
+
+                $this->checkAddress($validator, $profile);
+                $this->checkIdentityDocument($validator, $profile);
+                $this->checkMaritalStatus($validator, $profile);
+                $this->checkEmployment($validator, $profile);
+                $this->checkBusiness($validator, $profile);
+                $this->checkBankAccount($validator, $profile);
+                $this->checkCard($validator, $profile);
+                $this->checkRelations($validator, $profile);
+                $this->checkCategory($validator, $profile);
+                $this->checkAssignedOfficer($validator);
+                $this->checkVerificationClaims($validator);
+            },
+        ];
+    }
+
+    /**
      * @return array<string, string>
      */
     public function messages(): array
     {
         return [
             'nidaNumber.unique' => 'A customer with this NIDA number is already registered.',
-            'nidaVerifiedAt.required' => 'NIDA verification must be completed before registration.',
-            'otpVerifiedAt.required' => 'OTP verification must be completed before registration.',
-            'faceVerifiedAt.required' => 'Face verification must be completed before registration.',
         ];
+    }
+
+    /**
+     * A verification may only be recorded by a deployment that can perform it.
+     *
+     * Without this the API would accept `nidaVerifiedAt` from any client that
+     * chose to send one, and the customer's record — and their KYC status, and
+     * their loan eligibility — would rest on a check nothing performed. The
+     * frontend sends null for all three; this is what makes that a rule rather
+     * than a convention.
+     *
+     * It is deliberately not silent. Dropping the field would leave the caller
+     * believing a verification had been stored, which is a worse failure than
+     * a refusal that says exactly what happened.
+     */
+    private function checkVerificationClaims(Validator $validator): void
+    {
+        $external = app(ExternalVerificationStatus::class);
+
+        if ($this->input('nidaVerifiedAt') !== null && ! $external->nidaAvailable()) {
+            $validator->errors()->add(
+                'nidaVerifiedAt',
+                'A NIDA verification cannot be recorded: the registry integration is not available in this deployment. The National ID number is still captured.',
+            );
+        }
+
+        if ($this->input('otpVerifiedAt') !== null && ! $external->otpAvailable()) {
+            $validator->errors()->add(
+                'otpVerifiedAt',
+                'An SMS verification cannot be recorded: no SMS gateway is configured. The phone number is still captured.',
+            );
+        }
+    }
+
+    /**
+     * Who the customer is registered FOR.
+     *
+     * The field defaults to the signed-in user and the action fills it in when
+     * it is absent, so an ordinary officer never sends it. Sending somebody
+     * else's id is a reassignment of the relationship — and of the portfolio
+     * and commission that follow it — so it needs `customers.assign_officer`.
+     *
+     * Checked here rather than silently overwritten in the action: quietly
+     * replacing the id would leave a supervisor believing they had assigned
+     * the customer to Esther when the record says otherwise.
+     */
+    private function checkAssignedOfficer(Validator $validator): void
+    {
+        $requested = $this->integerOrNull('employeeId');
+        $actor = $this->user();
+
+        if ($requested === null || $actor === null || $requested === $actor->getKey()) {
+            return;
+        }
+
+        if (! $actor->hasPermission(PermissionName::CustomersAssignOfficer)) {
+            $validator->errors()->add(
+                'employeeId',
+                'You may only register customers under your own name.',
+            );
+        }
+    }
+
+    private function checkAddress(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        if (! $profile->requires_address) {
+            return;
+        }
+
+        if ($this->integerOrNull('regionId') === null) {
+            $validator->errors()->add('regionId', 'Region is required.');
+        }
+
+        /* District and not ward: districts are a complete, authoritative list
+           and wards are not. See the 2026_08_26 migration. */
+        if ($this->integerOrNull('districtId') === null) {
+            $validator->errors()->add('districtId', 'District must be selected.');
+        }
+    }
+
+    /**
+     * Any one of the five, because the customer chooses which they carry.
+     *
+     * The error is attached to the National ID field because that is the first
+     * of them on the form; the message names all five so nobody concludes a
+     * NIDA card is the only acceptable document.
+     */
+    private function checkIdentityDocument(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        if (! $profile->requires_identity_document) {
+            return;
+        }
+
+        $documents = ['nidaNumber', 'nationalIdNumber', 'voterIdNumber', 'driverLicenceNumber', 'passportNumber', 'workIdNumber'];
+
+        foreach ($documents as $field) {
+            if ($this->stringOrNull($field) !== null) {
+                return;
+            }
+        }
+
+        $validator->errors()->add(
+            'nationalIdNumber',
+            'At least one identity document is required — National ID, voter ID, driving licence, passport or work ID.',
+        );
+    }
+
+    private function checkMaritalStatus(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        if (! $profile->requires_marital_status) {
+            return;
+        }
+
+        if ($this->stringOrNull('maritalStatus') === null && $this->integerOrNull('maritalStatusId') === null) {
+            $validator->errors()->add('maritalStatusId', 'Marital status is required for this account type.');
+        }
+    }
+
+    private function checkEmployment(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        if (! $profile->requires_employment_details) {
+            return;
+        }
+
+        if ($this->stringOrNull('employer') === null && $this->stringOrNull('placeOfEmployment') === null) {
+            $validator->errors()->add('employer', 'An employer or place of employment is required for this account type.');
+        }
+
+        if ($this->stringOrNull('workType') === null && $this->stringOrNull('employmentType') === null) {
+            $validator->errors()->add('workType', 'Work type or type of employment is required for this account type.');
+        }
+
+        /* Any one figure. A salaried customer gives a basic and a take-home; a
+           trader gives a monthly income and neither of the others. */
+        $income = ['takeHome', 'basicSalary', 'monthlyIncome'];
+        $hasIncome = false;
+
+        foreach ($income as $field) {
+            if ($this->integerOrNull($field) !== null) {
+                $hasIncome = true;
+            }
+        }
+
+        if (! $hasIncome) {
+            $validator->errors()->add('takeHome', 'An income figure is required for this account type.');
+        }
+    }
+
+    private function checkBusiness(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        if (! $profile->requires_business_details) {
+            return;
+        }
+
+        if ($this->stringOrNull('businessName') === null) {
+            $validator->errors()->add('businessName', 'Business name is required for this account type.');
+        }
+
+        if ($this->stringOrNull('businessType') === null) {
+            $validator->errors()->add('businessType', 'Business type is required for this account type.');
+        }
+    }
+
+    /**
+     * A bank account, or a mobile money wallet. Many microfinance customers
+     * have only the second, and refusing them an account for it would exclude
+     * exactly the people this institution exists to serve.
+     */
+    private function checkBankAccount(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        if (! $profile->requires_bank_account) {
+            return;
+        }
+
+        $bank = $this->input('bankDetails');
+        $hasBank = is_array($bank) && ($bank['accountNumber'] ?? null) !== null;
+
+        if ($hasBank || $this->stringOrNull('walletNumber') !== null) {
+            return;
+        }
+
+        $validator->errors()->add(
+            'bankDetails.accountNumber',
+            'A bank account or a mobile money wallet number is required for this account type.',
+        );
+    }
+
+    private function checkCard(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        if ($profile->requires_card_details && $this->stringOrNull('cardNumber') === null) {
+            $validator->errors()->add('cardNumber', 'Card details are required for this account type.');
+        }
+    }
+
+    private function checkRelations(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        $guarantors = is_array($this->input('guarantors')) ? count($this->input('guarantors')) : 0;
+
+        if ($guarantors < $profile->min_guarantors) {
+            $validator->errors()->add('guarantors', sprintf(
+                'At least %d guarantor%s required for this account type.',
+                $profile->min_guarantors,
+                $profile->min_guarantors === 1 ? ' is' : 's are',
+            ));
+        }
+
+        $kin = is_array($this->input('nextOfKin')) ? count($this->input('nextOfKin')) : 0;
+
+        if ($kin < $profile->min_next_of_kin) {
+            $validator->errors()->add('nextOfKin', sprintf(
+                'At least %d next of kin %s required for this account type.',
+                $profile->min_next_of_kin,
+                $profile->min_next_of_kin === 1 ? 'is' : 'are',
+            ));
+        }
+    }
+
+    private function checkCategory(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        if ($profile->requires_customer_category && $this->integerOrNull('customerCategoryId') === null) {
+            $validator->errors()->add(
+                'customerCategoryId',
+                'A customer category is required for this account type — it decides which loan products the customer may take.',
+            );
+        }
+    }
+
+    /** Blank strings arrive from untouched text inputs and mean "not given". */
+    private function stringOrNull(string $key): ?string
+    {
+        $value = $this->input($key);
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function integerOrNull(string $key): ?int
+    {
+        $value = $this->input($key);
+
+        return is_numeric($value) ? (int) $value : null;
     }
 }

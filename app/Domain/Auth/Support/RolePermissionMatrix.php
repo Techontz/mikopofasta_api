@@ -46,7 +46,7 @@ final class RolePermissionMatrix
             RoleName::SuperAdmin => P::cases(),
 
             RoleName::Admin => [
-                P::CustomersView, P::CustomersManage, P::CustomersApprove,
+                P::CustomersView, P::CustomersManage, P::CustomersApprove, P::CustomersAssignOfficer,
                 P::LoansView, P::LoansCreate, P::LoansApprove,
                 P::RepaymentsView, P::RepaymentsManage, P::RepaymentsCashEntry,
                 P::LedgerView, P::LedgerReverseRequest,
@@ -88,7 +88,7 @@ final class RolePermissionMatrix
             ],
 
             RoleName::BranchManager => [
-                P::CustomersView, P::CustomersManage, P::CustomersApprove,
+                P::CustomersView, P::CustomersManage, P::CustomersApprove, P::CustomersAssignOfficer,
                 P::LoansView, P::LoansCreate, P::LoansApprove,
                 P::RepaymentsView,
                 P::ReportsView,
@@ -170,7 +170,7 @@ final class RolePermissionMatrix
              * things, and this role is exactly the one that would blur them.
              */
             RoleName::HeadOfficeManager => [
-                P::CustomersView, P::CustomersManage, P::CustomersApprove,
+                P::CustomersView, P::CustomersManage, P::CustomersApprove, P::CustomersAssignOfficer,
                 P::LoansView, P::LoansCreate, P::LoansApprove, P::LoansHold, P::LoansSettleEarly,
                 P::RepaymentsView,
                 P::LedgerView,

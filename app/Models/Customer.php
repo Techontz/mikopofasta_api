@@ -51,7 +51,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $region_id
  * @property int|null $district_id
  * @property int|null $ward_id
+ * @property string|null $ward_name
  * @property int|null $street_id
+ * @property string|null $street_name
+ * @property string|null $work_type
+ * @property string|null $employment_type
+ * @property int|null $account_type_id
+ * @property string|null $card_last_four
  * @property ResidenceType|null $residence_type
  * @property int|null $customer_category_id
  * @property array<string, mixed>|null $dynamic_form_data
@@ -79,6 +85,9 @@ class Customer extends Model
         'first_name', 'middle_name', 'last_name', 'dob', 'gender', 'phone', 'photo_path',
         'nida_verified_at', 'otp_verified_at', 'face_verified_at',
         'marital_status', 'region_id', 'district_id', 'ward_id', 'street_id', 'residence_type',
+        /* Ward and street as the officer typed them — see the 2026_08_26
+           migration for why the two lowest levels stopped being dropdowns. */
+        'ward_name', 'street_name',
         'customer_category_id', 'dynamic_form_data', 'branch_id',
 
         // KYC detail — real columns rather than dynamic_form_data, because the
@@ -86,7 +95,7 @@ class Customer extends Model
         'alternative_phone', 'email', 'nationality', 'national_id_number',
         'tin_number', 'passport_number',
         'village', 'house_number', 'postal_code', 'landmark',
-        'occupation', 'employer', 'monthly_income', 'employment_type',
+        'occupation', 'employer', 'monthly_income', 'employment_type', 'work_type',
         'business_name', 'business_type', 'business_address',
         'bank_name', 'bank_branch', 'account_name', 'account_number',
         'mobile_money_provider', 'wallet_number',
@@ -369,6 +378,10 @@ class Customer extends Model
                 ->orWhere('wallet_number', 'like', $like)
                 ->orWhere('business_name', 'like', $like)
                 ->orWhere('occupation', 'like', $like)
+                // The typed address levels. A customer is often remembered by
+                // their ward long before their customer number.
+                ->orWhere('ward_name', 'like', $like)
+                ->orWhere('street_name', 'like', $like)
                 ->orWhere('first_name', 'like', $like)
                 ->orWhere('middle_name', 'like', $like)
                 ->orWhere('last_name', 'like', $like)

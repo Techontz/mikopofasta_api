@@ -73,6 +73,10 @@ final class CustomerResource extends JsonResource
             'districtId' => self::id($this->district_id),
             'wardId' => self::id($this->ward_id),
             'streetId' => self::id($this->street_id),
+            /* The typed levels. Backfilled from the id columns by the
+               2026_08_26 migration, so display code reads these alone. */
+            'wardName' => $this->ward_name,
+            'streetName' => $this->street_name,
             'residenceType' => $this->residence_type?->value,
 
             // The KYC detail block — see the 2026_08_02 migration for why these
@@ -93,6 +97,7 @@ final class CustomerResource extends JsonResource
             'employer' => $this->employer,
             'monthlyIncome' => $this->monthly_income,
             'employmentType' => $this->employment_type,
+            'workType' => $this->work_type,
 
             'businessName' => $this->business_name,
             'businessType' => $this->business_type,

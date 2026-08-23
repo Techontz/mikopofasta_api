@@ -31,6 +31,23 @@ class ConfigurationException extends DomainException
     }
 
     /**
+     * The default account-type requirement profile is gone.
+     *
+     * The 2026_08_26 migration creates it, so reaching this means somebody
+     * deleted the row by hand. It is fatal rather than defaulted-around: this
+     * profile decides what KYC requires, and a system that guesses at that
+     * silently marks customers complete on rules nobody chose.
+     */
+    public static function registrationRequirementsMissing(): self
+    {
+        return new self(
+            'No default account type requirement profile exists. Registration cannot decide what is required until one is restored.',
+            ErrorCode::RegistrationRequirementsMissing,
+            Response::HTTP_SERVICE_UNAVAILABLE,
+        );
+    }
+
+    /**
      * More than one System account exists.
      *
      * The database unique index makes this unreachable on a healthy schema. It

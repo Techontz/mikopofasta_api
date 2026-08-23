@@ -11,10 +11,12 @@ use App\Http\Controllers\Auth\ProfileController;
 use App\Http\Controllers\Customers\CustomerCategoryController;
 use App\Http\Controllers\Customers\CustomerController;
 use App\Http\Controllers\Customers\CustomerDocumentController;
+use App\Http\Controllers\Customers\CustomerRegistrationDraftController;
 use App\Http\Controllers\Customers\CustomerRelationController;
 use App\Http\Controllers\Customers\FaceScanController;
 use App\Http\Controllers\Customers\GroupController;
 use App\Http\Controllers\Customers\KycController;
+use App\Http\Controllers\Customers\RegistrationRequirementsController;
 use App\Http\Controllers\Expenses\ExpenseCategoryController;
 use App\Http\Controllers\Expenses\ExpenseRequestController;
 use App\Http\Controllers\Hr\CommissionController;
@@ -249,6 +251,28 @@ Route::middleware('auth:sanctum')->group(function (): void {
     | `admin.org_settings`, matching where the frontend files them.
     |
     */
+
+    /*
+     * What registration requires, per account type, and what this deployment
+     * can actually verify. Read once when the wizard opens; the same profiles
+     * are enforced by RegisterCustomerRequest and judged by KycEvaluator.
+     */
+    Route::get('/registration/requirements', [RegistrationRequirementsController::class, 'index'])
+        ->name('registration.requirements.index');
+    Route::put('/registration/requirements/{accountType}', [RegistrationRequirementsController::class, 'update'])
+        ->name('registration.requirements.update');
+
+    /*
+     * Save and resume. Declared before the {customer} routes for the same
+     * reason the NIDA endpoints are — a literal segment must not be read as an
+     * id — though these sit on their own prefix and could not collide.
+     */
+    Route::get('/customer-drafts', [CustomerRegistrationDraftController::class, 'index'])->name('customer-drafts.index');
+    Route::post('/customer-drafts', [CustomerRegistrationDraftController::class, 'store'])->name('customer-drafts.store');
+    Route::get('/customer-drafts/{draft}', [CustomerRegistrationDraftController::class, 'show'])->name('customer-drafts.show');
+    Route::post('/customer-drafts/{draft}/submitted', [CustomerRegistrationDraftController::class, 'markSubmitted'])
+        ->name('customer-drafts.submitted');
+    Route::delete('/customer-drafts/{draft}', [CustomerRegistrationDraftController::class, 'destroy'])->name('customer-drafts.destroy');
 
     // The KYC identity flow. Declared before the {customer} routes so
     // "nida-lookup" is not captured as a customer id.

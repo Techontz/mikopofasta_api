@@ -103,6 +103,10 @@ final class RegisterCustomerAction
                 'district_id' => $payload['districtId'] ?? null,
                 'ward_id' => $payload['wardId'] ?? null,
                 'street_id' => $payload['streetId'] ?? null,
+                /* Typed, not chosen — see the 2026_08_26 migration. The ids
+                   above stay for records that already reference a row. */
+                'ward_name' => $payload['wardName'] ?? null,
+                'street_name' => $payload['streetName'] ?? null,
                 'residence_type' => $payload['residenceType'] ?? null,
 
                 /*
@@ -127,7 +131,10 @@ final class RegisterCustomerAction
                 'occupation' => $payload['occupation'] ?? null,
                 'employer' => $payload['employer'] ?? null,
                 'monthly_income' => $payload['monthlyIncome'] ?? null,
+                /* Both free text. No list of occupations is complete, and one
+                   that is not complete forces a wrong answer. */
                 'employment_type' => $payload['employmentType'] ?? null,
+                'work_type' => $payload['workType'] ?? null,
 
                 'business_name' => $payload['businessName'] ?? null,
                 'business_type' => $payload['businessType'] ?? null,
@@ -151,7 +158,18 @@ final class RegisterCustomerAction
                 'created_device' => $payload['createdDevice'] ?? null,
 
                 // ---- legacy step 1 ----
-                'employee_id' => $payload['employeeId'] ?? null,
+                /*
+                 * Defaults to whoever is registering.
+                 *
+                 * It was a dropdown of every member of staff, defaulting to
+                 * nobody — so the field that decides whose book the customer
+                 * sits on was routinely left blank, and the officer sitting
+                 * with the customer had to find their own name in a list of
+                 * everyone. The signed-in user is the answer in every ordinary
+                 * case; a supervisor may name somebody else, which needs
+                 * `customers.assign_officer` (see RegisterCustomerRequest).
+                 */
+                'employee_id' => $payload['employeeId'] ?? $actor->getKey(),
                 'loan_type_id' => $payload['loanTypeId'] ?? null,
                 'customer_type_id' => $payload['customerTypeId'] ?? null,
 
