@@ -40,6 +40,18 @@ enum RegistrationStage: string
      */
     case AwaitingFaceVerification = 'awaiting_face_verification';
 
+    /**
+     * Everything the account type asks for is captured and the face scan has
+     * passed — now a manager must approve the registration.
+     *
+     * The stage this workflow was missing. Completing KYC used to make a
+     * customer borrowable outright; it now makes them ready to be looked at.
+     */
+    case AwaitingRegistrationApproval = 'awaiting_registration_approval';
+
+    /** A manager refused the registration. Correct it and send it back. */
+    case RegistrationRejected = 'registration_rejected';
+
     /** Every required item satisfied — but the account cannot borrow. */
     case NotEligible = 'not_eligible';
 
@@ -52,6 +64,8 @@ enum RegistrationStage: string
             self::Draft => 'Registration draft',
             self::InformationIncomplete => 'Registration incomplete',
             self::AwaitingFaceVerification => 'Awaiting face verification',
+            self::AwaitingRegistrationApproval => 'Awaiting registration approval',
+            self::RegistrationRejected => 'Registration returned for correction',
             self::NotEligible => 'KYC complete — not eligible',
             self::LoanEligible => 'KYC complete — eligible for loan',
         };

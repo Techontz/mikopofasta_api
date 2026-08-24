@@ -71,15 +71,26 @@ final class LoanEligibilityChecker
             $violations[] = new EligibilityViolation('CUSTOMER_SUSPENDED', 'Customer account is suspended.');
         }
 
-        if ($customer->approval_status === CustomerApprovalStatus::Pending) {
-            $violations[] = new EligibilityViolation(
-                'CUSTOMER_PENDING_APPROVAL',
-                'Customer registration is still awaiting approval.',
-            );
-        }
-
+        /*
+         * Registration approval is a POSITIVE condition, not the absence of a
+         * refusal.
+         *
+         * This used to fire only on `pending` and `rejected`, which let
+         * `not_required` through — and that was the value almost every
+         * registration carried, so a completed face scan was the last thing
+         * standing between a new customer and a loan. A manager's approval is
+         * now required to be on the record.
+         *
+         * The two existing codes are kept and `not_required` reports as
+         * pending, which is what it now means: nobody has decided yet.
+         */
         if ($customer->approval_status === CustomerApprovalStatus::Rejected) {
             $violations[] = new EligibilityViolation('CUSTOMER_REJECTED', 'Customer registration was rejected.');
+        } elseif ($customer->approval_status !== CustomerApprovalStatus::Approved) {
+            $violations[] = new EligibilityViolation(
+                'CUSTOMER_PENDING_APPROVAL',
+                'Customer registration is still awaiting approval by a manager.',
+            );
         }
 
         // --- Guarantors ----------------------------------------------------

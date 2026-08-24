@@ -213,15 +213,22 @@ final class RegisterCustomerAction
                 'status' => CustomerStatus::Active,
 
                 /*
-                 * §2.3's requires_extra_approval decides this. A category that
-                 * demands it registers `pending` and is not loan-eligible
-                 * until someone with customers.approve decides.
+                 * EVERY registration is approved by a manager. Not only the
+                 * categories that ask for extra scrutiny.
+                 *
+                 * This used to be `$category?->needsApproval() ? Pending :
+                 * NotRequired`, and `not_required` passed the loan gate — so a
+                 * customer registered into an ordinary category became able to
+                 * borrow the moment their face scan passed, with no human ever
+                 * having looked at the file. §2.3's `requires_extra_approval`
+                 * was never meant to be the only thing standing between a
+                 * registration and a loan.
+                 *
+                 * `requires_extra_approval` still means something: it is read
+                 * by the approval screen to mark which files need a closer
+                 * look. It no longer decides WHETHER anyone looks.
                  */
-                /* No category means no category-driven approval rule, so the
-                   record needs none — it is unassigned, not pending. */
-                'approval_status' => $category?->needsApproval()
-                    ? CustomerApprovalStatus::Pending
-                    : CustomerApprovalStatus::NotRequired,
+                'approval_status' => CustomerApprovalStatus::Pending,
 
                 'created_by' => $actor->getKey(),
             ]);

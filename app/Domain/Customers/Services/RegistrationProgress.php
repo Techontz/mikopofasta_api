@@ -53,6 +53,24 @@ final class RegistrationProgress
                 : RegistrationStage::InformationIncomplete;
         }
 
+        /*
+         * KYC is finished. Whether the customer may borrow is now a manager's
+         * decision rather than a consequence of the checklist.
+         */
+        if ($customer->approval_status === CustomerApprovalStatus::Rejected) {
+            return RegistrationStage::RegistrationRejected;
+        }
+
+        /*
+         * `NotRequired` queues for approval too. No new registration can reach
+         * that value — the 2026_08_28 migration moved the existing ones — but a
+         * row restored from an old backup must join the queue rather than
+         * quietly counting as approved.
+         */
+        if ($customer->approval_status !== CustomerApprovalStatus::Approved) {
+            return RegistrationStage::AwaitingRegistrationApproval;
+        }
+
         return $customer->isLoanEligible()
             ? RegistrationStage::LoanEligible
             : RegistrationStage::NotEligible;
@@ -97,6 +115,10 @@ final class RegistrationProgress
             RegistrationStage::Draft => 'Resume the registration and complete the remaining steps.',
             RegistrationStage::InformationIncomplete => 'Edit the customer and complete the outstanding items.',
             RegistrationStage::AwaitingFaceVerification => 'Run Face Verification on this customer. Any signed-in device with a camera will do.',
+            RegistrationStage::AwaitingRegistrationApproval => 'Registration is complete. A Branch Manager must approve it before this customer can borrow.',
+            RegistrationStage::RegistrationRejected => $customer->rejection_reason === null
+                ? 'The registration was returned. Correct it and re-submit for approval.'
+                : 'Returned: '.$customer->rejection_reason.' Correct it and re-submit for approval.',
             RegistrationStage::LoanEligible => 'Start a loan application.',
 
             /*
@@ -104,9 +126,12 @@ final class RegistrationProgress
              * message. Naming the actual one is the difference between an
              * officer resolving it and an officer raising a ticket.
              */
+            /*
+             * Approved, complete, and still unable to borrow — so the cause is
+             * the account's standing. The two approval cases that used to live
+             * here became stages of their own above.
+             */
             RegistrationStage::NotEligible => match (true) {
-                $customer->approval_status === CustomerApprovalStatus::Pending => 'This category requires extra approval. A supervisor must approve the registration.',
-                $customer->approval_status === CustomerApprovalStatus::Rejected => 'The registration was rejected. Review the rejection reason before re-submitting.',
                 $customer->isFrozen() => 'The account is frozen. It must be unfrozen before any new loan.',
                 default => 'The account is not active. Reactivate it before applying for a loan.',
             },

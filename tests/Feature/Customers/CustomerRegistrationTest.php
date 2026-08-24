@@ -138,12 +138,15 @@ describe('registration', function (): void {
             ->assertJsonPath('data.approvalStatus', 'pending');
     });
 
-    it('marks a customer not_required when the category does not', function (): void {
+    it('queues every registration for manager approval, whatever the category asks', function (): void {
         officerAt();
 
         $this->postJson('/api/v1/customers', registrationPayload())
             ->assertCreated()
-            ->assertJsonPath('data.approvalStatus', 'not_required');
+            /* Every registration now queues for a manager, whatever the
+               category asks for. `not_required` is a legacy value no new row
+               can reach — see the 2026_08_28 migration. */
+            ->assertJsonPath('data.approvalStatus', 'pending');
     });
 
     it('refuses a duplicate NIDA number', function (): void {

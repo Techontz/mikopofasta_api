@@ -279,6 +279,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/customers/nida-lookup', [KycController::class, 'lookup'])->name('customers.nida-lookup');
     Route::post('/customers/nida-otp-verify', [KycController::class, 'verifyOtp'])->name('customers.nida-otp-verify');
 
+    /* The manager's registration-approval queue. Before the {customer} routes,
+       so "pending-approval" is not read as a customer id. */
+    Route::get('/customers/pending-approval', [CustomerController::class, 'pendingApproval'])
+        ->name('customers.pending-approval');
+
     Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
     Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
     Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
@@ -298,6 +303,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::post('/customers/{customer}/approve', [CustomerController::class, 'approve'])->name('customers.approve');
     Route::post('/customers/{customer}/reject', [CustomerController::class, 'reject'])->name('customers.reject');
+    /* A returned registration, corrected and sent back. `customers.manage`,
+       not `customers.approve` — the officer fixes, the manager decides. */
+    Route::post('/customers/{customer}/resubmit', [CustomerController::class, 'resubmitRegistration'])
+        ->name('customers.resubmit');
     Route::post('/customers/{customer}/freeze', [CustomerController::class, 'freeze'])->name('customers.freeze');
     Route::post('/customers/{customer}/unfreeze', [CustomerController::class, 'unfreeze'])->name('customers.unfreeze');
     /* The profile's save. Every field entered at registration is correctable

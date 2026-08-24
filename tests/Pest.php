@@ -312,6 +312,43 @@ function registrationPayload(array $overrides = []): array
  */
 function registeredCustomer(array $overrides = []): App\Models\Customer
 {
+    $customer = pendingRegistration($overrides);
+
+    /*
+     * Approved, because "a registered customer" now means one a manager has
+     * cleared — and that is the state every downstream test needs.
+     *
+     * Registration approval became mandatory for everybody (see the
+     * 2026_08_28 migration), so a freshly registered customer is `pending` and
+     * cannot borrow. Roughly a hundred and seventy tests across the loan,
+     * repayment and penalty suites take "there is a customer" as their
+     * starting point and are not about approval at all; leaving them to fail on
+     * a gate they do not exercise would say nothing true about the code.
+     *
+     * Written on the model rather than through the endpoint on purpose. Going
+     * through the API would need a second authenticated user with
+     * `customers.approve` — the self-approval guard forbids the registrant
+     * deciding their own file — and every one of those tests would then be
+     * quietly authenticated as somebody they did not choose.
+     *
+     * Use `pendingRegistration()` when the approval stage IS the subject.
+     */
+    $customer->forceFill([
+        'approval_status' => App\Domain\Customers\Enums\CustomerApprovalStatus::Approved,
+        'approved_at' => now(),
+    ])->save();
+
+    return $customer->refresh();
+}
+
+/**
+ * A customer as registration actually leaves them: complete, and waiting for a
+ * manager. The state `registeredCustomer()` approves away.
+ *
+ * @param array<string, mixed> $overrides
+ */
+function pendingRegistration(array $overrides = []): App\Models\Customer
+{
     test()->postJson('/api/v1/customers', registrationPayload($overrides))->assertCreated();
 
     // firstOrFail, not sole(): a test that registers two customers would

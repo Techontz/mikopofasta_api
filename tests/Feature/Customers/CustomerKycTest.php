@@ -159,8 +159,11 @@ describe('post-registration KYC edits', function (): void {
 
     it('sends a customer back to pending when moved into a category needing approval', function (): void {
         officerAt();
+        /* Approved already — which is what makes the reassignment visible: the
+           point is that moving into a demanding category takes approval AWAY
+           again, and a customer who was never approved could not show that. */
         $customer = registeredCustomer();
-        expect($customer->approval_status)->toBe(CustomerApprovalStatus::NotRequired);
+        expect($customer->approval_status)->toBe(CustomerApprovalStatus::Approved);
 
         $medium = CustomerCategory::query()->where('code', 'SME_MEDIUM')->sole();
 
@@ -413,12 +416,16 @@ describe('approval, freeze and status', function (): void {
     });
 
     it('approves a pending customer and records the decision', function (): void {
-        $manager = officerAt('Kakonko', RoleName::BranchManager);
+        /* Registered by an officer, decided by a manager. Two people, because
+           the action refuses anyone approving a file they created themselves. */
+        officerAt('Kakonko', RoleName::LoanOfficer);
 
-        $customer = registeredCustomer([
+        $customer = pendingRegistration([
             'customerCategoryId' => CustomerCategory::query()->where('code', 'SME_MEDIUM')->value('id'),
             'dynamicFormData' => ['business_type' => 'Wholesale', 'monthly_turnover' => 4200000, 'years_in_business' => 6],
         ]);
+
+        $manager = officerAt('Kakonko', RoleName::BranchManager);
 
         $this->postJson("/api/v1/customers/{$customer->id}/approve")
             ->assertOk()
@@ -429,12 +436,14 @@ describe('approval, freeze and status', function (): void {
     });
 
     it('rejects with a mandatory reason', function (): void {
-        officerAt('Kakonko', RoleName::BranchManager);
+        officerAt('Kakonko', RoleName::LoanOfficer);
 
-        $customer = registeredCustomer([
+        $customer = pendingRegistration([
             'customerCategoryId' => CustomerCategory::query()->where('code', 'SME_MEDIUM')->value('id'),
             'dynamicFormData' => ['business_type' => 'Wholesale', 'monthly_turnover' => 4200000, 'years_in_business' => 6],
         ]);
+
+        officerAt('Kakonko', RoleName::BranchManager);
 
         $this->postJson("/api/v1/customers/{$customer->id}/reject", ['reason' => ''])
             ->assertStatus(422)

@@ -9,6 +9,7 @@ use App\Domain\Customers\Actions\FreezeCustomerAction;
 use App\Domain\Customers\Actions\RegisterCustomerAction;
 use App\Domain\Customers\Actions\SetCustomerStatusAction;
 use App\Domain\Customers\DTOs\KycRequirement;
+use App\Domain\Customers\Enums\CustomerApprovalStatus;
 use App\Domain\Customers\Services\ExternalVerificationStatus;
 use App\Domain\Customers\Services\KycEvaluator;
 use App\Domain\Customers\Services\RegistrationProgress;
@@ -66,6 +67,10 @@ final class CustomerController extends Controller
             ->when(! empty($filters['kyc_status']), fn ($q) => $q->whereIn('kyc_status', $filters['kyc_status']))
             ->when(! empty($filters['status']), fn ($q) => $q->whereIn('status', $filters['status']))
             ->when(! empty($filters['approval_status']), fn ($q) => $q->whereIn('approval_status', $filters['approval_status']))
+            /* The loan applicant selector's filter. One scope, shared with
+               Customer::isLoanEligible(), so the list and the loan gate can
+               never disagree about who may borrow. */
+            ->when(! empty($filters['loan_eligible']), fn ($q) => $q->loanEligible())
             ->when(isset($filters['branch_id']), fn ($q) => $q->where('branch_id', $filters['branch_id']))
             ->when(isset($filters['customer_category_id']), fn ($q) => $q->where('customer_category_id', $filters['customer_category_id']))
             ->when($request->boolean('include_deleted'), fn ($q) => $q->withTrashed())
@@ -115,6 +120,59 @@ final class CustomerController extends Controller
             /* `faceScanOperator` so the profile can name who ran the scan
                without a second request for one string. */
             new CustomerResource($customer->load(['branch', 'category', 'bankDetails', 'faceScanOperator'])),
+        );
+    }
+
+    /**
+     * GET /api/v1/customers/pending-approval — the manager's queue.
+     *
+     * A list endpoint of its own rather than a filter on the index, because
+     * the decision needs facts the index does not carry: whether the face scan
+     * passed, who registered the customer, and — the one that decides whether
+     * the Approve button is even offered — what is still outstanding.
+     * Computing that per row in the client would mean one kyc-status request
+     * per customer.
+     *
+     * Branch-scoped like every other customer read: a Branch Manager sees
+     * their own branch's queue and nobody else's.
+     */
+    public function pendingApproval(
+        Request $request,
+        KycEvaluator $kyc,
+        BranchScope $scope,
+    ): JsonResponse {
+        $this->authorize('viewAny', Customer::class);
+        $actor = $this->actor($request);
+
+        $customers = $scope->applyToColumn(
+            Customer::query()
+                ->with(['branch', 'category', 'accountType', 'creator', 'bankDetails'])
+                ->where('approval_status', CustomerApprovalStatus::Pending),
+            $actor,
+        )->orderBy('created_at')->get();
+
+        return ApiResponse::data(
+            $customers->map(fn (Customer $customer): array => [
+                'id' => (string) $customer->getKey(),
+                'customerNumber' => $customer->customer_number,
+                'fullName' => $customer->fullName(),
+                'phone' => $customer->phone,
+                'branchName' => $customer->branch?->name,
+                'categoryName' => $customer->category?->name,
+                'accountTypeName' => $customer->accountType?->name,
+                'registeredById' => $customer->created_by === null ? null : (string) $customer->created_by,
+                'registeredByName' => $customer->creator?->name,
+                'registeredAt' => $customer->created_at?->toDateString(),
+                'kycStatus' => $customer->kyc_status->value,
+                /* The scan, not the checklist item — a manager asks whether the
+                   face was verified, and the checklist can be complete for an
+                   account type that does not require one. */
+                'faceVerified' => $customer->face_verified_at !== null,
+                /* Empty means approvable. This is the same list the action
+                   itself checks before it will accept a decision. */
+                'outstanding' => $kyc->outstanding($customer),
+                'requiresExtraApproval' => $customer->category?->needsApproval() ?? false,
+            ])->all(),
         );
     }
 
@@ -205,6 +263,25 @@ final class CustomerController extends Controller
     /**
      * POST /api/v1/customers/{customer}/reject
      */
+    /**
+     * POST /api/v1/customers/{customer}/resubmit
+     *
+     * The officer's side of a returned registration: corrected, and sent back
+     * to the approver. Gated on `customers.manage` (the `update` policy)
+     * rather than `customers.approve` — this is origination, not a decision.
+     */
+    public function resubmitRegistration(
+        Request $request,
+        Customer $customer,
+        DecideCustomerApprovalAction $action,
+    ): JsonResponse {
+        $this->authorize('update', $customer);
+        $actor = $this->actor($request);
+        $this->guard->authorizeBranchId($actor, $customer->branch_id, Customer::class);
+
+        return ApiResponse::data(new CustomerResource($action->resubmit($customer, $actor)));
+    }
+
     public function reject(RejectCustomerRequest $request, Customer $customer, DecideCustomerApprovalAction $action): JsonResponse
     {
         $this->authorize('decideApproval', $customer);

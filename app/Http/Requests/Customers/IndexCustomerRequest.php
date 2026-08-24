@@ -44,6 +44,16 @@ final class IndexCustomerRequest extends FormRequest
             'approval_status' => ['sometimes', 'nullable', 'array'],
             'approval_status.*' => ['string', Rule::in(CustomerApprovalStatus::values())],
 
+            /*
+             * `?loan_eligible=1` — the whole rule in one flag.
+             *
+             * The loan applicant selector used to assemble it from
+             * `kyc_status=completed` + `approval_status=approved`, which is a
+             * second copy of `Customer::isLoanEligible()` living in the
+             * frontend and free to drift from it. It asks the API instead.
+             */
+            'loan_eligible' => ['sometimes', 'boolean'],
+
             'branch_id' => ['sometimes', 'nullable', 'integer'],
             'customer_category_id' => ['sometimes', 'nullable', 'integer'],
 

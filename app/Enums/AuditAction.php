@@ -62,6 +62,10 @@ enum AuditAction: string
     case CustomerRegistered = 'CUSTOMER_REGISTERED';
     case CustomerApproved = 'CUSTOMER_APPROVED';
     case CustomerRejected = 'CUSTOMER_REJECTED';
+    /* A returned registration corrected and sent back to the approver. Its own
+       event because "rejected, then fixed, then approved" is a different
+       history from "approved first time", and an auditor asks which. */
+    case CustomerRegistrationResubmitted = 'CUSTOMER_REGISTRATION_RESUBMITTED';
     case CustomerFrozen = 'CUSTOMER_FROZEN';
     case CustomerUnfrozen = 'CUSTOMER_UNFROZEN';
     case CustomerSuspended = 'CUSTOMER_SUSPENDED';

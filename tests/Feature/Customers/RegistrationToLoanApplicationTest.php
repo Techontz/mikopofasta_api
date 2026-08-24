@@ -67,8 +67,21 @@ it('carries a newly registered customer through to an accepted loan application'
 
     $customer->refresh();
 
+    /*
+     * KYC complete — and still unable to borrow. Registration approval is a
+     * stage of its own, so the face scan finishes the FILE, not the journey.
+     */
     expect($customer->kyc_status)->toBe(KycStatus::Completed)
-        ->and($customer->isLoanEligible())->toBeTrue();
+        ->and($customer->isLoanEligible())->toBeFalse();
+
+    $this->getJson("/api/v1/customers/{$customer->id}/kyc-status")
+        ->assertJsonPath('data.progress.stage', 'awaiting_registration_approval');
+
+    /* ------------------------------------- 3b. the manager's decision */
+    officerAt('Kakonko', RoleName::BranchManager);
+    $this->postJson("/api/v1/customers/{$customer->id}/approve")->assertOk();
+
+    expect($customer->refresh()->isLoanEligible())->toBeTrue();
 
     $this->getJson("/api/v1/customers/{$customer->id}/kyc-status")
         ->assertJsonPath('data.progress.stage', 'loan_eligible')
@@ -90,23 +103,26 @@ it('carries a newly registered customer through to an accepted loan application'
  * progress report names that as the reason rather than reporting a bare
  * "not eligible" the branch cannot act on.
  */
+/*
+ * The counterpart: a file that is complete but undecided. This used to be
+ * reachable only through a category flagged `requires_extra_approval`; it is
+ * now where every registration sits until a manager looks at it, which is why
+ * the category no longer has to be doctored to produce it.
+ */
 it('reports pending approval as the reason a complete customer still cannot borrow', function (): void {
     Storage::fake('kyc');
     officerAt('Kakonko', RoleName::LoanOfficer);
 
-    $category = App\Models\CustomerCategory::query()->where('code', 'BODA')->firstOrFail();
-    $category->update(['requires_extra_approval' => true]);
-
-    $customer = registeredCustomer();
+    $customer = pendingRegistration();
 
     expect($customer->kyc_status)->toBe(KycStatus::Completed);
 
     $this->getJson("/api/v1/customers/{$customer->id}/kyc-status")
         ->assertJsonPath('data.isComplete', true)
         ->assertJsonPath('data.isLoanEligible', false)
-        ->assertJsonPath('data.progress.stage', 'not_eligible')
+        ->assertJsonPath('data.progress.stage', 'awaiting_registration_approval')
         ->assertJsonPath(
             'data.progress.nextAction',
-            'This category requires extra approval. A supervisor must approve the registration.',
+            'Registration is complete. A Branch Manager must approve it before this customer can borrow.',
         );
 });

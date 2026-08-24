@@ -12,6 +12,7 @@ use App\Domain\Customers\Enums\KycStatus;
 use App\Domain\Customers\Enums\MaritalStatus;
 use App\Domain\Customers\Enums\ResidenceType;
 use App\Enums\FreezableType;
+use App\Models\MasterData\AccountType;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -195,6 +196,18 @@ class Customer extends Model
     }
 
     /**
+     * The account type this customer opened, which decides what their
+     * registration had to carry. Named on the approval queue so a manager can
+     * see at a glance whether they are looking at a loan or a savings file.
+     *
+     * @return BelongsTo<AccountType, $this>
+     */
+    public function accountType(): BelongsTo
+    {
+        return $this->belongsTo(AccountType::class, 'account_type_id');
+    }
+
+    /**
      * @return HasOne<CustomerBankDetail, $this>
      */
     public function bankDetails(): HasOne
@@ -329,16 +342,43 @@ class Customer extends Model
     /**
      * Whether this customer may be attached to a loan application (§9).
      *
-     * KYC complete, not frozen or suspended, and — where the category demands
-     * extra approval — actually approved. Phase 5's loan engine calls this
-     * rather than re-deriving the rule.
+     * KYC complete, in good standing, and REGISTRATION APPROVED.
+     *
+     * That last clause used to read "not pending and not rejected", which let
+     * `not_required` through — and `not_required` was what almost every
+     * registration got. Completing a face scan therefore made a customer
+     * borrowable without anyone approving them. Approval is now a positive
+     * condition: the customer is eligible because a manager said so, not
+     * because nobody said otherwise.
+     *
+     * `LoanEligibilityChecker` reports the same rule with a reason attached;
+     * this is the boolean the rest of the system asks for.
      */
     public function isLoanEligible(): bool
     {
         return $this->kyc_status->isComplete()
             && ! $this->status->blocksNewLoans()
-            && $this->approval_status !== CustomerApprovalStatus::Pending
-            && $this->approval_status !== CustomerApprovalStatus::Rejected;
+            && $this->approval_status === CustomerApprovalStatus::Approved;
+    }
+
+    /**
+     * The same rule, in SQL, for the customer index and the loan applicant
+     * selector.
+     *
+     * Written once here rather than as a filter each caller assembles: a
+     * selector that offered somebody `isLoanEligible()` would refuse is a
+     * selector that sends an officer down a dead end, and two copies of this
+     * condition would drift the first time either changed.
+     *
+     * @param Builder<Customer> $query
+     * @return Builder<Customer>
+     */
+    public function scopeLoanEligible(Builder $query): Builder
+    {
+        return $query
+            ->where('kyc_status', KycStatus::Completed)
+            ->where('status', CustomerStatus::Active)
+            ->where('approval_status', CustomerApprovalStatus::Approved);
     }
 
     /**

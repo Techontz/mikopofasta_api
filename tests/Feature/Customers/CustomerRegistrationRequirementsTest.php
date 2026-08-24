@@ -446,9 +446,15 @@ describe('face verification as the final step', function (): void {
             ->and($customer->face_scanned_by)->toBe($other->getKey())
             ->and($customer->kyc_status)->toBe(KycStatus::Completed);
 
+        /*
+         * KYC complete — and deliberately NOT yet loan-eligible. Registration
+         * approval is a separate stage now; RegistrationApprovalTest walks the
+         * rest of the chain.
+         */
         $this->getJson("/api/v1/customers/{$customer->id}/kyc-status")
-            ->assertJsonPath('data.progress.stage', 'loan_eligible')
-            ->assertJsonPath('data.isLoanEligible', true);
+            ->assertJsonPath('data.isComplete', true)
+            ->assertJsonPath('data.progress.stage', 'awaiting_registration_approval')
+            ->assertJsonPath('data.isLoanEligible', false);
     });
 
     it('does not complete KYC on a failed scan', function (): void {

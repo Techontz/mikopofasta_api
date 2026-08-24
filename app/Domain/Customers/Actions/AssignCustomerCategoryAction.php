@@ -56,12 +56,32 @@ final class AssignCustomerCategoryAction
              * go back to pending — otherwise reassignment becomes a way to
              * skip the approval the category exists to demand.
              *
-             * A customer already approved or rejected keeps that decision:
-             * re-deciding is the approver's call, not a side effect of an
-             * edit.
+             * AN APPROVED CUSTOMER IS SENT BACK TOO. That is the case the rule
+             * now turns on: since every registration is approved by a manager,
+             * `not_required` is a value no live customer holds any more, and
+             * checking only for it would have left this guard dead — moving an
+             * approved customer into a category demanding extra scrutiny would
+             * have carried the old approval straight over, which is precisely
+             * the skip it exists to prevent. The approval was given for the
+             * category the customer was in.
+             *
+             * A REJECTED customer is left alone. They already have a decision
+             * against them, and quietly returning them to the queue on an edit
+             * would erase a refusal nobody revisited.
              */
-            if ($customer->approval_status === CustomerApprovalStatus::NotRequired && $category->needsApproval()) {
-                $customer->update(['approval_status' => CustomerApprovalStatus::Pending]);
+            $carriesApproval = in_array($customer->approval_status, [
+                CustomerApprovalStatus::NotRequired,
+                CustomerApprovalStatus::Approved,
+            ], true);
+
+            if ($carriesApproval && $category->needsApproval()) {
+                $customer->update([
+                    'approval_status' => CustomerApprovalStatus::Pending,
+                    /* The previous decision applied to a different category, so
+                       it is cleared rather than left to look like this one's. */
+                    'approved_by' => null,
+                    'approved_at' => null,
+                ]);
             }
 
             $customer->load('bankDetails');

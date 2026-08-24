@@ -233,13 +233,15 @@ describe('rbac', function (): void {
 
     it('separates approval from management', function (): void {
         officerAt('Kakonko', RoleName::Admin);
-        $customer = registeredCustomer([
+        /* Left pending — approval is what this test is about, and
+           `registeredCustomer()` would have granted it already. */
+        $customer = pendingRegistration([
             'customerCategoryId' => CustomerCategory::query()->where('code', 'SME_MEDIUM')->value('id'),
             'dynamicFormData' => ['business_type' => 'Wholesale', 'monthly_turnover' => 4200000, 'years_in_business' => 6],
         ]);
 
         // A Loan Officer registers customers but holds no customers.approve,
-        // so cannot wave through one the category flagged for scrutiny (§14).
+        // so cannot wave a registration through (§14).
         officerAt('Kakonko', RoleName::LoanOfficer);
 
         $this->postJson("/api/v1/customers/{$customer->id}/notes", ['note' => 'Follow up'])->assertCreated();
