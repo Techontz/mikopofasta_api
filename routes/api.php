@@ -318,6 +318,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/customers/{customer}/documents', [CustomerDocumentController::class, 'store'])->name('customers.documents.store');
     Route::delete('/customers/{customer}/documents/{document}', [CustomerDocumentController::class, 'destroy'])->name('customers.documents.destroy');
 
+    /* Every guarantor on record, branch-scoped — the loan application's
+       "Import Guarantors" picker. Read-only; importing writes through the
+       per-customer endpoint below. */
+    Route::get('/guarantors', [CustomerRelationController::class, 'index'])->name('guarantors.index');
+
     Route::get('/customers/{customer}/guarantors', [CustomerRelationController::class, 'guarantors'])->name('customers.guarantors.index');
     Route::post('/customers/{customer}/guarantors', [CustomerRelationController::class, 'storeGuarantor'])->name('customers.guarantors.store');
     Route::delete('/customers/{customer}/guarantors/{guarantor}', [CustomerRelationController::class, 'destroyGuarantor'])->name('customers.guarantors.destroy');
@@ -948,6 +953,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
 Route::middleware('signed')->group(function (): void {
     Route::get('/customers/{customer}/documents/{document}/download', [CustomerDocumentController::class, 'download'])
         ->name('customers.documents.download');
+
+    /* A guarantor's passport, on the same signed terms as every other KYC
+       document — an <img> cannot carry a bearer token. */
+    Route::get('/guarantors/{guarantor}/passport', [CustomerRelationController::class, 'passport'])
+        ->name('guarantors.passport');
 
     Route::get('/customers/{customer}/photo', [CustomerDocumentController::class, 'photo'])
         ->name('customers.photo');

@@ -420,3 +420,109 @@ it('carries a customer from registration through approval to an accepted loan', 
        still enters at the branch manager stage, exactly as before. */
     expect($loan->status->value)->toBe('pending_manager_approval');
 });
+
+/* -------------------------------------------------------------------------
+ | The loan application's two lookups
+ |------------------------------------------------------------------------- */
+
+describe('the guarantor import pool', function (): void {
+    /*
+     * `GET /guarantors` — the cross-customer list the loan application's
+     * "Import Guarantors" step reads. Guarantors are stored per customer, so
+     * this is the only view that answers "who has stood for anybody before".
+     */
+    it('lists guarantors from across the branch, naming who each stands for', function (): void {
+        officerAt('Kakonko', RoleName::LoanOfficer);
+        $customer = registeredCustomer();
+
+        $this->postJson("/api/v1/customers/{$customer->id}/guarantors", [
+            'name' => 'Neema Mushi',
+            'phone' => '0755111333',
+            'nidaNumber' => '19880101223344',
+            'relationship' => 'sibling',
+            'address' => 'Kakonko',
+            'occupation' => 'Trader',
+        ])->assertCreated();
+
+        $row = collect($this->getJson('/api/v1/guarantors')->assertOk()->json('data'))
+            ->firstWhere('name', 'Neema Mushi');
+
+        expect($row)->not->toBeNull()
+            ->and($row['phone'])->toBe('0755111333')
+            /*
+             * The provenance columns. A narrowed eager-load that omitted
+             * `middle_name` made this 500 at render time — `fullName()` reads
+             * it — which a live request caught and no test did. Hence this.
+             */
+            ->and($row['customerName'])->toBe($customer->fullName())
+            ->and($row['customerNumber'])->toBe($customer->customer_number);
+    });
+
+    it('searches by name, phone and identification number', function (): void {
+        officerAt('Kakonko', RoleName::LoanOfficer);
+        $customer = registeredCustomer();
+
+        $this->postJson("/api/v1/customers/{$customer->id}/guarantors", [
+            'name' => 'Neema Mushi',
+            'phone' => '0755111333',
+            'nidaNumber' => '19880101223344',
+            'relationship' => 'sibling',
+            'address' => null,
+            'occupation' => null,
+        ])->assertCreated();
+
+        foreach (['Neema', '0755111333', '19880101223344'] as $term) {
+            expect(collect($this->getJson("/api/v1/guarantors?search={$term}")->json('data'))->pluck('name'))
+                ->toContain('Neema Mushi');
+        }
+
+        expect($this->getJson('/api/v1/guarantors?search=nobody-by-this-name')->json('data'))
+            ->toBe([]);
+    });
+
+    /* §13 does not stop applying because the record is one level down. Without
+       the join through the customer this would be a way to read every branch's
+       guarantor book, names and phone numbers included. */
+    it('does not expose another branch’s guarantors', function (): void {
+        officerAt('Kakonko', RoleName::LoanOfficer);
+        $customer = registeredCustomer();
+
+        $this->postJson("/api/v1/customers/{$customer->id}/guarantors", [
+            'name' => 'Neema Mushi',
+            'phone' => '0755111333',
+            'nidaNumber' => null,
+            'relationship' => 'sibling',
+            'address' => null,
+            'occupation' => null,
+        ])->assertCreated();
+
+        officerAt('Lindi', RoleName::LoanOfficer);
+
+        expect(collect($this->getJson('/api/v1/guarantors')->json('data'))->pluck('name'))
+            ->not->toContain('Neema Mushi');
+    });
+});
+
+describe('the eligible-applicant lookup', function (): void {
+    it('narrows loan_eligible by name, customer number and phone in one query', function (): void {
+        $customer = awaitingApproval();
+        officerAt('Kakonko', RoleName::BranchManager);
+        $this->postJson("/api/v1/customers/{$customer->id}/approve")->assertOk();
+
+        officerAt('Kakonko', RoleName::LoanOfficer);
+
+        foreach ([$customer->first_name, $customer->customer_number, $customer->phone] as $term) {
+            expect(collect($this->getJson("/api/v1/customers?loan_eligible=1&search={$term}")->json('data'))->pluck('id'))
+                ->toContain((string) $customer->getKey());
+        }
+    });
+
+    /* The filter and the search compose — a pending customer stays hidden even
+       when the officer types their exact name. */
+    it('will not surface a pending customer however precisely it is searched', function (): void {
+        $customer = awaitingApproval();
+
+        expect($this->getJson("/api/v1/customers?loan_eligible=1&search={$customer->customer_number}")->json('data'))
+            ->toBe([]);
+    });
+});

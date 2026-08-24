@@ -60,6 +60,36 @@ final class KycDocumentStorage
         return (string) $path;
     }
 
+    /**
+     * Copies an existing document to a new owner's directory.
+     *
+     * The loan application's "Import Guarantors" step needs this: the browser
+     * holds no file to re-upload, and asking it to download and re-post a
+     * regulated document — to get it back byte-for-byte — would take a private
+     * KYC file on a round trip through a client for no reason.
+     *
+     * A COPY, not a move or a shared reference. Two guarantor rows are two
+     * people-on-paper, and deleting one must never remove the other's evidence.
+     */
+    public function copy(Customer $customer, string $sourcePath, string $documentType): ?string
+    {
+        if (! $this->exists($sourcePath)) {
+            return null;
+        }
+
+        $extension = pathinfo($sourcePath, PATHINFO_EXTENSION) ?: 'bin';
+
+        $destination = sprintf(
+            '%s/%s-%s.%s',
+            $this->directoryFor($customer),
+            Str::slug($documentType) ?: 'document',
+            Str::random(24),
+            $extension,
+        );
+
+        return Storage::disk(self::DISK)->copy($sourcePath, $destination) ? $destination : null;
+    }
+
     public function delete(string $path): void
     {
         Storage::disk(self::DISK)->delete($path);
