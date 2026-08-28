@@ -55,6 +55,10 @@ final class AccountTypeRequirementSeeder extends Seeder
             'requires_marital_status' => true,
             'requires_address' => true,
             'requires_identity_document' => true,
+            /* Category documents stay advisory — see the 2026_08_30_000005
+               migration. Explicit rather than relying on the column default,
+               so the intent is readable here. */
+            'requires_category_documents' => false,
             'requires_face_verification' => true,
             'guidance' => 'A loan account needs employment and income details, an account to disburse to, a guarantor, a next of kin and a customer category.',
         ]);
@@ -63,6 +67,10 @@ final class AccountTypeRequirementSeeder extends Seeder
             'requires_bank_account' => true,
             'requires_address' => true,
             'requires_identity_document' => true,
+            /* Category documents stay advisory — see the 2026_08_30_000005
+               migration. Explicit rather than relying on the column default,
+               so the intent is readable here. */
+            'requires_category_documents' => false,
             'requires_face_verification' => true,
             'guidance' => 'A savings account needs an identity document, an address and an account to pay into.',
         ]);

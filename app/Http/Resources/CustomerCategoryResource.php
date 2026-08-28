@@ -30,6 +30,14 @@ final class CustomerCategoryResource extends JsonResource
             'riskTier' => $this->risk_tier->value,
             'sector' => $this->sector->value,
             'requiredDocuments' => $this->required_documents,
+            /* Which first-class registration blocks this category asks for.
+               The wizard shows the sector, contract and salary sections off
+               these rather than off a hardcoded list of category codes. */
+            'requiresSector' => $this->requires_sector,
+            /* A private-sector employee names a COMPANY, not a ministry. */
+            'requiresEmployer' => $this->requires_employer,
+            'requiresContract' => $this->requires_contract,
+            'requiresSalary' => $this->requires_salary,
             'dynamicFormSchema' => $this->dynamic_form_schema,
             'requiresExtraApproval' => $this->requires_extra_approval,
             'createdBy' => $this->created_by === null ? null : (string) $this->created_by,

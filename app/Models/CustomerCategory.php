@@ -37,6 +37,13 @@ class CustomerCategory extends Model
      */
     protected $fillable = [
         'name', 'code', 'risk_tier', 'sector',
+        /* Which of the first-class registration blocks this category asks
+           for. Booleans on the category rather than entries in
+           `dynamic_form_schema`, because sector, contract and salary are real
+           typed columns on `customers` and declaring them in the schema too
+           would store the same fact in two shapes. See the 2026_08_30
+           migration. */
+        'requires_sector', 'requires_employer', 'requires_contract', 'requires_salary',
         'required_documents', 'dynamic_form_schema',
         'requires_extra_approval', 'created_by',
     ];
@@ -76,6 +83,10 @@ class CustomerCategory extends Model
             'required_documents' => 'array',
             'dynamic_form_schema' => 'array',
             'requires_extra_approval' => 'boolean',
+            'requires_sector' => 'boolean',
+            'requires_employer' => 'boolean',
+            'requires_contract' => 'boolean',
+            'requires_salary' => 'boolean',
         ];
     }
 }

@@ -13,6 +13,11 @@ use App\Domain\Customers\Enums\MaritalStatus;
 use App\Domain\Customers\Enums\ResidenceType;
 use App\Enums\FreezableType;
 use App\Models\MasterData\AccountType;
+use App\Models\MasterData\ContractType;
+use App\Models\MasterData\Employer;
+use App\Models\MasterData\IdType;
+use App\Models\MasterData\Sector;
+use App\Models\MasterData\SectorCategory;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -44,6 +49,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property CarbonImmutable|null $face_scanned_at
  * @property int|null $face_scanned_by
  * @property CarbonImmutable|null $retirement_date
+ * @property CarbonImmutable|null $contract_expiry_date
+ * @property int|null $id_type_id
+ * @property string|null $id_number
+ * @property int|null $sector_id
+ * @property int|null $sector_category_id
+ * @property int|null $contract_type_id
+ * @property int|null $employer_id
  * @property string|null $status_reason
  * @property string|null $status_remarks
  * @property CarbonImmutable|null $status_changed_at
@@ -83,6 +95,11 @@ class Customer extends Model
      */
     protected $fillable = [
         'customer_number', 'nida_number',
+        /* Identity as one type plus one number — see the 2026_08_30 migration.
+           The six named ID columns below stay: they hold what was captured
+           before this pair existed, and `nida_number` is still what the NIDA
+           path and the KYC identity check read. */
+        'id_type_id', 'id_number',
         'first_name', 'middle_name', 'last_name', 'dob', 'gender', 'phone', 'photo_path',
         'nida_verified_at', 'otp_verified_at', 'face_verified_at',
         'marital_status', 'region_id', 'district_id', 'ward_id', 'street_id', 'residence_type',
@@ -106,6 +123,11 @@ class Customer extends Model
         // Legacy registration form — see the 2026_08_02 migrations.
         'employee_id', 'loan_type_id', 'customer_type_id', 'account_type_id', 'work_type_id',
         'employment_type_id', 'occupation_id', 'marital_status_id', 'bank_id',
+        /* Where they serve, and on what terms — 2026_08_30. */
+        'sector_id', 'sector_category_id', 'contract_type_id', 'contract_expiry_date',
+        /* The private employer, chosen from the admin-managed list. The free
+           text `employer` column above stays for what was typed before it. */
+        'employer_id',
         'mobile_money_provider_id',
         'nickname', 'department', 'council_number', 'place_of_employment', 'retirement_date',
         'dependents_count', 'basic_salary', 'take_home', 'check_number',
@@ -193,6 +215,61 @@ class Customer extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Which identity document the branch actually saw.
+     *
+     * @return BelongsTo<IdType, $this>
+     */
+    public function idType(): BelongsTo
+    {
+        return $this->belongsTo(IdType::class, 'id_type_id');
+    }
+
+    /**
+     * The employing body — TAMISEMI, for instance.
+     *
+     * @return BelongsTo<Sector, $this>
+     */
+    public function sector(): BelongsTo
+    {
+        return $this->belongsTo(Sector::class, 'sector_id');
+    }
+
+    /**
+     * The cadre within that body — Teachers, Nurses.
+     *
+     * @return BelongsTo<SectorCategory, $this>
+     */
+    public function sectorCategory(): BelongsTo
+    {
+        return $this->belongsTo(SectorCategory::class, 'sector_category_id');
+    }
+
+    /**
+     * The private company this customer works for.
+     *
+     * Separate from `sector()` on purpose: a ministry and a sugar mill are not
+     * entries in one list, and only the first of them has cadres.
+     *
+     * @return BelongsTo<Employer, $this>
+     */
+    public function employerRecord(): BelongsTo
+    {
+        return $this->belongsTo(Employer::class, 'employer_id');
+    }
+
+    /**
+     * Permanent or Temporary. A temporary contract carries an expiry date;
+     * the rule that requires one lives in RegisterCustomerRequest, where it
+     * can be read alongside every other conditional requirement.
+     *
+     * @return BelongsTo<ContractType, $this>
+     */
+    public function contractType(): BelongsTo
+    {
+        return $this->belongsTo(ContractType::class, 'contract_type_id');
     }
 
     /**
@@ -460,6 +537,7 @@ class Customer extends Model
             'take_home' => 'integer',
             'dependents_count' => 'integer',
             'retirement_date' => 'date',
+            'contract_expiry_date' => 'date',
             'nida_verified_at' => 'datetime',
             'otp_verified_at' => 'datetime',
             'face_verified_at' => 'datetime',

@@ -270,14 +270,31 @@ describe('customer categories', function (): void {
 
         $response = $this->getJson('/api/v1/customer-categories');
 
-        $response->assertOk()->assertJsonCount(5, 'data');
+        $response->assertOk();
+
+        /* The seven the documents list, by code rather than by count — a
+           magic number here fails every time a category is configured, which
+           is a data change the whole point of this table is to allow. */
+        expect(collect($response->json('data'))->pluck('code')->all())
+            ->toContain('BODA', 'SME_SMALL', 'SME_MEDIUM', 'PUBLIC_SERVANT', 'PRIVATE_SECTOR', 'STUDENT', 'RETIRED');
 
         $boda = collect($response->json('data'))->firstWhere('code', 'BODA');
 
         expect($boda['riskTier'])->toBe('high')
             ->and($boda['sector'])->toBe('business')
             ->and($boda['requiredDocuments'])->toContain('driving_license')
-            ->and($boda['dynamicFormSchema'])->toHaveCount(3);
+            ->and($boda['dynamicFormSchema'])->toHaveCount(3)
+            /* A boda rider has no employer, no contract and no payslip. */
+            ->and($boda['requiresSector'])->toBeFalse()
+            ->and($boda['requiresContract'])->toBeFalse()
+            ->and($boda['requiresSalary'])->toBeFalse();
+
+        $servant = collect($response->json('data'))->firstWhere('code', 'PUBLIC_SERVANT');
+
+        expect($servant['requiresSector'])->toBeTrue()
+            ->and($servant['requiresContract'])->toBeTrue()
+            ->and($servant['requiresSalary'])->toBeTrue()
+            ->and($servant['requiredDocuments'])->toContain('confirmation_letter', 'salary_slip', 'bank_card', 'employee_id', 'national_id');
     });
 
     it('gates category writes on admin.org_settings, not customers.manage', function (): void {

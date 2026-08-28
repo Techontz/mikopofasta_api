@@ -39,6 +39,7 @@ use App\Http\Controllers\MasterData\MasterDataController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyProfileController;
 use App\Http\Controllers\Organization\GeographyController;
+use App\Http\Controllers\Organization\GeographyImportController;
 use App\Http\Controllers\Organization\OrganizationStructureController;
 use App\Http\Controllers\Organization\RegionController;
 use App\Http\Controllers\Organization\ZoneController;
@@ -227,6 +228,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
      * list name is a path segment, resolved against a fixed map, so an unknown
      * one 404s before touching the database. See MasterDataController.
      */
+    /* BEFORE the generic /master-data/{list} below, which would otherwise
+       swallow this path and 404 on an unknown list name. Sector categories
+       take a parent filter, so they cannot be served by the flat handler. */
+    Route::get('/master-data/sector-categories', [MasterDataController::class, 'sectorCategories'])
+        ->name('master-data.sector-categories');
+
+    /* Administration → Master Data → Geography. The register behind every
+       address; imported from a CSV, never typed into a customer record. */
+    Route::get('/master-data/geography', [GeographyImportController::class, 'status'])
+        ->name('master-data.geography.status');
+    Route::post('/master-data/geography/import', [GeographyImportController::class, 'import'])
+        ->name('master-data.geography.import');
+
     Route::get('/master-data/{list}', [MasterDataController::class, 'index'])->name('master-data.index');
     Route::post('/master-data/{list}', [MasterDataController::class, 'store'])->name('master-data.store');
     Route::put('/master-data/{list}/{id}', [MasterDataController::class, 'update'])->name('master-data.update');

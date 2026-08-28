@@ -30,6 +30,12 @@ final class CustomerResource extends JsonResource
             'id' => (string) $this->id,
             'customerNumber' => $this->customer_number,
             'nidaNumber' => $this->nida_number,
+            /* Identity as the branch recorded it: which document, and its
+               number. The six named columns below are still published, so
+               nothing that read them breaks. */
+            'idTypeId' => self::id($this->id_type_id),
+            'idTypeName' => $this->whenLoaded('idType', fn (): ?string => $this->idType?->name),
+            'idNumber' => $this->id_number,
 
             'firstName' => $this->first_name,
             'middleName' => $this->middle_name,
@@ -119,6 +125,16 @@ final class CustomerResource extends JsonResource
             'accountTypeId' => self::id($this->account_type_id),
             'workTypeId' => self::id($this->work_type_id),
             'employmentTypeId' => self::id($this->employment_type_id),
+            /* Where they serve and on what terms — 2026_08_30. */
+            'sectorId' => self::id($this->sector_id),
+            'sectorName' => $this->whenLoaded('sector', fn (): ?string => $this->sector?->name),
+            'sectorCategoryId' => self::id($this->sector_category_id),
+            'sectorCategoryName' => $this->whenLoaded('sectorCategory', fn (): ?string => $this->sectorCategory?->name),
+            'contractTypeId' => self::id($this->contract_type_id),
+            'contractTypeName' => $this->whenLoaded('contractType', fn (): ?string => $this->contractType?->name),
+            'contractExpiryDate' => $this->contract_expiry_date?->toDateString(),
+            'employerId' => self::id($this->employer_id),
+            'employerRecordName' => $this->whenLoaded('employerRecord', fn (): ?string => $this->employerRecord?->name),
             'occupationId' => self::id($this->occupation_id),
             'maritalStatusId' => self::id($this->marital_status_id),
             'bankId' => self::id($this->bank_id),

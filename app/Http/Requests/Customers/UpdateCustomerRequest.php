@@ -115,6 +115,18 @@ final class UpdateCustomerRequest extends FormRequest
             'monthlyIncome' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'basicSalary' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'takeHome' => ['sometimes', 'nullable', 'integer', 'min:0'],
+
+            /* Identity, sector and contract — 2026_08_30. Existence and active
+               state are checked; the sector/cadre pairing and the temporary
+               expiry rule are enforced at registration, where the category
+               that demands them is part of the same payload. */
+            'idTypeId' => ['sometimes', 'nullable', 'integer', Rule::exists('id_types', 'id')->whereNull('deleted_at')],
+            'idNumber' => ['sometimes', 'nullable', 'string', 'max:60'],
+            'sectorId' => ['sometimes', 'nullable', 'integer', Rule::exists('sectors', 'id')->whereNull('deleted_at')],
+            'sectorCategoryId' => ['sometimes', 'nullable', 'integer', Rule::exists('sector_categories', 'id')->whereNull('deleted_at')],
+            'contractTypeId' => ['sometimes', 'nullable', 'integer', Rule::exists('contract_types', 'id')->whereNull('deleted_at')],
+            'contractExpiryDate' => ['sometimes', 'nullable', 'date'],
+            'employerId' => ['sometimes', 'nullable', 'integer', Rule::exists('employers', 'id')->whereNull('deleted_at')],
             'businessName' => ['sometimes', 'nullable', 'string', 'max:150'],
             'businessType' => ['sometimes', 'nullable', 'string', 'max:120'],
             'businessAddress' => ['sometimes', 'nullable', 'string', 'max:255'],

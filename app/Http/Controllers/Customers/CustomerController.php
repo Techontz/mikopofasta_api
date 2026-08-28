@@ -388,6 +388,13 @@ final class CustomerController extends Controller
             'councilNumber' => 'council_number', 'placeOfEmployment' => 'place_of_employment',
             'retirementDate' => 'retirement_date', 'dependentsCount' => 'dependents_count',
             'monthlyIncome' => 'monthly_income', 'basicSalary' => 'basic_salary', 'takeHome' => 'take_home',
+            /* Identity, sector and contract — 2026_08_30. Editable after
+               registration for the same reason every other field here is: a
+               contract renewed or a cadre changed is an ordinary correction. */
+            'idTypeId' => 'id_type_id', 'idNumber' => 'id_number',
+            'sectorId' => 'sector_id', 'sectorCategoryId' => 'sector_category_id',
+            'contractTypeId' => 'contract_type_id', 'contractExpiryDate' => 'contract_expiry_date',
+            'employerId' => 'employer_id',
             'businessName' => 'business_name', 'businessType' => 'business_type',
             'businessAddress' => 'business_address',
             'bankName' => 'bank_name', 'bankBranch' => 'bank_branch', 'accountName' => 'account_name',

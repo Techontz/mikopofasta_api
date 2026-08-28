@@ -12,6 +12,9 @@ use App\Domain\Customers\Enums\ResidenceType;
 use App\Domain\Customers\Services\AccountTypeRequirementResolver;
 use App\Domain\Customers\Services\ExternalVerificationStatus;
 use App\Models\AccountTypeRequirement;
+use App\Models\CustomerCategory;
+use App\Models\MasterData\ContractType;
+use App\Models\MasterData\SectorCategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -28,6 +31,14 @@ use Illuminate\Validation\Validator;
  */
 final class RegisterCustomerRequest extends FormRequest
 {
+    /**
+     * The contract type whose expiry date is mandatory.
+     *
+     * A code rather than an id: ids differ between environments, and a name
+     * can be renamed or translated by an administrator without warning.
+     */
+    private const string TEMPORARY_CONTRACT_CODE = 'TEMPORARY';
+
     public function authorize(): bool
     {
         return true;
@@ -67,6 +78,31 @@ final class RegisterCustomerRequest extends FormRequest
              * which is where a liveness claim belongs.
              */
             'nidaNumber' => ['nullable', 'string', 'min:10', 'max:30', Rule::unique('customers', 'nida_number')],
+
+            /*
+             * Identity as one type plus one number — see the 2026_08_30
+             * migration. `id_types` is admin-managed, so the rule checks the
+             * row exists and is active rather than naming the six codes here;
+             * a list this file knew by heart could not be added to without a
+             * deployment.
+             */
+            'idTypeId' => ['nullable', 'integer', Rule::exists('id_types', 'id')->whereNull('deleted_at')->where('is_active', true)],
+            'idNumber' => ['nullable', 'string', 'max:60'],
+
+            /* Where they serve. The cadre is checked against its parent in
+               after(): `exists` alone would accept a TAMISEMI cadre under a
+               different sector entirely. */
+            'sectorId' => ['nullable', 'integer', Rule::exists('sectors', 'id')->whereNull('deleted_at')->where('is_active', true)],
+            'sectorCategoryId' => ['nullable', 'integer', Rule::exists('sector_categories', 'id')->whereNull('deleted_at')->where('is_active', true)],
+
+            /* On what terms. The expiry rule depends on WHICH contract type
+               was chosen, which means reading its code — done in after(). */
+            'contractTypeId' => ['nullable', 'integer', Rule::exists('contract_types', 'id')->whereNull('deleted_at')->where('is_active', true)],
+            'contractExpiryDate' => ['nullable', 'date'],
+
+            /* The private employer, from its own admin-managed list — NOT the
+               sector list a public servant picks from. */
+            'employerId' => ['nullable', 'integer', Rule::exists('employers', 'id')->whereNull('deleted_at')->where('is_active', true)],
 
             'nidaVerifiedAt' => ['nullable', 'date'],
             'otpVerifiedAt' => ['nullable', 'date'],
@@ -262,6 +298,8 @@ final class RegisterCustomerRequest extends FormRequest
                 $this->checkCard($validator, $profile);
                 $this->checkRelations($validator, $profile);
                 $this->checkCategory($validator, $profile);
+                $this->checkIdentityPair($validator, $profile);
+                $this->checkCategoryRequirements($validator);
                 $this->checkAssignedOfficer($validator);
                 $this->checkVerificationClaims($validator);
             },
@@ -500,6 +538,157 @@ final class RegisterCustomerRequest extends FormRequest
                 'customerCategoryId',
                 'A customer category is required for this account type — it decides which loan products the customer may take.',
             );
+        }
+    }
+
+    /**
+     * The ID type and its number travel together or not at all.
+     *
+     * A number with no type is the thing this pair replaced — a digit string
+     * nobody can identify. A type with no number is a branch that recorded
+     * which document they asked for and not what it said.
+     *
+     * The pair is REQUIRED only where the account type already required an
+     * identity document, so nothing that could be registered before this
+     * existed becomes unregisterable. `checkIdentityDocument` still accepts
+     * any of the six legacy columns, which is what keeps the older screens and
+     * the drafts saved before this change working.
+     */
+    private function checkIdentityPair(Validator $validator, AccountTypeRequirement $profile): void
+    {
+        $typeId = $this->integerOrNull('idTypeId');
+        $number = $this->stringOrNull('idNumber');
+
+        if ($typeId !== null && $number === null) {
+            $validator->errors()->add('idNumber', 'Enter the number shown on the identity document.');
+        }
+
+        if ($typeId === null && $number !== null) {
+            $validator->errors()->add('idTypeId', 'Choose which identity document this number belongs to.');
+        }
+
+        if ($profile->requires_identity_document && $typeId === null && $number === null && ! $this->hasLegacyIdentityDocument()) {
+            $validator->errors()->add('idTypeId', 'An identity document is required for this account type.');
+        }
+    }
+
+    /** Whether one of the six pre-2026_08_30 ID columns carries a value. */
+    private function hasLegacyIdentityDocument(): bool
+    {
+        foreach (['nidaNumber', 'nationalIdNumber', 'voterIdNumber', 'driverLicenceNumber', 'passportNumber', 'workIdNumber'] as $field) {
+            if ($this->stringOrNull($field) !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * What the chosen CATEGORY asks for, as opposed to what the account type
+     * asks for.
+     *
+     * Two different questions with two different answers. The account type
+     * decides the shape of the file — a loan account needs a guarantor, a
+     * savings account does not. The category decides what this KIND of
+     * customer must produce — a public servant has a sector and a contract, a
+     * boda rider has neither. Reading both from data is what lets a new
+     * category be configured rather than coded.
+     */
+    private function checkCategoryRequirements(Validator $validator): void
+    {
+        $categoryId = $this->integerOrNull('customerCategoryId');
+
+        if ($categoryId === null) {
+            return;
+        }
+
+        $category = CustomerCategory::query()->find($categoryId);
+
+        if ($category === null) {
+            return;
+        }
+
+        if ($category->requires_sector) {
+            if ($this->integerOrNull('sectorId') === null) {
+                $validator->errors()->add('sectorId', sprintf('A sector is required for a %s customer.', $category->name));
+            }
+
+            if ($this->integerOrNull('sectorCategoryId') === null) {
+                $validator->errors()->add('sectorCategoryId', sprintf('A sector category is required for a %s customer.', $category->name));
+            }
+        }
+
+        if ($category->requires_employer && $this->integerOrNull('employerId') === null) {
+            $validator->errors()->add('employerId', sprintf('An employer is required for a %s customer.', $category->name));
+        }
+
+        $this->checkSectorCategoryBelongsToSector($validator);
+
+        if ($category->requires_contract) {
+            $this->checkContract($validator, $category);
+        }
+
+        if ($category->requires_salary && $this->integerOrNull('takeHome') === null) {
+            $validator->errors()->add('takeHome', sprintf('A take-home salary is required for a %s customer.', $category->name));
+        }
+    }
+
+    /**
+     * A cadre belongs to exactly one sector, and it must be the one chosen.
+     *
+     * `exists:sector_categories,id` proves the row is real, not that it sits
+     * under this sector — without this a form could pair a TAMISEMI sector
+     * with a cadre from somewhere else and the record would read as nonsense.
+     */
+    private function checkSectorCategoryBelongsToSector(Validator $validator): void
+    {
+        $sectorId = $this->integerOrNull('sectorId');
+        $categoryId = $this->integerOrNull('sectorCategoryId');
+
+        if ($sectorId === null || $categoryId === null) {
+            return;
+        }
+
+        $belongs = SectorCategory::query()
+            ->whereKey($categoryId)
+            ->where('sector_id', $sectorId)
+            ->exists();
+
+        if (! $belongs) {
+            $validator->errors()->add('sectorCategoryId', 'That sector category does not belong to the selected sector.');
+        }
+    }
+
+    /**
+     * Permanent or Temporary, and what each one implies.
+     *
+     * The expiry date is required for a TEMPORARY contract and refused for a
+     * permanent one — a permanent contract with an end date is a contradiction
+     * somebody would later have to interpret. Matched on `code`, not on the
+     * name: an administrator may rename or translate "Temporary" and the rule
+     * has to survive that.
+     */
+    private function checkContract(Validator $validator, CustomerCategory $category): void
+    {
+        $contractTypeId = $this->integerOrNull('contractTypeId');
+
+        if ($contractTypeId === null) {
+            $validator->errors()->add('contractTypeId', sprintf('A contract type is required for a %s customer.', $category->name));
+
+            return;
+        }
+
+        $code = ContractType::query()->whereKey($contractTypeId)->value('code');
+        $expiry = $this->input('contractExpiryDate');
+        $hasExpiry = is_string($expiry) && trim($expiry) !== '';
+
+        if ($code === self::TEMPORARY_CONTRACT_CODE && ! $hasExpiry) {
+            $validator->errors()->add('contractExpiryDate', 'A temporary contract needs an expiry date.');
+        }
+
+        if ($code !== self::TEMPORARY_CONTRACT_CODE && $hasExpiry) {
+            $validator->errors()->add('contractExpiryDate', 'An expiry date applies only to a temporary contract.');
         }
     }
 

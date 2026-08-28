@@ -49,6 +49,10 @@ enum AuditAction: string
     case RegionCreated = 'REGION_CREATED';
     case RegionUpdated = 'REGION_UPDATED';
     case RegionDeleted = 'REGION_DELETED';
+    /* A bulk load of the administrative register. Recorded because it decides
+       what every future address may say, and a bad import is answered by
+       knowing who ran which file, when. */
+    case GeographyImported = 'GEOGRAPHY_IMPORTED';
     case CompanyProfileUpdated = 'COMPANY_PROFILE_UPDATED';
 
     /** Spec §13 — cross-branch snooping is itself auditable. */

@@ -241,6 +241,8 @@ function registrationPayload(array $overrides = []): array
     $nidaNumber = $overrides['nidaNumber'] ?? '19900101234567';
     $identity = app(App\Domain\Customers\Services\NidaRegistry::class)->lookup($nidaNumber);
 
+    $overrides = array_merge(categoryBlocksFor($overrides), $overrides);
+
     return array_merge([
         'nidaNumber' => $nidaNumber,
         /*
@@ -441,6 +443,74 @@ function eligibleCustomer(string $category = 'BODA'): App\Models\Customer
     }
 
     return registeredCustomer($overrides);
+}
+
+/**
+ * The sector, contract and salary a CATEGORY demands, filled from the database.
+ *
+ * `customer_categories` carries three booleans saying which of the first-class
+ * employment blocks a category asks for — see the 2026_08_30 migration. A test
+ * that names PUBLIC_SERVANT is asking for a salaried customer, and a salaried
+ * customer has an employing body, a cadre, a contract and a take-home figure.
+ * Filling them here rather than in each test means a suite that only cares
+ * about loan approval does not have to know what a public servant needs, and a
+ * category configured later gets the same treatment for free.
+ *
+ * Values come from whatever is seeded, never from literals: the point of the
+ * tables is that the institution decides what is in them.
+ *
+ * The caller's own overrides win — a test deliberately omitting a sector to
+ * prove the rule must still be able to.
+ *
+ * @param array<string, mixed> $overrides
+ * @return array<string, mixed>
+ */
+function categoryBlocksFor(array $overrides): array
+{
+    $categoryId = $overrides['customerCategoryId'] ?? null;
+
+    if ($categoryId === null) {
+        return [];
+    }
+
+    $category = App\Models\CustomerCategory::query()->find($categoryId);
+
+    if ($category === null) {
+        return [];
+    }
+
+    $blocks = [];
+
+    if ($category->requires_sector) {
+        $sector = App\Models\MasterData\Sector::query()->first();
+        $blocks['sectorId'] = $sector?->getKey();
+        $blocks['sectorCategoryId'] = App\Models\MasterData\SectorCategory::query()
+            ->where('sector_id', $sector?->getKey())->value('id');
+    }
+
+    if ($category->requires_employer) {
+        /* Nothing ships in `employers` — which companies a branch lends
+           against is the institution's decision — so the fixture creates one
+           on demand rather than assuming a seeded row. */
+        $blocks['employerId'] = App\Models\MasterData\Employer::query()->firstOrCreate(
+            ['code' => 'FIXTURE_EMPLOYER'],
+            ['name' => 'Fixture Employer Ltd', 'is_active' => true],
+        )->getKey();
+    }
+
+    if ($category->requires_contract) {
+        /* Permanent, so no expiry date is needed — a temporary contract would
+           make every caller supply one. */
+        $blocks['contractTypeId'] = App\Models\MasterData\ContractType::query()
+            ->where('code', 'PERMANENT')->value('id');
+    }
+
+    if ($category->requires_salary) {
+        $blocks['takeHome'] = 650000;
+        $blocks['basicSalary'] = 800000;
+    }
+
+    return $blocks;
 }
 
 function bodaProduct(): App\Models\LoanProduct

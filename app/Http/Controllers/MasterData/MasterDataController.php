@@ -9,14 +9,19 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\MasterDataResource;
 use App\Models\MasterData\AccountType;
 use App\Models\MasterData\Bank;
+use App\Models\MasterData\ContractType;
 use App\Models\MasterData\CustomerType;
 use App\Models\MasterData\DocumentType;
+use App\Models\MasterData\Employer;
 use App\Models\MasterData\EmploymentType;
+use App\Models\MasterData\IdType;
 use App\Models\MasterData\LoanType;
 use App\Models\MasterData\MaritalStatusOption;
 use App\Models\MasterData\MasterDataModel;
 use App\Models\MasterData\MobileMoneyProvider;
 use App\Models\MasterData\Occupation;
+use App\Models\MasterData\Sector;
+use App\Models\MasterData\SectorCategory;
 use App\Models\MasterData\WorkType;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -57,7 +62,42 @@ final class MasterDataController extends Controller
         'marital-statuses' => MaritalStatusOption::class,
         /* KYC document types — what a category's required_documents names. */
         'document-types' => DocumentType::class,
+        /* Which identity document was seen, and on what terms somebody is
+           employed — see the 2026_08_30 migrations. */
+        'id-types' => IdType::class,
+        'contract-types' => ContractType::class,
+        /* The employing body. Its cadres are NOT in this map: they belong to a
+           sector and are served by sectorCategories() below, which filters on
+           the parent the way the address lookups filter on region. */
+        'sectors' => Sector::class,
+        /* Private companies. A SEPARATE list from `sectors`: a ministry has
+           cadres inside it and a company does not, and one list would offer a
+           public servant a sugar mill to serve in. */
+        'employers' => Employer::class,
     ];
+
+    /**
+     * GET /api/v1/master-data/sector-categories?sector_id=
+     *
+     * The one lookup list with a parent. It is not in LISTS because every
+     * entry there is a flat list the generic handler can serve whole, and
+     * returning every cadre of every sector to a form that has already chosen
+     * one would be the same mistake the address step avoided.
+     *
+     * Reads are open to any authenticated user, as with every other list here:
+     * the registration form needs them.
+     */
+    public function sectorCategories(Request $request): JsonResponse
+    {
+        $query = SectorCategory::query()
+            ->forSector($request->filled('sector_id') ? $request->integer('sector_id') : null);
+
+        $query = $request->boolean('active')
+            ? $query->where('is_active', true)->orderByRaw('sort_order IS NULL, sort_order')->orderBy('name')
+            : $query->orderByRaw('sort_order IS NULL, sort_order')->orderBy('name');
+
+        return ApiResponse::data(MasterDataResource::collection($query->get()));
+    }
 
     public function index(Request $request, string $list): JsonResponse
     {

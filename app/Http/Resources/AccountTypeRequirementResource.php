@@ -43,6 +43,14 @@ final class AccountTypeRequirementResource extends JsonResource
             'requiresMaritalStatus' => $this->requires_marital_status,
             'requiresAddress' => $this->requires_address,
             'requiresIdentityDocument' => $this->requires_identity_document,
+            /* Whether the category's own document list blocks KYC. False
+               everywhere today — see the 2026_08_30_000005 migration. The
+               wizard reads it to decide whether the document step is a
+               requirement or a checklist. */
+            'requiresCategoryDocuments' => $this->requires_category_documents,
+            /* Null means the flag applies to everyone; a date means it applies
+               only to registrations on or after it. See the model. */
+            'categoryDocumentsEnforcedFrom' => $this->category_documents_enforced_from?->toDateString(),
             'requiresFaceVerification' => $this->requires_face_verification,
             'requiresNidaVerification' => $this->requires_nida_verification,
             'requiresOtpVerification' => $this->requires_otp_verification,

@@ -72,6 +72,7 @@ final class KycEvaluator
             $this->guarantors($customer, $profile),
             $this->nextOfKin($customer, $profile),
             $this->category($customer, $profile),
+            $this->categoryDocuments($customer, $profile),
             /*
              * Last, deliberately. Face verification is the final step of the
              * registration workflow and the one that may happen on a different
@@ -163,10 +164,9 @@ final class KycEvaluator
      * Required documents from the customer's category that have not been
      * uploaded yet. Surfaced on the profile ("Missing required documents: …").
      *
-     * Note this does NOT feed the checklist above: the frontend treats missing
-     * documents as a warning rather than a blocker, and inventing a stricter
-     * rule here would silently make customers loan-ineligible in a way the UI
-     * never explains.
+     * Also the source for `categoryDocuments()` below, which decides whether
+     * the same list BLOCKS. Kept public and separate because the profile panel
+     * wants the names whether or not they are blocking.
      *
      * @return list<string>
      */
@@ -181,6 +181,53 @@ final class KycEvaluator
         $uploaded = $customer->documents->pluck('document_type')->all();
 
         return array_values(array_diff($category->required_documents, $uploaded));
+    }
+
+    /**
+     * The documents this customer's CATEGORY asks for.
+     *
+     * A different question from `identityDocument()` above. That one asks
+     * whether the person can be identified at all; this one asks whether the
+     * file holds what a public servant, or a boda rider, is required to
+     * produce — a confirmation letter, a salary slip, a licence.
+     *
+     * BLOCKING IS OPTIONAL, DATED, AND OFF. Whether this item blocks is
+     * `AccountTypeRequirement::categoryDocumentsApplyTo()`, which reads a flag
+     * and a cutoff date against the customer's own registration date. It ships
+     * off, so today this reports and does not block — exactly the behaviour
+     * that was here before.
+     *
+     * Why it ships off: `customer_documents` holds no rows, and fifteen of the
+     * sixteen loan-eligible customers would have stopped being eligible the
+     * moment this became a blocker. The cutoff is what lets it be turned on
+     * for new registrations without doing that to the existing book. See the
+     * 2026_08_30_000005 and 2026_08_31_000001 migrations.
+     *
+     * It is a requirement in the list rather than a note on the side so the
+     * officer sees the same checklist either way, marked optional until the
+     * institution decides otherwise.
+     */
+    private function categoryDocuments(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    {
+        $category = $customer->category;
+        $missing = $this->missingDocuments($customer);
+        /* Same shape as missingDocuments() above: an explicit null branch,
+           because a customer may genuinely have no category yet. */
+        $required = $category === null ? [] : $category->required_documents;
+
+        return new KycRequirement(
+            key: 'categoryDocuments',
+            label: 'Category documents on file',
+            /* No category, or a category that asks for nothing, is satisfied
+               rather than pending — there is nothing outstanding to collect. */
+            satisfied: $missing === [],
+            required: $required !== [] && $profile->categoryDocumentsApplyTo($customer),
+            detail: $missing === []
+                ? ($required === []
+                    ? 'This category requires no supporting documents.'
+                    : 'All '.count($required).' required documents are on file.')
+                : 'Missing: '.implode(', ', $missing).'.',
+        );
     }
 
     /* ------------------------------------------------------- the items --- */

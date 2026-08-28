@@ -187,7 +187,19 @@ final class RegisterCustomerAction
                 'dependents_count' => $payload['dependentsCount'] ?? null,
                 'basic_salary' => $payload['basicSalary'] ?? null,
                 'take_home' => $payload['takeHome'] ?? null,
+                /* Where they serve and on what terms — 2026_08_30. */
+                'sector_id' => $payload['sectorId'] ?? null,
+                'sector_category_id' => $payload['sectorCategoryId'] ?? null,
+                'contract_type_id' => $payload['contractTypeId'] ?? null,
+                'contract_expiry_date' => $payload['contractExpiryDate'] ?? null,
+                'employer_id' => $payload['employerId'] ?? null,
                 'check_number' => $payload['checkNumber'] ?? null,
+
+                /* Identity as one type plus one number. The six named columns
+                   below still receive whatever the request carried, so a
+                   client written before this pair existed loses nothing. */
+                'id_type_id' => $payload['idTypeId'] ?? null,
+                'id_number' => $payload['idNumber'] ?? null,
 
                 // ---- legacy step 3 ----
                 'voter_id_number' => $payload['voterIdNumber'] ?? null,
