@@ -29,6 +29,7 @@ use App\Http\Controllers\Loans\ChargeRegisterController;
 use App\Http\Controllers\Loans\DisbursementCallbackController;
 use App\Http\Controllers\Loans\EarlySettlementController;
 use App\Http\Controllers\Loans\LoanApprovalController;
+use App\Http\Controllers\Loans\LoanApprovalStageController;
 use App\Http\Controllers\Loans\LoanChargeController;
 use App\Http\Controllers\Loans\LoanConfigurationController;
 use App\Http\Controllers\Loans\LoanController;
@@ -233,6 +234,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
        take a parent filter, so they cannot be served by the flat handler. */
     Route::get('/master-data/sector-categories', [MasterDataController::class, 'sectorCategories'])
         ->name('master-data.sector-categories');
+    /* The cadre write path. Without it a sector can be created and never
+       populated, which makes the sector itself unusable. */
+    Route::post('/master-data/sector-categories', [MasterDataController::class, 'storeSectorCategory'])
+        ->name('master-data.sector-categories.store');
+    Route::put('/master-data/sector-categories/{id}', [MasterDataController::class, 'updateSectorCategory'])
+        ->name('master-data.sector-categories.update');
+    Route::delete('/master-data/sector-categories/{id}', [MasterDataController::class, 'destroySectorCategory'])
+        ->name('master-data.sector-categories.destroy');
 
     /* Administration → Master Data → Geography. The register behind every
        address; imported from a CSV, never typed into a customer record. */
@@ -420,6 +429,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('customer-categories.eligibility');
     Route::put('/customer-categories/{category}/eligibility', [LoanConfigurationController::class, 'updateEligibility'])
         ->name('customer-categories.eligibility.update');
+
+    /*
+     * Administration → Loan Approval Chain. The chain was always data —
+     * `loan_approval_stages`, snapshotted per loan — but nothing reached it,
+     * which made "configurable" indistinguishable from hardcoded.
+     */
+    Route::get('/loan-approval-stages', [LoanApprovalStageController::class, 'index'])
+        ->name('loan-approval-stages.index');
+    Route::post('/loan-approval-stages', [LoanApprovalStageController::class, 'store'])
+        ->name('loan-approval-stages.store');
+    Route::put('/loan-approval-stages/{stage}', [LoanApprovalStageController::class, 'update'])
+        ->name('loan-approval-stages.update');
+    Route::delete('/loan-approval-stages/{stage}', [LoanApprovalStageController::class, 'destroy'])
+        ->name('loan-approval-stages.destroy');
 
     Route::apiResource('loan-products', LoanProductController::class)
         ->parameters(['loan-products' => 'product']);

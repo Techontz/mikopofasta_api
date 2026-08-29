@@ -53,6 +53,11 @@ enum AuditAction: string
        what every future address may say, and a bad import is answered by
        knowing who ran which file, when. */
     case GeographyImported = 'GEOGRAPHY_IMPORTED';
+    /* The loan approval chain itself. Changing who signs off, and in what
+       order, is exactly the kind of decision an auditor asks about by name. */
+    case ApprovalStageCreated = 'APPROVAL_STAGE_CREATED';
+    case ApprovalStageUpdated = 'APPROVAL_STAGE_UPDATED';
+    case ApprovalStageDeleted = 'APPROVAL_STAGE_DELETED';
     case CompanyProfileUpdated = 'COMPANY_PROFILE_UPDATED';
 
     /** Spec §13 — cross-branch snooping is itself auditable. */

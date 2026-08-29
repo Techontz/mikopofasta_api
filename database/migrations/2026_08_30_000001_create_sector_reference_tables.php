@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -29,11 +28,14 @@ use Illuminate\Support\Facades\Schema;
  * resource and Administration screen. A new sector is a data change made by an
  * administrator, never a deployment.
  *
- * SEEDED ONLY WITH WHAT THE REQUIREMENT NAMES. TAMISEMI, Teachers and Nurses
- * are the examples written into the specification; they are here so the
- * cascade has something real to demonstrate on day one. Tanzania's full list
- * of employing bodies and cadres is not invented here — it is added through
- * Administration → Master Data, and the deployment note records that.
+ * STRUCTURE ONLY — NO ROWS. Which bodies an institution lends against, and
+ * which cadres sit inside them, is the institution's to decide and not this
+ * application's to ship. A fresh install starts with both tables empty; the
+ * registration form says so and names where they are added, and Administration
+ * → Master Data → Sectors is where an administrator creates them.
+ *
+ * (Development and test databases get demonstration rows from
+ * ReferenceDataSeeder, which production never runs.)
  */
 return new class extends Migration
 {
@@ -75,36 +77,6 @@ return new class extends Migration
             $table->index(['sector_id', 'is_active', 'sort_order']);
         });
 
-        $now = now();
-
-        DB::table('sectors')->insert([
-            'code' => 'TAMISEMI',
-            'name' => 'TAMISEMI',
-            'description' => "President's Office — Regional Administration and Local Government.",
-            'sort_order' => 10,
-            'is_active' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        $tamisemi = (int) DB::table('sectors')->where('code', 'TAMISEMI')->value('id');
-
-        DB::table('sector_categories')->insert(array_map(
-            static fn (array $r): array => [
-                'sector_id' => $tamisemi,
-                'code' => $r[0],
-                'name' => $r[1],
-                'description' => null,
-                'sort_order' => $r[2],
-                'is_active' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                ['TEACHERS', 'Teachers', 10],
-                ['NURSES', 'Nurses', 20],
-            ],
-        ));
     }
 
     public function down(): void

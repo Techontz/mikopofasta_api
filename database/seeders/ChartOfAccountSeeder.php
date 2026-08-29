@@ -24,7 +24,7 @@ use Illuminate\Database\Seeder;
  * one place. Note Principal is EQUITY rather than an asset — see the note on
  * that enum for why.
  */
-final class ChartOfAccountSeeder extends Seeder
+class ChartOfAccountSeeder extends Seeder
 {
     public function run(): void
     {
@@ -46,18 +46,48 @@ final class ChartOfAccountSeeder extends Seeder
     }
 
     /**
+     * The bank accounts to create — none, unless a subclass supplies them.
+     *
+     * A seam rather than a flag: DemoBankAccountSeeder overrides it with the
+     * demonstration rows, and production gets an empty list without this class
+     * needing to know which environment it is in.
+     *
+     * @return list<array{bank_name: string, account_number: string, account_name: string, code: string}>
+     */
+    protected function bankAccounts(): array
+    {
+        return [];
+    }
+
+    /**
      * Bank accounts and their 8xxx chart accounts (§2.2).
      *
      * Backend support only — the frontend has no bank-account CRUD screen
      * (readiness report gap 3), so these are seeded and read, never managed
      * through an endpoint.
      */
+    /**
+     * The institution's own bank accounts.
+     *
+     * DELIBERATELY EMPTY IN PRODUCTION. Which banks a microfinance holds its
+     * float with, and under what account numbers, is the institution's to
+     * state — not this seeder's to guess. It used to create two named accounts,
+     * which meant a fresh installation arrived believing it banked with
+     * particular institutions at particular numbers.
+     *
+     * The rows moved to DemoBankAccountSeeder, which only the development and
+     * test seeder runs. A production install creates the chart of accounts —
+     * which IS structure, since the ledger posts to accounts by code — and no
+     * bank account at all; they are added at Treasury → Bank Accounts.
+     *
+     * `seedTellerCashAccounts()` below needs no such treatment: it creates one
+     * account per EXISTING branch, so on a fresh install with no branches it
+     * creates nothing and adjusts itself as branches are added.
+     */
     private function seedBankAccounts(): void
     {
-        $banks = [
-            ['bank_name' => 'CRDB Bank', 'account_number' => '0150312345600', 'account_name' => 'Mikopofasta Microfinance Limited', 'code' => '8000'],
-            ['bank_name' => 'NMB Bank', 'account_number' => '2011098765400', 'account_name' => 'Mikopofasta Microfinance Limited', 'code' => '8010'],
-        ];
+        /** @var list<array{bank_name: string, account_number: string, account_name: string, code: string}> $banks */
+        $banks = $this->bankAccounts();
 
         foreach ($banks as $bank) {
             $chartAccount = ChartOfAccount::query()->updateOrCreate(

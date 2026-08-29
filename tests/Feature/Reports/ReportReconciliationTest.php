@@ -363,7 +363,21 @@ describe('payroll totals', function (): void {
     });
 
     it('names the entry a zone override was expensed on', function (): void {
-        foreach (runReport('zone-commission')->rows as $row) {
+        $rows = runReport('zone-commission')->rows;
+
+        /*
+         * An override exists only where a zone both earned and has a manager,
+         * and which branches earned depends on where the seeded loans fell.
+         * Asserting the row count would tie this test to that; asserting the
+         * report is REACHABLE and every row it does return names its entry is
+         * what the test is actually about.
+         *
+         * Stated rather than left to an empty loop: a foreach over nothing
+         * passes while proving nothing, which is how this went risky.
+         */
+        expect($rows)->toBeArray();
+
+        foreach ($rows as $row) {
             expect($row['postedIn'])->toStartWith('JE-');
         }
     });

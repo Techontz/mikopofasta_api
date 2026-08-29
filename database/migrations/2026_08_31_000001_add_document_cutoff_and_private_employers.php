@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -45,9 +44,9 @@ use Illuminate\Support\Facades\Schema;
  *
  * So `employers` is its own admin-managed list, and `customer_categories`
  * gains `requires_employer` beside `requires_sector` — a category asks for one
- * or the other, and PRIVATE_SECTOR is switched over here. Nothing is seeded
- * into `employers`: which companies a branch lends against is the
- * institution's to decide, not this migration's to guess.
+ * or the other. Nothing is seeded into `employers`, and no category is
+ * reconfigured here: which companies a branch lends against, and which
+ * categories ask for one, are the institution's decisions.
  *
  * `customers.employer` (free text) stays and is untouched. It holds what was
  * typed before this list existed, exactly as `work_type` stayed when
@@ -86,28 +85,10 @@ return new class extends Migration
                 ->constrained('employers')->nullOnDelete();
         });
 
-        /*
-         * A private-sector employee names their COMPANY, not a ministry. This
-         * moves PRIVATE_SECTOR off the sector list and onto the employer list;
-         * the contract and salary blocks it already asked for are unchanged.
-         *
-         * `sector_id` is left on any customer already carrying one rather than
-         * nulled: it is what the branch recorded, and a migration is not the
-         * place to decide it was wrong.
-         */
-        DB::table('customer_categories')->where('code', 'PRIVATE_SECTOR')->update([
-            'requires_sector' => false,
-            'requires_employer' => true,
-        ]);
     }
 
     public function down(): void
     {
-        DB::table('customer_categories')->where('code', 'PRIVATE_SECTOR')->update([
-            'requires_sector' => true,
-            'requires_employer' => false,
-        ]);
-
         Schema::table('customers', function (Blueprint $table): void {
             $table->dropConstrainedForeignId('employer_id');
         });

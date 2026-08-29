@@ -131,6 +131,21 @@ describe('eligibility gates', function (): void {
         $customer = eligibleCustomer();
         $customer->guarantors()->delete();
 
+        /*
+         * How many guarantors are needed is `min_guarantors` on the customer's
+         * account-type profile — the same column registration enforces, and
+         * now the only source of truth. This fixture's customer carries no
+         * account type, so the resolver falls back to the DEFAULT profile;
+         * setting the minimum there is what makes this test about the
+         * guarantor rule rather than about which profile happened to apply.
+         *
+         * See tests/Feature/Loans/GuarantorMinimumTest.php for the rule itself
+         * at 1, 2, 3 and 0.
+         */
+        App\Models\AccountTypeRequirement::query()
+            ->whereNull('account_type_id')
+            ->update(['min_guarantors' => 1]);
+
         $this->postJson('/api/v1/loans', loanPayload($customer))
             ->assertStatus(422)
             ->assertJsonPath('error_code', 'GUARANTORS_REQUIRED');
@@ -207,6 +222,11 @@ describe('eligibility gates', function (): void {
         $customer = eligibleCustomer();
         $customer->update(['kyc_status' => 'incomplete', 'status' => 'frozen']);
         $customer->guarantors()->delete();
+
+        // The third violation, for the same reason as the test above.
+        App\Models\AccountTypeRequirement::query()
+            ->whereNull('account_type_id')
+            ->update(['min_guarantors' => 1]);
 
         $response = $this->postJson('/api/v1/loans', loanPayload($customer))->assertStatus(422);
 

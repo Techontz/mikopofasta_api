@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -24,6 +23,12 @@ use Illuminate\Support\Facades\Schema;
  *
  * Same shape as the other nine lists (see the 2026_08_02 migration), so it
  * rides on the same controller, policy, resource and admin screen.
+ *
+ * STRUCTURE ONLY — NO ROWS. Which documents an institution requires is its own
+ * policy. A fresh install starts with this table empty, and the registration
+ * form says so rather than offering a guess. (Installations that ran this
+ * migration before the rows were removed keep them; they are editable like any
+ * other, and nothing deletes them.)
  */
 return new class extends Migration
 {
@@ -43,39 +48,6 @@ return new class extends Migration
             $table->index(['is_active', 'sort_order']);
         });
 
-        /*
-         * Seeded with the codes the shipped customer categories already
-         * require. These are not invented: every one is read out of
-         * `customer_categories.required_documents`, so the checklist has
-         * something to match on from the first upload rather than after
-         * somebody remembers to configure the list.
-         */
-        $now = now();
-        $rows = [
-            ['driving_license', 'Driving Licence', 'Required for Boda Boda customers.', 10],
-            ['motorcycle_registration', 'Motorcycle Registration', 'Ownership card for the financed motorcycle.', 20],
-            ['business_license', 'Business Licence', 'Trading licence for an SME customer.', 30],
-            ['financial_statement', 'Financial Statement', 'Accounts for a medium SME.', 40],
-            ['salary_slip', 'Salary Slip', 'Most recent payslip.', 50],
-            ['employer_letter', 'Employer Letter', 'Letter of introduction from the employer.', 60],
-            ['national_id', 'National ID', 'A copy of the customer’s national identity card.', 70],
-            ['passport_photo', 'Passport Photo', 'A printed photograph, where one is held on paper.', 80],
-            ['bank_statement', 'Bank Statement', 'Recent statement supporting declared income.', 90],
-            ['contract', 'Contract', 'Signed loan or guarantee contract.', 100],
-        ];
-
-        DB::table('document_types')->insert(array_map(
-            static fn (array $r): array => [
-                'code' => $r[0],
-                'name' => $r[1],
-                'description' => $r[2],
-                'sort_order' => $r[3],
-                'is_active' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            $rows,
-        ));
     }
 
     public function down(): void

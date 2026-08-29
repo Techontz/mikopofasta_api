@@ -137,6 +137,14 @@ function seedCustomerFoundation(): void
 {
     seedOrganization();
     test()->seed(Database\Seeders\MasterDataSeeder::class);
+    /*
+     * Sectors, cadres, ID types, contract types and the document types the
+     * categories name. Named EXPLICITLY here rather than inherited from a
+     * migration: the migrations create empty tables now, because which of
+     * these an institution uses is its own decision. A test that needs a
+     * sector says so.
+     */
+    test()->seed(Database\Seeders\ReferenceDataSeeder::class);
     test()->seed(Database\Seeders\AccountTypeRequirementSeeder::class);
     test()->seed(CustomerCategorySeeder::class);
 }
@@ -689,7 +697,10 @@ function productPayload(array $overrides = []): array
 function seedLedgerFoundation(): void
 {
     seedLoanFoundation();
-    test()->seed(Database\Seeders\ChartOfAccountSeeder::class);
+    /* The demo subclass — the same chart of accounts, plus the two bank
+       accounts the treasury and ledger suites post through. Production runs
+       the parent, which creates no bank account at all. */
+    test()->seed(Database\Seeders\DemoBankAccountSeeder::class);
 }
 
 /**

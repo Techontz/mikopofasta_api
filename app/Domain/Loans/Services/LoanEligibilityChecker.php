@@ -6,6 +6,7 @@ namespace App\Domain\Loans\Services;
 
 use App\Domain\Customers\Enums\CustomerApprovalStatus;
 use App\Domain\Customers\Enums\CustomerStatus;
+use App\Domain\Customers\Services\AccountTypeRequirementResolver;
 use App\Domain\Loans\DTOs\EligibilityViolation;
 use App\Enums\ActiveStatus;
 use App\Models\CategoryProductEligibility;
@@ -26,19 +27,26 @@ use Illuminate\Support\Facades\Date;
  */
 final class LoanEligibilityChecker
 {
-    /**
-     * The number of guarantors a customer must have on record.
-     *
-     * Neither spec §6 nor the frontend defines a configurable minimum — the
-     * registration wizard collects guarantors but permits an empty list, and
-     * `loan_products` has no guarantor column. Adding one would be redesigning
-     * the entity, so the requirement is expressed as this single documented
-     * constant: at least one guarantor must exist before a loan may progress.
-     *
-     * If the business wants this configurable per product, that is a schema
-     * change and a specification decision, not a default to guess at.
-     */
-    public const int MINIMUM_GUARANTORS = 1;
+    public function __construct(
+        /*
+         * How many guarantors this customer needs is CONFIGURATION, not a
+         * constant here.
+         *
+         * `account_type_requirements.min_guarantors` already existed, was
+         * already enforced at registration by RegisterCustomerRequest, and is
+         * now editable at Administration → Registration & Eligibility. This
+         * engine held its own hardcoded 1 alongside it — two answers to one
+         * question, agreeing only by coincidence. The moment an administrator
+         * raised the column, registration would demand two guarantors and the
+         * loan gate would still accept one, and the loan gate is the one that
+         * decides lending.
+         *
+         * The resolver falls back to the default profile for an account type
+         * with no rules of its own, and that default is created by
+         * ProductionSeeder — so there is always a row to read.
+         */
+        private readonly AccountTypeRequirementResolver $requirements,
+    ) {}
 
     /**
      * @param list<Loan> $customerLoans every loan this customer holds
@@ -94,12 +102,20 @@ final class LoanEligibilityChecker
         }
 
         // --- Guarantors ----------------------------------------------------
-        if ($guarantorCount < self::MINIMUM_GUARANTORS) {
+        /*
+         * The customer's own account type decides this. `> 0` matters: a
+         * savings account type may legitimately require none, and a hardcoded
+         * minimum made that unrepresentable.
+         */
+        $minimumGuarantors = $this->requirements->forCustomer($customer)->min_guarantors;
+
+        if ($minimumGuarantors > 0 && $guarantorCount < $minimumGuarantors) {
             $violations[] = new EligibilityViolation(
                 'GUARANTORS_REQUIRED',
                 sprintf(
-                    'At least %d guarantor is required before a loan can be submitted.',
-                    self::MINIMUM_GUARANTORS,
+                    'At least %d guarantor%s required before a loan can be submitted.',
+                    $minimumGuarantors,
+                    $minimumGuarantors === 1 ? ' is' : 's are',
                 ),
             );
         }

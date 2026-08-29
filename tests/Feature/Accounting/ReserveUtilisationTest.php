@@ -19,7 +19,7 @@ use App\Domain\Ledger\Services\LedgerService;
 use App\Domain\Ledger\Services\TrialBalanceBuilder;
 use App\Models\User;
 use App\Support\Money;
-use Database\Seeders\ChartOfAccountSeeder;
+use Database\Seeders\DemoBankAccountSeeder;
 
 /**
  * Spending the Reserve — Decision Register D1.
@@ -29,7 +29,10 @@ use Database\Seeders\ChartOfAccountSeeder;
  */
 beforeEach(function (): void {
     seedOrganization();
-    $this->seed(ChartOfAccountSeeder::class);
+    /* The demo subclass: the same chart of accounts, plus the two bank
+       accounts these ledger assertions post through. ChartOfAccountSeeder
+       itself now creates no bank account — see DemoBankAccountSeeder. */
+    $this->seed(DemoBankAccountSeeder::class);
 
     $this->finance = User::factory()->role(RoleName::Finance)->create();
     $this->admin = User::factory()->role(RoleName::Admin)->create();

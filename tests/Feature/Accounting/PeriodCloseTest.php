@@ -20,7 +20,7 @@ use App\Models\ReserveSetting;
 use App\Models\User;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
-use Database\Seeders\ChartOfAccountSeeder;
+use Database\Seeders\DemoBankAccountSeeder;
 
 /**
  * The month-end close — Decision Register D1.
@@ -32,7 +32,10 @@ use Database\Seeders\ChartOfAccountSeeder;
  */
 beforeEach(function (): void {
     seedOrganization();
-    $this->seed(ChartOfAccountSeeder::class);
+    /* The demo subclass: the same chart of accounts, plus the two bank
+       accounts these ledger assertions post through. ChartOfAccountSeeder
+       itself now creates no bank account — see DemoBankAccountSeeder. */
+    $this->seed(DemoBankAccountSeeder::class);
 
     $this->actor = User::factory()->role(RoleName::Finance)->create();
     $this->branch = Branch::query()->firstOrFail();

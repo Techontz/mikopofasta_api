@@ -16,6 +16,21 @@ use Illuminate\Database\Seeder;
  * seeded users whose permissions resolve to nothing, and the failure would
  * only surface later as a puzzling 403.
  */
+/**
+ * THE DEVELOPMENT AND DEMONSTRATION SEEDER — not for production.
+ *
+ * It builds a whole working institution: a branch network, staff, a customer
+ * book, loans, a ledger with activity, payroll. That is exactly what a
+ * developer and the test suite need, and exactly what a real institution must
+ * not inherit — the banks, regions, categories and products it creates are
+ * examples of the SHAPE of the data, not a claim about anybody's business.
+ *
+ * Production runs `ProductionSeeder`, which creates only what the application
+ * cannot function without: permissions, roles, the System account, the chart
+ * of accounts, and the default registration-requirement profile. Every
+ * business and reference table is left empty for an administrator to configure
+ * at Administration → Master Data.
+ */
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
@@ -53,6 +68,10 @@ class DatabaseSeeder extends Seeder
              * configures the account types this creates.
              */
             MasterDataSeeder::class,
+            /* Sectors, cadres, ID types, contract types and the document
+               types the demo categories name. Moved out of the migrations —
+               see ReferenceDataSeeder for why. */
+            ReferenceDataSeeder::class,
             AccountTypeRequirementSeeder::class,
 
             // Categories before customers (a customer names one), and users
@@ -85,7 +104,9 @@ class DatabaseSeeder extends Seeder
             // The chart must exist before anything can post to it; the
             // activity seeder then drives real money through the same engine
             // the API uses.
-            ChartOfAccountSeeder::class,
+            /* The demo subclass: identical chart of accounts, plus the two
+               demonstration bank accounts production must not receive. */
+            DemoBankAccountSeeder::class,
             LedgerActivitySeeder::class,
 
             // Staff after users (a profile mirrors its user's branch and

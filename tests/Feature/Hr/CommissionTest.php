@@ -15,6 +15,7 @@ use App\Models\CommissionPool;
 use App\Models\JournalEntry;
 use App\Models\PayrollLine;
 use App\Models\StaffProfile;
+use App\Models\User;
 use App\Models\ZoneCommissionDistribution;
 use App\Support\Money;
 
@@ -183,6 +184,29 @@ describe('pool generation', function (): void {
 });
 
 describe('zone override', function (): void {
+    /*
+     * An override needs a zone that BOTH earned something and has a manager to
+     * pay it to. The seeded book gives one zone a manager and the profit lands
+     * wherever the seeded loans happen to fall, so these tests state the
+     * condition they are about rather than inheriting it: the zone under test
+     * is the one holding the branches that actually earned.
+     *
+     * Previously this happened to line up, and the tests passed on an accident
+     * of seeding order — which is exactly the kind of dependency that breaks
+     * the first time the fixture is reorganised.
+     */
+    beforeEach(function (): void {
+        $manager = User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', RoleName::ZoneManager->value))
+            ->whereNotNull('zone_id')
+            ->firstOrFail();
+
+        /* Every branch that could earn goes into the managed zone, so the base
+           is the whole book's pools and the assertions below stay true
+           whichever branches the seeder made profitable. */
+        Branch::query()->whereNotNull('zone_id')->update(['zone_id' => $manager->zone_id]);
+    });
+
     it('is 5% of the combined pools of the zone', function (): void {
         generatePools()->assertCreated();
 

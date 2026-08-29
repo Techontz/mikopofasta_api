@@ -44,11 +44,9 @@ final class AccountTypeRequirementSeeder extends Seeder
         $this->profile('LOAN', [
             'requires_employment_details' => true,
             'requires_bank_account' => true,
-            /* One, matching LoanEligibilityChecker::MINIMUM_GUARANTORS. The
-               loan engine refuses an application without a guarantor, so a
-               registration that does not collect one produces a customer who
-               is "complete" and still cannot borrow — which is precisely the
-               disconnect this work is closing. */
+            /* One — and this column is now the ONLY place that number lives.
+               LoanEligibilityChecker reads it too, so registration and the
+               loan gate cannot disagree; raising it here raises both. */
             'min_guarantors' => 1,
             'min_next_of_kin' => 1,
             'requires_customer_category' => true,

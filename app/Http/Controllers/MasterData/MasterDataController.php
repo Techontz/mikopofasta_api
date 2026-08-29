@@ -7,6 +7,7 @@ namespace App\Http\Controllers\MasterData;
 use App\Domain\Auth\Enums\PermissionName;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MasterDataResource;
+use App\Models\Customer;
 use App\Models\MasterData\AccountType;
 use App\Models\MasterData\Bank;
 use App\Models\MasterData\ContractType;
@@ -27,6 +28,7 @@ use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -99,6 +101,76 @@ final class MasterDataController extends Controller
         return ApiResponse::data(MasterDataResource::collection($query->get()));
     }
 
+    /**
+     * POST /api/v1/master-data/sector-categories
+     *
+     * The cadre write path. Without it a sector could be created and never
+     * populated, which makes the sector itself useless — the registration
+     * form asks for both levels and refuses a cadre that belongs to another
+     * sector.
+     *
+     * `code` is unique WITHIN its sector, not globally: two employing bodies
+     * may each have an "Administration" cadre and they are not the same job.
+     */
+    public function storeSectorCategory(Request $request): JsonResponse
+    {
+        $this->requireOrgSettings($request);
+
+        $data = $this->toColumns($request->validate($this->sectorCategoryRules(null, null)));
+
+        $row = new SectorCategory;
+        $row->sector_id = (int) $data['sector_id'];
+        $row->code = $data['code'];
+        $row->name = $data['name'];
+        $row->description = $data['description'] ?? null;
+        $row->sort_order = $data['sort_order'] ?? null;
+        $row->is_active = (bool) ($data['is_active'] ?? true);
+        $row->created_by = $request->user()?->getKey();
+        $row->save();
+
+        return ApiResponse::data(new MasterDataResource($row), [], 201);
+    }
+
+    /**
+     * PUT /api/v1/master-data/sector-categories/{id}
+     */
+    public function updateSectorCategory(Request $request, int $id): JsonResponse
+    {
+        $this->requireOrgSettings($request);
+
+        $row = SectorCategory::query()->findOrFail($id);
+        $rules = $this->sectorCategoryRules($id, $row->sector_id);
+
+        $row->update($this->toColumns($request->validate($rules)));
+
+        return ApiResponse::data(new MasterDataResource($row->refresh()));
+    }
+
+    /**
+     * DELETE /api/v1/master-data/sector-categories/{id}
+     *
+     * Refused while a customer is filed under it. Soft-deleting a cadre
+     * somebody's record points at would leave a profile that cannot say what
+     * the customer does; disabling it is the ordinary action, and this is for
+     * entries created in error.
+     */
+    public function destroySectorCategory(Request $request, int $id): JsonResponse
+    {
+        $this->requireOrgSettings($request);
+
+        $row = SectorCategory::query()->findOrFail($id);
+
+        abort_if(
+            Customer::query()->where('sector_category_id', $id)->exists(),
+            Response::HTTP_CONFLICT,
+            'Customers are filed under this sector category. Deactivate it instead of deleting it.',
+        );
+
+        $row->delete();
+
+        return ApiResponse::data(['removed' => true]);
+    }
+
     public function index(Request $request, string $list): JsonResponse
     {
         $model = $this->resolve($list);
@@ -162,6 +234,33 @@ final class MasterDataController extends Controller
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function sectorCategoryRules(?int $ignore, ?int $sectorId): array
+    {
+        /* On update the sector is fixed: moving a cadre between employing
+           bodies would silently rewrite what every customer under it does. */
+        $sector = $ignore === null
+            ? ['required', 'integer', Rule::exists('sectors', 'id')->whereNull('deleted_at')]
+            : ['prohibited'];
+
+        return [
+            'sectorId' => $sector,
+            'code' => [
+                'required', 'string', 'max:40',
+                Rule::unique('sector_categories', 'code')
+                    ->ignore($ignore)
+                    ->whereNull('deleted_at')
+                    ->where('sector_id', $sectorId ?? request()->integer('sectorId')),
+            ],
+            'name' => ['required', 'string', 'max:120'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'sortOrder' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'isActive' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
      * The API speaks camelCase; the columns are snake_case.
      *
      * Every other resource in this system converts at the boundary, so these
@@ -173,7 +272,7 @@ final class MasterDataController extends Controller
      */
     private function toColumns(array $input): array
     {
-        $map = ['sortOrder' => 'sort_order', 'isActive' => 'is_active'];
+        $map = ['sortOrder' => 'sort_order', 'isActive' => 'is_active', 'sectorId' => 'sector_id'];
 
         $columns = [];
         foreach ($input as $key => $value) {

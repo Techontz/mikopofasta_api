@@ -84,6 +84,19 @@ final class RegistrationRequirementsController extends Controller
              */
             'requiresNidaVerification' => ['required', 'boolean'],
             'requiresOtpVerification' => ['required', 'boolean'],
+
+            /*
+             * Whether a category's own document list BLOCKS, and from when.
+             *
+             * The date is what makes the switch usable: turning it on without
+             * one applies it to every customer already on the book, including
+             * those registered before anybody was asked for a document. A
+             * cutoff applies it to registrations from that date forward and
+             * leaves the existing book alone. See AccountTypeRequirement.
+             */
+            'requiresCategoryDocuments' => ['sometimes', 'boolean'],
+            'categoryDocumentsEnforcedFrom' => ['sometimes', 'nullable', 'date'],
+
             'guidance' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -103,6 +116,14 @@ final class RegistrationRequirementsController extends Controller
                 'requires_face_verification' => $data['requiresFaceVerification'],
                 'requires_nida_verification' => $data['requiresNidaVerification'],
                 'requires_otp_verification' => $data['requiresOtpVerification'],
+                /* `sometimes`, so a client that predates these fields leaves
+                   them as they are rather than silently switching them off. */
+                ...array_key_exists('requiresCategoryDocuments', $data)
+                    ? ['requires_category_documents' => $data['requiresCategoryDocuments']]
+                    : [],
+                ...array_key_exists('categoryDocumentsEnforcedFrom', $data)
+                    ? ['category_documents_enforced_from' => $data['categoryDocumentsEnforcedFrom']]
+                    : [],
                 'guidance' => $data['guidance'] ?? null,
                 'updated_by' => $actor->getKey(),
             ],
