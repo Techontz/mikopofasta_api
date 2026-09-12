@@ -13,6 +13,7 @@ use App\Domain\Customers\Exceptions\CustomerAlreadyRegisteredException;
 use App\Domain\Customers\Services\CustomerNumberGenerator;
 use App\Domain\Customers\Services\DynamicFormValidator;
 use App\Domain\Customers\Services\KycEvaluator;
+use App\Domain\Customers\Support\MaritalStatusMirror;
 use App\Enums\AuditAction;
 use App\Models\Customer;
 use App\Models\CustomerCategory;
@@ -66,7 +67,11 @@ final class RegisterCustomerAction
 
         $dynamicData = $category === null
             ? []
-            : $this->dynamicForm->validate($category, (array) ($payload['dynamicFormData'] ?? []));
+            /* The whole payload, not only the JSON half. A configured field
+               may name a real customer column — see StructuredRegistrationField
+               — and its `required` rule has to be judged against the value that
+               actually arrived, which for those fields is a top-level key. */
+            : $this->dynamicForm->validate($category, (array) ($payload['dynamicFormData'] ?? []), $payload);
 
         return DB::transaction(function () use ($payload, $category, $dynamicData, $actor, $nidaNumber): Customer {
             $customer = Customer::query()->create([
@@ -96,9 +101,23 @@ final class RegisterCustomerAction
                  */
                 'nida_verified_at' => $payload['nidaVerifiedAt'] ?? null,
                 'otp_verified_at' => $payload['otpVerifiedAt'] ?? null,
-                'face_verified_at' => $payload['faceVerifiedAt'] ?? null,
+                /*
+                 * ALWAYS NULL AT CREATION. A customer is created awaiting face
+                 * verification; the column is stamped only by
+                 * VerifyCustomerFaceAction, and only when a liveness sequence
+                 * actually passes. It used to be copied from the payload, which
+                 * let a caller register a customer as already verified and skip
+                 * the scan — the request now refuses such a claim as well, so
+                 * this is the second of two locks on the same door.
+                 */
+                'face_verified_at' => null,
 
-                'marital_status' => $payload['maritalStatus'] ?? null,
+                /* Derived from the chosen list entry when the caller did not
+                   name the enum itself — see MaritalStatusMirror. The form asks
+                   through the admin-managed list and writes the id below; this
+                   is what stops the profile reading a dash for an answer the
+                   officer gave. */
+                'marital_status' => MaritalStatusMirror::resolve($payload),
                 'region_id' => $payload['regionId'] ?? null,
                 'district_id' => $payload['districtId'] ?? null,
                 'ward_id' => $payload['wardId'] ?? null,

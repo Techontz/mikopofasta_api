@@ -31,6 +31,9 @@ beforeEach(function (): void {
 function fundedBankAccount(string $opening = '1000000'): BankAccount
 {
     test()->postJson('/api/v1/bank-accounts', [
+        'accountType' => 'bank',
+        'usage' => 'both',
+        'bankId' => App\Models\MasterData\Bank::query()->where('code', 'CRDB')->value('id'),
         'bankName' => 'CRDB Bank',
         'accountName' => 'Mikopofasta Operations',
         'accountNumber' => '0150999888777',
@@ -46,6 +49,9 @@ function fundedBankAccount(string $opening = '1000000'): BankAccount
 function secondBankAccount(): BankAccount
 {
     test()->postJson('/api/v1/bank-accounts', [
+        'accountType' => 'bank',
+        'usage' => 'both',
+        'bankId' => App\Models\MasterData\Bank::query()->where('code', 'NMB')->value('id'),
         'bankName' => 'NMB Bank',
         'accountName' => 'Salary Advance & Disbursement',
         'accountNumber' => '2011000111222',

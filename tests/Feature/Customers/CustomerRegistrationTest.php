@@ -92,7 +92,15 @@ describe('registration', function (): void {
 
         $response->assertCreated()
             ->assertJsonPath('data.customerNumber', 'CU-000001')
-            ->assertJsonPath('data.kycStatus', 'completed')
+            /*
+             * INCOMPLETE, AND THAT IS THE POINT. Registration saves a customer;
+             * it does not finish their KYC. The face scan is the wizard's
+             * fourth step and runs against the record this call creates, so a
+             * customer is `active` and `incomplete` at the same moment — the
+             * state the whole four-step flow exists to make explicit.
+             */
+            ->assertJsonPath('data.kycStatus', 'incomplete')
+            ->assertJsonPath('data.faceVerifiedAt', null)
             ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('data.createdBy', (string) $officer->id);
 

@@ -11,7 +11,7 @@ use App\Domain\Customers\Enums\MaritalStatus;
 use App\Domain\Customers\Enums\ResidenceType;
 use App\Domain\Customers\Services\AccountTypeRequirementResolver;
 use App\Domain\Customers\Services\ExternalVerificationStatus;
-use App\Models\AccountTypeRequirement;
+use App\Domain\Customers\Services\ResolvedRequirements;
 use App\Models\CustomerCategory;
 use App\Models\MasterData\ContractType;
 use App\Models\MasterData\SectorCategory;
@@ -286,8 +286,20 @@ final class RegisterCustomerRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                $profile = app(AccountTypeRequirementResolver::class)
-                    ->for($this->integerOrNull('accountTypeId'));
+                /*
+                 * Composed from BOTH axes, not just the account type. A
+                 * customer type can add requirements the account type does not
+                 * make — and, more importantly, can decline ones it does: a
+                 * business customer is not asked for an employer merely
+                 * because the loan account type asks everyone else.
+                 *
+                 * Validation and KycEvaluator must read the same composition
+                 * or a customer passes one and fails the other.
+                 */
+                $profile = app(AccountTypeRequirementResolver::class)->resolve(
+                    $this->integerOrNull('accountTypeId'),
+                    $this->integerOrNull('customerCategoryId'),
+                );
 
                 $this->checkAddress($validator, $profile);
                 $this->checkIdentityDocument($validator, $profile);
@@ -346,6 +358,32 @@ final class RegisterCustomerRequest extends FormRequest
                 'An SMS verification cannot be recorded: no SMS gateway is configured. The phone number is still captured.',
             );
         }
+
+        /*
+         * A FACE VERIFICATION MAY NEVER BE ASSERTED BY THE CALLER — not even by
+         * a deployment that can perform one.
+         *
+         * This was the hole. Registration accepted `faceVerifiedAt` and the
+         * action wrote it straight to the column, so a client could create a
+         * customer who was already face-verified with no scan on record. KYC
+         * then read that column, found a timestamp, and called the customer
+         * complete — skipping the fourth step of the registration entirely.
+         *
+         * The other two above are refused only where the integration is
+         * missing, because a real NIDA or SMS check would be performed
+         * elsewhere and reported here. This one is different in kind: the scan
+         * happens against a customer that already exists, at
+         * `POST /customers/{customer}/face-verify`, and only a PASSING sequence
+         * stamps the column (see VerifyCustomerFaceAction). There is no honest
+         * route by which a registration payload could know the answer, so the
+         * field is refused outright rather than conditionally.
+         */
+        if ($this->input('faceVerifiedAt') !== null) {
+            $validator->errors()->add(
+                'faceVerifiedAt',
+                'A face verification cannot be recorded during registration. Save the customer, then run the face scan against them.',
+            );
+        }
     }
 
     /**
@@ -377,9 +415,9 @@ final class RegisterCustomerRequest extends FormRequest
         }
     }
 
-    private function checkAddress(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkAddress(Validator $validator, ResolvedRequirements $profile): void
     {
-        if (! $profile->requires_address) {
+        if (! $profile->requiresAddress) {
             return;
         }
 
@@ -395,35 +433,48 @@ final class RegisterCustomerRequest extends FormRequest
     }
 
     /**
-     * Any one of the five, because the customer chooses which they carry.
+     * Some identity document, in whichever of the two shapes the client speaks.
      *
-     * The error is attached to the National ID field because that is the first
-     * of them on the form; the message names all five so nobody concludes a
-     * NIDA card is the only acceptable document.
+     * THE ID TYPE AND ITS NUMBER COUNT. They are the shape the 2026_08_30
+     * migration introduced and the one the registration form now sends: one
+     * list of accepted documents and one number, instead of six sparse columns
+     * that asked the officer to find the right box. This rule was written
+     * before that pair existed and still demanded one of the six, so a
+     * registration carrying a perfectly good ID type and number was refused for
+     * having no identity document — while checkIdentityPair() a few methods
+     * below, added with the migration, accepted exactly that. Two rules about
+     * one requirement, disagreeing.
+     *
+     * The six stay accepted, because records captured before the pair existed
+     * still round-trip through this endpoint and must not become unsavable.
+     *
+     * The error is attached to the ID TYPE, which is the first identity control
+     * on the form; the message names both routes so nobody concludes a NIDA
+     * card is the only acceptable document.
      */
-    private function checkIdentityDocument(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkIdentityDocument(Validator $validator, ResolvedRequirements $profile): void
     {
-        if (! $profile->requires_identity_document) {
+        if (! $profile->requiresIdentityDocument) {
             return;
         }
 
-        $documents = ['nidaNumber', 'nationalIdNumber', 'voterIdNumber', 'driverLicenceNumber', 'passportNumber', 'workIdNumber'];
+        if ($this->integerOrNull('idTypeId') !== null && $this->stringOrNull('idNumber') !== null) {
+            return;
+        }
 
-        foreach ($documents as $field) {
-            if ($this->stringOrNull($field) !== null) {
-                return;
-            }
+        if ($this->hasLegacyIdentityDocument()) {
+            return;
         }
 
         $validator->errors()->add(
-            'nationalIdNumber',
-            'At least one identity document is required — National ID, voter ID, driving licence, passport or work ID.',
+            'idTypeId',
+            'An identity document is required — choose the ID type and enter the number shown on it.',
         );
     }
 
-    private function checkMaritalStatus(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkMaritalStatus(Validator $validator, ResolvedRequirements $profile): void
     {
-        if (! $profile->requires_marital_status) {
+        if (! $profile->requiresMaritalStatus) {
             return;
         }
 
@@ -432,9 +483,9 @@ final class RegisterCustomerRequest extends FormRequest
         }
     }
 
-    private function checkEmployment(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkEmployment(Validator $validator, ResolvedRequirements $profile): void
     {
-        if (! $profile->requires_employment_details) {
+        if (! $profile->requiresEmploymentDetails) {
             return;
         }
 
@@ -462,9 +513,9 @@ final class RegisterCustomerRequest extends FormRequest
         }
     }
 
-    private function checkBusiness(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkBusiness(Validator $validator, ResolvedRequirements $profile): void
     {
-        if (! $profile->requires_business_details) {
+        if (! $profile->requiresBusinessDetails) {
             return;
         }
 
@@ -482,9 +533,9 @@ final class RegisterCustomerRequest extends FormRequest
      * have only the second, and refusing them an account for it would exclude
      * exactly the people this institution exists to serve.
      */
-    private function checkBankAccount(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkBankAccount(Validator $validator, ResolvedRequirements $profile): void
     {
-        if (! $profile->requires_bank_account) {
+        if (! $profile->requiresBankAccount) {
             return;
         }
 
@@ -501,39 +552,39 @@ final class RegisterCustomerRequest extends FormRequest
         );
     }
 
-    private function checkCard(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkCard(Validator $validator, ResolvedRequirements $profile): void
     {
-        if ($profile->requires_card_details && $this->stringOrNull('cardNumber') === null) {
+        if ($profile->requiresCardDetails && $this->stringOrNull('cardNumber') === null) {
             $validator->errors()->add('cardNumber', 'Card details are required for this account type.');
         }
     }
 
-    private function checkRelations(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkRelations(Validator $validator, ResolvedRequirements $profile): void
     {
         $guarantors = is_array($this->input('guarantors')) ? count($this->input('guarantors')) : 0;
 
-        if ($guarantors < $profile->min_guarantors) {
+        if ($guarantors < $profile->minGuarantors) {
             $validator->errors()->add('guarantors', sprintf(
                 'At least %d guarantor%s required for this account type.',
-                $profile->min_guarantors,
-                $profile->min_guarantors === 1 ? ' is' : 's are',
+                $profile->minGuarantors,
+                $profile->minGuarantors === 1 ? ' is' : 's are',
             ));
         }
 
         $kin = is_array($this->input('nextOfKin')) ? count($this->input('nextOfKin')) : 0;
 
-        if ($kin < $profile->min_next_of_kin) {
+        if ($kin < $profile->minNextOfKin) {
             $validator->errors()->add('nextOfKin', sprintf(
                 'At least %d next of kin %s required for this account type.',
-                $profile->min_next_of_kin,
-                $profile->min_next_of_kin === 1 ? 'is' : 'are',
+                $profile->minNextOfKin,
+                $profile->minNextOfKin === 1 ? 'is' : 'are',
             ));
         }
     }
 
-    private function checkCategory(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkCategory(Validator $validator, ResolvedRequirements $profile): void
     {
-        if ($profile->requires_customer_category && $this->integerOrNull('customerCategoryId') === null) {
+        if ($profile->requiresCustomerCategory && $this->integerOrNull('customerCategoryId') === null) {
             $validator->errors()->add(
                 'customerCategoryId',
                 'A customer category is required for this account type — it decides which loan products the customer may take.',
@@ -554,7 +605,7 @@ final class RegisterCustomerRequest extends FormRequest
      * any of the six legacy columns, which is what keeps the older screens and
      * the drafts saved before this change working.
      */
-    private function checkIdentityPair(Validator $validator, AccountTypeRequirement $profile): void
+    private function checkIdentityPair(Validator $validator, ResolvedRequirements $profile): void
     {
         $typeId = $this->integerOrNull('idTypeId');
         $number = $this->stringOrNull('idNumber');
@@ -567,7 +618,7 @@ final class RegisterCustomerRequest extends FormRequest
             $validator->errors()->add('idTypeId', 'Choose which identity document this number belongs to.');
         }
 
-        if ($profile->requires_identity_document && $typeId === null && $number === null && ! $this->hasLegacyIdentityDocument()) {
+        if ($profile->requiresIdentityDocument && $typeId === null && $number === null && ! $this->hasLegacyIdentityDocument()) {
             $validator->errors()->add('idTypeId', 'An identity document is required for this account type.');
         }
     }

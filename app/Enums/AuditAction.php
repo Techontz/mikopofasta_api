@@ -236,6 +236,10 @@ enum AuditAction: string
     case PenaltySettingCreated = 'PENALTY_SETTING_CREATED';
     case PenaltySettingDeleted = 'PENALTY_SETTING_DELETED';
     case ReserveSettingUpdated = 'RESERVE_SETTING_UPDATED';
+    /* How distributable profit splits between reinvestment and shareholders.
+       Changing it changes what shareholders are owed, which is exactly the
+       kind of decision an auditor asks about by name. */
+    case DistributionSettingUpdated = 'DISTRIBUTION_SETTING_UPDATED';
 
     /*
      * Month-end close and the Reserve fund — Decision Register D1.

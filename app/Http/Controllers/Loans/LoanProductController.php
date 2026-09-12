@@ -30,7 +30,9 @@ final class LoanProductController extends Controller
         $this->authorize('viewAny', LoanProduct::class);
 
         $products = LoanProduct::query()
-            ->with(['interestFormula', 'repaymentSchedules'])
+            /* The Loan Category table names the approval tier, the cadence and
+               which Customer Types may borrow — all three come from relations. */
+            ->with(['interestFormula', 'repaymentSchedules', 'approvalStage', 'eligibilityRules', 'branches'])
             ->withCount('loans')
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->orderBy('name')

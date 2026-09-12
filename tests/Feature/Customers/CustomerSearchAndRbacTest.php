@@ -297,9 +297,16 @@ describe('customer categories', function (): void {
             ->and($servant['requiredDocuments'])->toContain('confirmation_letter', 'salary_slip', 'bank_card', 'employee_id', 'national_id');
     });
 
-    it('gates category writes on admin.org_settings, not customers.manage', function (): void {
-        officerAt('Kakonko', RoleName::LoanOfficer);
-
+    /*
+     * The classification system belongs to the Super Admin alone.
+     *
+     * This used to accept an Admin, because the policy asked for
+     * `admin.org_settings` and the Admin role holds it. A category decides what
+     * registration demands of a customer, which documents their file must
+     * contain and which products they may borrow — changing one re-scopes every
+     * customer already filed under it, so it is not an ordinary setting.
+     */
+    it('lets only the Super Admin create a category', function (): void {
         $payload = [
             'name' => 'Fisherman', 'code' => 'FISH', 'riskTier' => 'medium', 'sector' => 'business',
             'requiredDocuments' => ['boat_licence'],
@@ -307,14 +314,35 @@ describe('customer categories', function (): void {
             'requiresExtraApproval' => false,
         ];
 
+        officerAt('Kakonko', RoleName::LoanOfficer);
         $this->postJson('/api/v1/customer-categories', $payload)->assertForbidden();
 
+        /* An Admin holds admin.org_settings and is still refused — the rule is
+           the ROLE, so it cannot be handed to anybody through the matrix. */
         officerAt('Head Office', RoleName::Admin);
+        $this->postJson('/api/v1/customer-categories', $payload)->assertForbidden();
+
+        officerAt('Head Office', RoleName::SuperAdmin);
         $this->postJson('/api/v1/customer-categories', $payload)->assertCreated();
     });
 
-    it('validates the shape of dynamic field definitions', function (): void {
+    it('lets only the Super Admin edit or delete a category', function (): void {
+        $boda = CustomerCategory::query()->where('code', 'BODA')->sole();
+
         officerAt('Head Office', RoleName::Admin);
+        $this->putJson("/api/v1/customer-categories/{$boda->id}", [
+            'name' => 'Renamed By Admin', 'code' => 'BODA', 'riskTier' => 'high', 'sector' => 'business',
+            'requiredDocuments' => [], 'dynamicFormSchema' => [], 'requiresExtraApproval' => false,
+        ])->assertForbidden();
+
+        $this->deleteJson("/api/v1/customer-categories/{$boda->id}")->assertForbidden();
+
+        /* And the read stays open, because the registration wizard needs it. */
+        $this->getJson('/api/v1/customer-categories')->assertOk();
+    });
+
+    it('validates the shape of dynamic field definitions', function (): void {
+        officerAt('Head Office', RoleName::SuperAdmin);
 
         $this->postJson('/api/v1/customer-categories', [
             'name' => 'Broken', 'code' => 'BROKEN', 'riskTier' => 'low', 'sector' => 'other',
@@ -331,7 +359,7 @@ describe('customer categories', function (): void {
     });
 
     it('refuses to delete a category that has customers', function (): void {
-        officerAt('Kakonko', RoleName::Admin);
+        officerAt('Kakonko', RoleName::SuperAdmin);
         registeredCustomer();
 
         $boda = CustomerCategory::query()->where('code', 'BODA')->sole();
@@ -342,7 +370,7 @@ describe('customer categories', function (): void {
     });
 
     it('soft-deletes an unused category', function (): void {
-        officerAt('Head Office', RoleName::Admin);
+        officerAt('Head Office', RoleName::SuperAdmin);
 
         $unused = CustomerCategory::query()->where('code', 'PRIVATE_SECTOR')->sole();
 

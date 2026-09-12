@@ -63,6 +63,20 @@ final class LoanProductRequest extends FormRequest
             'minTenureDays' => ['required', 'integer', 'min:1', 'max:3650'],
             'maxTenureDays' => ['required', 'integer', 'min:1', 'max:3650', 'gte:minTenureDays'],
 
+            /*
+             * The Loan Category screen's own terms. All optional, because every
+             * product that exists predates them and a save that does not
+             * mention one must not invent a value for it.
+             */
+            'minRepayments' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:600'],
+            'maxRepayments' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:600', 'gte:minRepayments'],
+            'allowsDeduction' => ['sometimes', 'boolean'],
+            /* A stage from the configured chain — never one of three hardcoded
+               words. Null means the loan walks the whole chain. */
+            'approvalStageId' => ['sometimes', 'nullable', 'integer', Rule::exists('loan_approval_stages', 'id')->whereNull('deleted_at')],
+            'topupPercent' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
+            'takeHomePercent' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
+
             'penaltyType' => ['required', 'string', Rule::in(PenaltyType::values())],
             'penaltyRate' => ['required', 'numeric', 'decimal:0,3', 'min:0'],
             'penaltyGraceDays' => ['required', 'integer', 'min:0', 'max:365'],

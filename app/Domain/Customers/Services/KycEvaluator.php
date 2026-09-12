@@ -56,10 +56,11 @@ final class KycEvaluator
      */
     public function requirements(Customer $customer): array
     {
-        $profile = $this->profiles->forCustomer($customer);
+        $profile = $this->profiles->resolveForCustomer($customer);
 
         return [
             $this->identityDocument($customer, $profile),
+            $this->identityDocumentFile($customer),
             $this->nidaVerification($customer, $profile),
             $this->phoneCaptured($customer),
             $this->otpVerification($customer, $profile),
@@ -207,7 +208,7 @@ final class KycEvaluator
      * officer sees the same checklist either way, marked optional until the
      * institution decides otherwise.
      */
-    private function categoryDocuments(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function categoryDocuments(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $category = $customer->category;
         $missing = $this->missingDocuments($customer);
@@ -242,7 +243,7 @@ final class KycEvaluator
      * person be identified from a document on file", not "do they hold a NIDA
      * card".
      */
-    private function identityDocument(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function identityDocument(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $held = $this->identityDocumentsHeld($customer);
 
@@ -250,7 +251,7 @@ final class KycEvaluator
             key: 'identityDocument',
             label: 'Identity document captured',
             satisfied: $held !== [],
-            required: $profile->requires_identity_document,
+            required: $profile->requiresIdentityDocument,
             detail: $held === []
                 ? 'Record at least one of: National ID, voter ID, driving licence, passport or work ID.'
                 : 'On file: '.implode(', ', $held).'.',
@@ -264,10 +265,10 @@ final class KycEvaluator
      * National ID number tells us what the customer says their number is;
      * only the registry can tell us it is theirs.
      */
-    private function nidaVerification(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function nidaVerification(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $available = $this->external->nidaAvailable();
-        $wanted = $profile->requires_nida_verification;
+        $wanted = $profile->requiresNidaVerification;
 
         return new KycRequirement(
             key: 'nidaVerified',
@@ -294,10 +295,10 @@ final class KycEvaluator
         );
     }
 
-    private function otpVerification(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function otpVerification(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $available = $this->external->otpAvailable();
-        $wanted = $profile->requires_otp_verification;
+        $wanted = $profile->requiresOtpVerification;
 
         return new KycRequirement(
             key: 'otpVerified',
@@ -318,7 +319,7 @@ final class KycEvaluator
      * precisely because our reference data does not cover the whole country,
      * and requiring a value we cannot check would only encourage a guess.
      */
-    private function address(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function address(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $missing = [];
 
@@ -334,22 +335,22 @@ final class KycEvaluator
             key: 'addressCaptured',
             label: 'Address on file',
             satisfied: $missing === [],
-            required: $profile->requires_address,
+            required: $profile->requiresAddress,
             detail: $missing === [] ? null : 'Select a '.implode(' and a ', $missing).'.',
         );
     }
 
-    private function maritalStatus(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function maritalStatus(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         return new KycRequirement(
             key: 'maritalStatus',
             label: 'Marital status recorded',
             satisfied: $customer->marital_status !== null || $customer->marital_status_id !== null,
-            required: $profile->requires_marital_status,
+            required: $profile->requiresMaritalStatus,
         );
     }
 
-    private function employmentDetails(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function employmentDetails(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $hasEmployer = $this->filled($customer->employer) || $this->filled($customer->place_of_employment);
         $hasKind = $this->filled($customer->work_type) || $this->filled($customer->employment_type);
@@ -370,12 +371,12 @@ final class KycEvaluator
             key: 'employmentDetails',
             label: 'Employment details recorded',
             satisfied: $missing === [],
-            required: $profile->requires_employment_details,
+            required: $profile->requiresEmploymentDetails,
             detail: $missing === [] ? null : 'Still needed: '.implode(', ', $missing).'.',
         );
     }
 
-    private function businessDetails(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function businessDetails(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $satisfied = $this->filled($customer->business_name) && $this->filled($customer->business_type);
 
@@ -383,41 +384,41 @@ final class KycEvaluator
             key: 'businessDetails',
             label: 'Business details recorded',
             satisfied: $satisfied,
-            required: $profile->requires_business_details,
+            required: $profile->requiresBusinessDetails,
             detail: $satisfied ? null : 'Record the business name and what the business does.',
         );
     }
 
-    private function bankAccount(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function bankAccount(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         return new KycRequirement(
             key: 'bankAccount',
             label: 'Bank or mobile money account on file',
             satisfied: $this->hasBankAccount($customer),
-            required: $profile->requires_bank_account,
+            required: $profile->requiresBankAccount,
             detail: $this->hasBankAccount($customer)
                 ? null
                 : 'Record a bank account, or a mobile money wallet, for disbursement and collection.',
         );
     }
 
-    private function cardDetails(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function cardDetails(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         return new KycRequirement(
             key: 'cardDetails',
             label: 'Bank card recorded',
             satisfied: $customer->card_last_four !== null,
-            required: $profile->requires_card_details,
+            required: $profile->requiresCardDetails,
             /* Says what is stored, because officers ask. See
                RegisterCustomerAction: the PAN never reaches the database. */
             detail: 'Only the last four digits are stored.',
         );
     }
 
-    private function guarantors(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function guarantors(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $count = $customer->guarantors()->count();
-        $minimum = $profile->min_guarantors;
+        $minimum = $profile->minGuarantors;
 
         return new KycRequirement(
             key: 'guarantors',
@@ -430,10 +431,10 @@ final class KycEvaluator
         );
     }
 
-    private function nextOfKin(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function nextOfKin(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $count = $customer->nextOfKin()->count();
-        $minimum = $profile->min_next_of_kin;
+        $minimum = $profile->minNextOfKin;
 
         return new KycRequirement(
             key: 'nextOfKin',
@@ -446,20 +447,20 @@ final class KycEvaluator
         );
     }
 
-    private function category(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function category(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         return new KycRequirement(
             key: 'categoryAssigned',
             label: 'Customer category assigned',
             satisfied: $customer->customer_category_id !== null,
-            required: $profile->requires_customer_category,
+            required: $profile->requiresCustomerCategory,
             detail: $customer->customer_category_id === null
                 ? 'The category decides which loan products this customer may take.'
                 : null,
         );
     }
 
-    private function faceVerification(Customer $customer, AccountTypeRequirement $profile): KycRequirement
+    private function faceVerification(Customer $customer, ResolvedRequirements $profile): KycRequirement
     {
         $satisfied = $customer->face_verified_at !== null;
 
@@ -467,7 +468,7 @@ final class KycEvaluator
             key: 'faceVerified',
             label: 'Face liveness verified',
             satisfied: $satisfied,
-            required: $profile->requires_face_verification,
+            required: $profile->requiresFaceVerification,
             detail: $satisfied
                 ? null
                 /* Named as a place the officer can go, because this is the one
@@ -501,7 +502,34 @@ final class KycEvaluator
      */
     private function identityDocumentsHeld(Customer $customer): array
     {
-        $documents = [
+        $held = [];
+
+        /*
+         * THE PAIR FIRST, because it is what registration now captures: one
+         * admin-managed list of accepted documents and one number, instead of
+         * six sparse columns asking the officer to find the right box (see the
+         * 2026_08_30 migration).
+         *
+         * It was missing from this method, and the consequence was not cosmetic.
+         * A customer registered through the current form held an ID type and a
+         * number and nothing else — so this returned an empty list, "Identity
+         * document captured" read as unsatisfied, `isComplete()` returned false,
+         * and LoanEligibilityChecker refused every application from them with
+         * KYC_INCOMPLETE. The form had moved on and the checklist had not.
+         *
+         * Named by the ID TYPE's own name, so the checklist says "On file:
+         * National ID (NIDA)" using the institution's wording rather than a
+         * label written here.
+         */
+        $idType = $customer->idType;
+
+        if ($idType !== null && $this->filled($customer->id_number)) {
+            $held[] = $idType->name;
+        }
+
+        /* The six pre-2026_08_30 columns. Still read, because records captured
+           before the pair existed hold them and must not become incomplete. */
+        $legacy = [
             'National ID' => $customer->nida_number ?? $customer->national_id_number,
             'voter ID' => $customer->voter_id_number,
             'driving licence' => $customer->driver_licence_number,
@@ -509,15 +537,69 @@ final class KycEvaluator
             'work ID' => $customer->work_id_number,
         ];
 
-        $held = [];
-
-        foreach ($documents as $label => $value) {
+        foreach ($legacy as $label => $value) {
             if ($this->filled($value)) {
                 $held[] = $label;
             }
         }
 
         return $held;
+    }
+
+    /**
+     * The identity document itself — the FILE, not the number.
+     *
+     * A different question from `identityDocument()` above, and from
+     * `categoryDocuments()` below. That first one asks whether we know which
+     * document the customer produced and what it says; this asks whether a copy
+     * of it is on file.
+     *
+     * WHAT MAKES IT REQUIRED IS CONFIGURATION, not a rule written here. An ID
+     * type carries `document_type_id` — the document that evidences it, set in
+     * Administration → Master Data → ID Types. Where that link exists, the copy
+     * is required; where an institution accepts an identity type without taking
+     * a copy, the administrator leaves the link empty and nothing is demanded.
+     * Nothing in this file knows what a NIDA card is.
+     *
+     * IT DOES NOT DISTURB THE EXISTING BOOK. A customer registered before the
+     * ID-type pair existed has no `id_type_id`, so there is no mapped document
+     * and this requirement is not required of them. It applies to registrations
+     * made through the current form, which is exactly its scope.
+     *
+     * ONE UPLOAD SATISFIES BOTH THIS AND THE CATEGORY'S LIST when a customer
+     * type happens to require the same document, because both are matched on
+     * `customer_documents.document_type` — the same code. The officer uploads
+     * once.
+     */
+    private function identityDocumentFile(Customer $customer): KycRequirement
+    {
+        $expected = $customer->idType?->documentType;
+
+        if ($expected === null) {
+            return new KycRequirement(
+                key: 'identityDocumentFile',
+                label: 'Copy of the identity document',
+                satisfied: true,
+                required: false,
+                detail: $customer->id_type_id === null
+                    ? 'No identity document type has been recorded for this customer.'
+                    : 'This institution does not collect a copy of this identity document.',
+            );
+        }
+
+        $onFile = $customer->documents->contains(
+            fn ($document): bool => $document->document_type === $expected->code,
+        );
+
+        return new KycRequirement(
+            key: 'identityDocumentFile',
+            label: 'Copy of the identity document',
+            satisfied: $onFile,
+            required: true,
+            detail: $onFile
+                ? $expected->name.' is on file.'
+                : 'Upload the customer\'s '.$expected->name.'.',
+        );
     }
 
     private function filled(?string $value): bool

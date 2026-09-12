@@ -27,6 +27,13 @@ use Illuminate\Support\Collection;
  *   - `region_id` geographic / Regional Manager oversight
  *
  * @property int $id
+ *                   The Branch List's customer-status counts. Present only on a query that asked
+ *                   for them — see BranchController::index.
+ * @property-read int|null $customers_all_count
+ * @property-read int|null $customers_active_count
+ * @property-read int|null $customers_pending_count
+ * @property-read int|null $customers_default_count
+ * @property-read int|null $customers_done_count
  * @property string $name
  * @property string $code
  * @property int|null $region_id
@@ -93,6 +100,20 @@ class Branch extends Model
     public function children(): HasMany
     {
         return $this->hasMany(Branch::class, 'parent_branch_id');
+    }
+
+    /**
+     * The customers on this branch's book.
+     *
+     * Added for the Branch List's customer-status counts; nothing else reads
+     * it. `customers.branch_id` has always existed — there was simply no
+     * relation declared in this direction.
+     *
+     * @return HasMany<Customer, $this>
+     */
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class, 'branch_id');
     }
 
     /**

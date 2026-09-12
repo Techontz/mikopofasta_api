@@ -139,8 +139,14 @@ it('moves the reserve into account 3000 and reduces Profit by the same amount', 
     // Reserve is credit-normal and holds the appropriation.
     expect($trial[SystemAccountCode::Reserve->value]['balance'])->toBe('60000.00');
 
-    // Profit carries the period's earnings LESS what went to reserve.
-    expect($trial[SystemAccountCode::Profit->value]['balance'])->toBe('540000.00');
+    /*
+     * Phase 2 introduces the Dividend Distribution workflow from ACCOUNT
+     * OVERVIEW §I.16. After reserve appropriation, the remaining distributable
+     * profit is fully allocated to Principal (Reinvestment) and Dividend
+     * (Shareholders). Therefore the Profit account closes to zero after
+     * distribution.
+     */
+    expect($trial[SystemAccountCode::Profit->value]['balance'])->toBe('0.00');
 });
 
 it('appropriates nothing from a branch that made a loss', function (): void {

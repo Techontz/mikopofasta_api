@@ -263,11 +263,18 @@ function registrationPayload(array $overrides = []): array
          * RegisterCustomerRequest::checkVerificationClaims), and a fixture that
          * kept sending them would be testing a path no real client can take.
          *
-         * `faceVerifiedAt` stays, because a liveness scan genuinely can be
-         * performed here — the scanner is real. Tests exercising the
-         * awaiting-verification path unset it.
+         * `faceVerifiedAt` is gone too, and for a stronger reason than the
+         * other two. A face verification is not something a registration
+         * payload can honestly report: the scan runs against a customer that
+         * already exists, and only a passing sequence stamps the column. The
+         * API now refuses a claim outright, so a fixture that kept sending one
+         * would be testing a path no client can take — and would have gone on
+         * hiding the fact that registration used to accept it.
+         *
+         * Registration therefore leaves a customer AWAITING face verification,
+         * which is what it does in life. `registeredCustomer()` stamps the
+         * column on the model afterwards, the same way it stamps approval.
          */
-        'faceVerifiedAt' => now()->toIso8601String(),
 
         'firstName' => $identity->firstName,
         'middleName' => $identity->middleName,
@@ -363,7 +370,47 @@ function pendingRegistration(array $overrides = []): App\Models\Customer
 
     // firstOrFail, not sole(): a test that registers two customers would
     // otherwise trip sole()'s "multiple records" guard on the second call.
-    return App\Models\Customer::query()->latest('id')->firstOrFail();
+    $customer = App\Models\Customer::query()->latest('id')->firstOrFail();
+
+    /*
+     * The face scan, stamped on the model.
+     *
+     * This helper means "registration is finished and a manager has not looked
+     * at it yet", and in the four-step wizard finishing registration includes
+     * the biometric step. The API no longer accepts a claimed verification in
+     * the registration payload — it cannot honestly know one — so the scan is
+     * recorded here the same way approval is recorded in `registeredCustomer()`
+     * below: directly, because driving a camera is FaceScanTest's job and not
+     * the job of the several hundred tests that merely need a usable customer.
+     *
+     * A test that wants a customer AWAITING verification posts the payload
+     * itself rather than calling this, which is what the ones in
+     * RegistrationApprovalTest already do.
+     */
+    $customer->forceFill(['face_verified_at' => now()])->save();
+
+    /*
+     * `kyc_status` is a STORED column, not a derived one — every write path
+     * that could change it calls `refresh()` rather than setting it, so that
+     * one place decides what complete means. Stamping the scan without this
+     * leaves the column saying "incomplete" about a customer who is not, which
+     * is the same class of bug as the two marital-status columns disagreeing.
+     */
+    /*
+     * Evaluated on a SEPARATE instance, and the caller gets a clean one.
+     *
+     * The evaluator needs these relations loaded; the customer this helper
+     * returns must not carry them, because a test that uploads a document
+     * afterwards and re-evaluates would otherwise be handing the evaluator a
+     * relation loaded before the upload — an empty `documents` collection that
+     * looks authoritative. Lazily loading it later reads the truth; an eagerly
+     * loaded stale one does not.
+     */
+    app(App\Domain\Customers\Services\KycEvaluator::class)->refresh(
+        $customer->fresh(['documents', 'idType', 'category', 'bankDetails']),
+    );
+
+    return App\Models\Customer::query()->findOrFail($customer->getKey());
 }
 
 /**

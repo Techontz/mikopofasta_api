@@ -71,8 +71,41 @@ class LoanProduct extends Model
         'grace_period_days', 'processing_fee_rate', 'insurance_fee_rate',
         'commission_rate', 'recovery_commission_rate',
         'penalty_type', 'penalty_type_id', 'penalty_rate', 'penalty_grace_days', 'penalty_cap_amount',
+        /* The Loan Category screen's own terms: how many instalments, whether
+           it is deducted at source, which tier signs it off, and the two
+           percentages. See the 2026_09_02 migration. */
+        'min_repayments', 'max_repayments', 'allows_deduction',
+        'approval_stage_id', 'topup_percent', 'take_home_percent',
         'requires_mandate', 'status', 'created_by',
     ];
+
+    /**
+     * The branches that offer this product.
+     *
+     * EMPTY MEANS EVERY BRANCH. A product nobody has assigned is offered
+     * institution-wide, which is what every product did before this pivot
+     * existed — reading empty as "nowhere" would have withdrawn them all.
+     *
+     * @return BelongsToMany<Branch, $this>
+     */
+    public function branches(): BelongsToMany
+    {
+        return $this->belongsToMany(Branch::class, 'loan_product_branches')->withTimestamps();
+    }
+
+    /**
+     * The approval tier that signs these loans off.
+     *
+     * A stage from the configured chain, not one of three hardcoded words. Null
+     * means the product walks the whole chain, which is what every product did
+     * before this column existed.
+     *
+     * @return BelongsTo<LoanApprovalStage, $this>
+     */
+    public function approvalStage(): BelongsTo
+    {
+        return $this->belongsTo(LoanApprovalStage::class, 'approval_stage_id');
+    }
 
     /**
      * The penalty type as administrator-managed data.
@@ -254,6 +287,9 @@ class LoanProduct extends Model
             'min_tenure_days' => 'integer',
             'max_tenure_days' => 'integer',
             'penalty_grace_days' => 'integer',
+            'min_repayments' => 'integer',
+            'max_repayments' => 'integer',
+            'allows_deduction' => 'boolean',
         ];
     }
 }

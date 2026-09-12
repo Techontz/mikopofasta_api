@@ -27,9 +27,20 @@ final class CustomerCategoryResource extends JsonResource
             'id' => (string) $this->id,
             'name' => $this->name,
             'code' => $this->code,
+            'description' => $this->description,
+            /* The heading the registration form shows over this type's own
+               questions. Null on the wire, and the form falls back to the
+               name — resolving it here would hide from the administrator that
+               they never set one. */
+            'formTitle' => $this->form_title,
+            /* Whether registration may still offer it, and where in the list. */
+            'isActive' => (bool) $this->is_active,
+            'sortOrder' => $this->sort_order,
             'riskTier' => $this->risk_tier->value,
             'sector' => $this->sector->value,
             'requiredDocuments' => $this->required_documents,
+            /* Offered on the documents step, never blocking. */
+            'optionalDocuments' => $this->optional_documents ?? [],
             /* Which first-class registration blocks this category asks for.
                The wizard shows the sector, contract and salary sections off
                these rather than off a hardcoded list of category codes. */

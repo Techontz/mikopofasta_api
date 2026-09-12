@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Treasury;
 
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Unique;
+use App\Models\BankAccount;
 
 /**
  * The same form, editing.
@@ -13,13 +12,18 @@ use Illuminate\Validation\Rules\Unique;
  * `openingBalance` is accepted and ignored by UpdateBankAccountAction: it is a
  * figure an entry already posted, and changing the number without reversing the
  * entry would put the account's own screen at odds with the ledger.
+ *
+ * The one behavioural difference is uniqueness: an account must be allowed to
+ * keep its own number. Saving NMB 2011098765400 without touching the number
+ * must not fail on the grounds that NMB 2011098765400 already exists — it is
+ * the same row.
  */
 final class UpdateBankAccountRequest extends StoreBankAccountRequest
 {
-    protected function accountNumberUniqueness(): Unique
+    protected function ignoredAccountId(): ?int
     {
-        return Rule::unique('bank_accounts', 'account_number')
-            ->whereNull('deleted_at')
-            ->ignore($this->route('bankAccount'));
+        $account = $this->route('bankAccount');
+
+        return $account instanceof BankAccount ? (int) $account->getKey() : null;
     }
 }

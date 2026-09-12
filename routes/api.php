@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Accounting\AccountingPeriodController;
+use App\Http\Controllers\Accounting\DistributionSettingController;
 use App\Http\Controllers\Accounting\ReserveUtilisationController;
 use App\Http\Controllers\Admin\SystemConfigurationController;
 use App\Http\Controllers\Auth\AuthController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\Loans\LoanApprovalStageController;
 use App\Http\Controllers\Loans\LoanChargeController;
 use App\Http\Controllers\Loans\LoanConfigurationController;
 use App\Http\Controllers\Loans\LoanController;
+use App\Http\Controllers\Loans\LoanProductBranchController;
 use App\Http\Controllers\Loans\LoanProductController;
 use App\Http\Controllers\Loans\LoanRecoveryController;
 use App\Http\Controllers\Loans\LoanSchedulePreviewController;
@@ -250,6 +252,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/master-data/geography/import', [GeographyImportController::class, 'import'])
         ->name('master-data.geography.import');
 
+    /* Every flat list in one response — see MasterDataController::all(). BEFORE
+       the generic /{list} route, which would otherwise swallow it and 404 on a
+       list named "all". */
+    Route::get('/master-data', [MasterDataController::class, 'all'])->name('master-data.all');
+
     Route::get('/master-data/{list}', [MasterDataController::class, 'index'])->name('master-data.index');
     Route::post('/master-data/{list}', [MasterDataController::class, 'store'])->name('master-data.store');
     Route::put('/master-data/{list}/{id}', [MasterDataController::class, 'update'])->name('master-data.update');
@@ -444,6 +451,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/loan-approval-stages/{stage}', [LoanApprovalStageController::class, 'destroy'])
         ->name('loan-approval-stages.destroy');
 
+    /*
+     * Administration → Loan Category → Assign Branch. Which branches offer a
+     * product; empty means every branch. Single-row endpoints, so ticking a
+     * branch does not resend the whole product.
+     */
+    Route::get('/loan-products/{product}/branches', [LoanProductBranchController::class, 'index'])
+        ->name('loan-products.branches.index');
+    Route::post('/loan-products/{product}/branches', [LoanProductBranchController::class, 'store'])
+        ->name('loan-products.branches.store');
+    Route::delete('/loan-products/{product}/branches/{branch}', [LoanProductBranchController::class, 'destroy'])
+        ->name('loan-products.branches.destroy');
+
     Route::apiResource('loan-products', LoanProductController::class)
         ->parameters(['loan-products' => 'product']);
 
@@ -486,6 +505,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('penalties.paid');
     Route::get('/loan-fees/income', [ChargeRegisterController::class, 'deductedIncome'])
         ->name('loan-fees.income');
+
+    /*
+     * The profit split — Capital → Profit Distribution. Filed with the capital
+     * routes rather than under Settings: the Settings menu reproduces the
+     * legacy list verbatim, and this is a capital-management concept.
+     */
+    Route::get('/distribution-setting', [DistributionSettingController::class, 'show'])
+        ->name('distribution-setting.show');
+    Route::put('/distribution-setting', [DistributionSettingController::class, 'update'])
+        ->name('distribution-setting.update');
 
     Route::get('/reserve-setting', [LoanChargeController::class, 'reserveSetting'])
         ->name('reserve-setting.show');

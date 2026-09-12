@@ -13,6 +13,7 @@ use App\Domain\Customers\Enums\CustomerApprovalStatus;
 use App\Domain\Customers\Services\ExternalVerificationStatus;
 use App\Domain\Customers\Services\KycEvaluator;
 use App\Domain\Customers\Services\RegistrationProgress;
+use App\Domain\Customers\Support\MaritalStatusMirror;
 use App\Domain\Organization\Services\BranchScope;
 use App\Domain\Organization\Services\BranchScopeGuard;
 use App\Enums\AuditAction;
@@ -409,6 +410,20 @@ final class CustomerController extends Controller
             if (array_key_exists($key, $payload)) {
                 $changes[$column] = $payload[$key];
             }
+        }
+
+        /*
+         * The enum column follows the chosen list entry.
+         *
+         * `marital_status_id` is what this endpoint accepts and what the
+         * registration form writes; `marital_status` is the older column the
+         * profile and the reports read. They are one fact, and leaving the
+         * second unwritten is what made an answered question display as a dash.
+         * Keyed on presence, so an update that does not mention marital status
+         * leaves both columns alone.
+         */
+        if (array_key_exists('maritalStatusId', $payload)) {
+            $changes['marital_status'] = MaritalStatusMirror::forOption($payload['maritalStatusId']);
         }
 
         /* Same rule as registration: the PAN never reaches a column. */

@@ -32,21 +32,22 @@ final class UpdateBankAccountAction
     {
         return DB::transaction(function () use ($account, $data, $actor): BankAccount {
             $before = $account->only([
-                'bank_name', 'account_number', 'account_name', 'branch_id',
-                'currency', 'description', 'status',
+                'account_type', 'usage', 'bank_name', 'bank_id', 'mobile_money_provider_id',
+                'account_number', 'account_name', 'currency', 'description', 'status',
             ]);
 
             $wasActive = $account->status === ActiveStatus::Active;
 
-            $account->update([
-                'bank_name' => $data->bankName,
-                'account_number' => $data->accountNumber,
-                'account_name' => $data->accountName,
-                'branch_id' => $data->branchId,
-                'currency' => $data->currency,
-                'description' => $data->description,
-                'status' => $data->status,
-            ]);
+            /*
+             * `opening_balance` is deliberately not among these. It was posted
+             * to the ledger when the account was registered; changing the
+             * column now would leave the stored figure and the journal entry
+             * disagreeing, and the ledger is the one that is right.
+             *
+             * The uniqueness keys are not here either — the database derives
+             * them, so editing the account number re-derives them by itself.
+             */
+            $account->update(collect($data->toAttributes())->except('opening_balance')->all());
 
             $this->accounts->renameAccountFor($account);
 
@@ -72,7 +73,7 @@ final class UpdateBankAccountAction
                 actor: $actor,
             );
 
-            return $account->load(['chartAccount', 'branch']);
+            return $account->load(['chartAccount', 'bank', 'mobileMoneyProvider']);
         });
     }
 }

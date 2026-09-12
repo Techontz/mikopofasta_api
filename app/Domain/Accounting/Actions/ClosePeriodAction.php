@@ -16,6 +16,7 @@ use App\Domain\Ledger\Services\AccountResolver;
 use App\Domain\Ledger\Services\LedgerService;
 use App\Enums\AuditAction;
 use App\Models\AccountingPeriod;
+use App\Models\DistributionSetting;
 use App\Models\PeriodBranchResult;
 use App\Models\ReserveSetting;
 use App\Models\User;
@@ -82,7 +83,19 @@ final class ClosePeriodAction
 
         $reserveRate = Percentage::of((string) ReserveSetting::singleton()->percentage);
 
-        return DB::transaction(function () use ($period, $result, $reserveRate, $actor, $notes): AccountingPeriod {
+        /*
+         * ACCOUNT OVERVIEW §I.16 — "Split: 70% → Principal (Reinvestment)
+         * 30% → Shareholders". Read here, recorded on the period below: the
+         * setting is editable, and a period closed under 70/30 must still
+         * read as 70/30 after somebody changes it.
+         */
+        $split = DistributionSetting::singleton();
+        $reinvestmentRate = Percentage::of((string) $split->reinvestment_percentage);
+        $dividendRate = Percentage::of((string) $split->dividend_percentage);
+
+        return DB::transaction(function () use (
+            $period, $result, $reserveRate, $reinvestmentRate, $dividendRate, $actor, $notes
+        ): AccountingPeriod {
             $profitEntry = $this->postProfitRecognition($result, $actor);
 
             /*
@@ -116,6 +129,54 @@ final class ClosePeriodAction
                 ? $this->postReserveAppropriation($appropriations, $reserveTotal, $result, $actor)
                 : null;
 
+            /*
+             * Distribution — appended after the reserve, never before it.
+             *
+             * ACCOUNT OVERVIEW is explicit that reserve comes out of earnings
+             * first ("Inakatwa kabla ya matumizi"), so what distributes is
+             * what survives the appropriation. Splitting the gross profit
+             * would hand shareholders money the reserve has already claimed
+             * and leave the Profit account short.
+             *
+             * Only positive branch profit distributes, for the same reason
+             * the reserve skips a loss-making branch: a percentage of a
+             * negative would credit Principal and Dividend out of nothing.
+             */
+            $distributions = [];
+
+            foreach ($appropriations as $appropriation) {
+                $distributable = $appropriation['profit']->subtract($appropriation['reserve']);
+
+                if (! $distributable->isPositive()) {
+                    continue;
+                }
+
+                $distributions[] = [
+                    'branchId' => $appropriation['branchId'],
+                    'reinvestment' => $distributable->percentage($reinvestmentRate),
+                    'dividend' => $distributable->percentage($dividendRate),
+                ];
+            }
+
+            $reinvestedTotal = Money::sum(array_map(
+                static fn (array $d): Money => $d['reinvestment'],
+                $distributions,
+            ));
+            $dividendTotal = Money::sum(array_map(
+                static fn (array $d): Money => $d['dividend'],
+                $distributions,
+            ));
+
+            $distributionEntry = $reinvestedTotal->isPositive() || $dividendTotal->isPositive()
+                ? $this->postProfitDistribution(
+                    $distributions,
+                    $reinvestedTotal,
+                    $dividendTotal,
+                    $result,
+                    $actor,
+                )
+                : null;
+
             $accountingPeriod = AccountingPeriod::query()->updateOrCreate(
                 ['period' => $period],
                 [
@@ -125,8 +186,13 @@ final class ClosePeriodAction
                     'realised_profit' => $result->profit()->toDecimalString(),
                     'reserve_percentage' => $reserveRate->toDecimalString(),
                     'reserve_appropriated' => $reserveTotal->toDecimalString(),
+                    'reinvestment_percentage' => $reinvestmentRate->toDecimalString(),
+                    'dividend_percentage' => $dividendRate->toDecimalString(),
+                    'reinvested_amount' => $reinvestedTotal->toDecimalString(),
+                    'dividend_amount' => $dividendTotal->toDecimalString(),
                     'profit_journal_entry_id' => $profitEntry->getKey(),
                     'reserve_journal_entry_id' => $reserveEntry?->getKey(),
+                    'distribution_journal_entry_id' => $distributionEntry?->getKey(),
                     'closed_by' => $actor->getKey(),
                     'closed_at' => Date::now(),
                     'notes' => $notes,
@@ -162,8 +228,11 @@ final class ClosePeriodAction
                     'realised_profit' => $accountingPeriod->realised_profit,
                     'reserve_percentage' => $accountingPeriod->reserve_percentage,
                     'reserve_appropriated' => $accountingPeriod->reserve_appropriated,
+                    'reinvested_amount' => $accountingPeriod->reinvested_amount,
+                    'dividend_amount' => $accountingPeriod->dividend_amount,
                     'profit_journal_entry_id' => $profitEntry->getKey(),
                     'reserve_journal_entry_id' => $reserveEntry?->getKey(),
+                    'distribution_journal_entry_id' => $distributionEntry?->getKey(),
                 ],
                 actor: $actor,
             );
@@ -275,6 +344,77 @@ final class ClosePeriodAction
         return $this->ledger->post(
             sprintf('Month-end close %s — reserve appropriation', $result->period),
             JournalSourceType::ReserveAppropriation,
+            null,
+            $lines,
+            $actor,
+            $result->end,
+        );
+    }
+
+    /**
+     * `Dr Profit · Cr Principal + Cr Dividend` — ACCOUNT OVERVIEW §I.16 and §4.F.
+     *
+     * The document gives the flow as "Profit → Dividend Account" and the split
+     * as "70% → Principal (Reinvestment) 30% → Shareholders", so one entry
+     * carries both credits: they are two halves of a single appropriation, and
+     * posting them separately would let one succeed while the other failed.
+     *
+     * The debits carry the branch and the credits do not, exactly as the
+     * reserve appropriation does: reinvested capital and the dividend pool are
+     * company-wide, while the profit each came out of belongs to a branch.
+     *
+     * The entry balances by construction: each branch is debited exactly the
+     * sum of its own two shares, so the debits total what the credits do
+     * whatever the rates are.
+     *
+     * Both shares are computed independently from the distributable figure
+     * rather than one being taken as the remainder. At some rates that leaves
+     * a shilling or two unappropriated in Profit rather than forcing it into
+     * one share — which is the honest outcome: it genuinely was not claimed by
+     * either policy, and it carries into the next period.
+     *
+     * @param list<array{branchId: int|null, reinvestment: Money, dividend: Money}> $distributions
+     */
+    private function postProfitDistribution(
+        array $distributions,
+        Money $reinvestedTotal,
+        Money $dividendTotal,
+        PeriodResult $result,
+        User $actor,
+    ): \App\Models\JournalEntry {
+        $lines = [];
+
+        foreach ($distributions as $distribution) {
+            $debit = $distribution['reinvestment']->add($distribution['dividend']);
+
+            if (! $debit->isPositive()) {
+                continue;
+            }
+
+            $lines[] = JournalLine::debit(
+                $this->accounts->systemId(SystemAccountCode::Profit),
+                $debit,
+                $distribution['branchId'],
+            );
+        }
+
+        if ($reinvestedTotal->isPositive()) {
+            $lines[] = JournalLine::credit(
+                $this->accounts->systemId(SystemAccountCode::Principal),
+                $reinvestedTotal,
+            );
+        }
+
+        if ($dividendTotal->isPositive()) {
+            $lines[] = JournalLine::credit(
+                $this->accounts->systemId(SystemAccountCode::Dividend),
+                $dividendTotal,
+            );
+        }
+
+        return $this->ledger->post(
+            sprintf('Month-end close %s — profit distribution', $result->period),
+            JournalSourceType::Dividend,
             null,
             $lines,
             $actor,

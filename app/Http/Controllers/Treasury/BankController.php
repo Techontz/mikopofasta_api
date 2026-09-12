@@ -11,6 +11,7 @@ use App\Domain\Treasury\Actions\RequestBankTransactionAction;
 use App\Domain\Treasury\Actions\RequestBankTransferAction;
 use App\Domain\Treasury\Actions\UpdateBankAccountAction;
 use App\Domain\Treasury\DTOs\BankAccountData;
+use App\Domain\Treasury\Enums\AccountUsage;
 use App\Domain\Treasury\Enums\BankTransactionStatus;
 use App\Domain\Treasury\Enums\BankTransactionType;
 use App\Domain\Treasury\Enums\BankTransferKind;
@@ -51,7 +52,7 @@ final class BankController extends Controller
     use AuthorizesCapital;
 
     /**
-     * GET /api/v1/bank-accounts?status=&branch_id=&with_movement=
+     * GET /api/v1/bank-accounts?status=&usage=&with_movement=
      *
      * Register Account and Account Balance read the same list; the second asks
      * for `with_movement`, which adds what moved on each account today.
@@ -61,9 +62,24 @@ final class BankController extends Controller
         $this->authorizeCapital('view', $request);
 
         $accounts = BankAccount::query()
-            ->with(['chartAccount.balances', 'branch'])
+            ->with(['chartAccount.balances', 'bank', 'mobileMoneyProvider'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
-            ->when($request->filled('branch_id'), fn ($q) => $q->where('branch_id', $request->integer('branch_id')))
+            /*
+             * `usage=collection` asks for accounts money may come INTO, and
+             * `usage=disbursement` for accounts it may go OUT of. Both include
+             * `both`, and both exclude inactive accounts — a selector must
+             * never offer an account nobody is reconciling. This replaces the
+             * old branch_id filter, which asked a question a company-level
+             * account cannot answer.
+             */
+            ->when(
+                $request->string('usage')->toString() === AccountUsage::Collection->value,
+                fn ($q) => $q->acceptingInflow(),
+            )
+            ->when(
+                $request->string('usage')->toString() === AccountUsage::Disbursement->value,
+                fn ($q) => $q->acceptingOutflow(),
+            )
             ->orderBy('bank_name')
             ->orderBy('account_name')
             ->get();

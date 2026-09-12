@@ -41,6 +41,30 @@ final class BranchResource extends JsonResource
              * row — with Model::shouldBeStrict() active it would throw instead,
              * which is the point.
              */
+            /*
+             * The Branch List's customer-status counts, present only when the
+             * caller asked for them. Four mutually exclusive buckets plus the
+             * branch total — a customer with no loan appears only in `all`.
+             */
+            /*
+             * Guarded on the ATTRIBUTE BAG, not on a property read.
+             * `Model::shouldBeStrict()` throws on an un-retrieved attribute, so
+             * `$this->customers_all_count !== null` would 500 every endpoint
+             * that returns a branch without asking for the counts — show,
+             * update, the hierarchy tree. Asking whether the key was selected
+             * is the question actually being asked.
+             */
+            'customerStatus' => $this->when(
+                array_key_exists('customers_all_count', $this->resource->getAttributes()),
+                fn (): array => [
+                    'active' => (int) $this->customers_active_count,
+                    'pending' => (int) $this->customers_pending_count,
+                    'default' => (int) $this->customers_default_count,
+                    'done' => (int) $this->customers_done_count,
+                    'all' => (int) $this->customers_all_count,
+                ],
+            ),
+
             'regionName' => $this->whenLoaded('region', fn (): ?string => $this->region?->name),
             'zoneName' => $this->whenLoaded('zone', fn (): ?string => $this->zone?->name),
             'parentBranchName' => $this->whenLoaded('parent', fn (): ?string => $this->parent?->name),

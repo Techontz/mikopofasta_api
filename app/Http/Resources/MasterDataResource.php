@@ -28,6 +28,19 @@ final class MasterDataResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'sortOrder' => $this->sort_order,
+            /*
+             * ID Types alone carry this — which document evidences the identity
+             * type — and every other list is served by the same resource. Keyed
+             * on the attribute being present rather than on the class, so a
+             * list without the column omits the field instead of throwing under
+             * `Model::shouldBeStrict()`.
+             */
+            'documentTypeId' => $this->when(
+                array_key_exists('document_type_id', $this->resource->getAttributes()),
+                fn (): ?string => $this->resource->getAttribute('document_type_id') === null
+                    ? null
+                    : (string) $this->resource->getAttribute('document_type_id'),
+            ),
             'isActive' => $this->is_active,
             'createdAt' => $this->created_at?->toIso8601String(),
         ];

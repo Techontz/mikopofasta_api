@@ -526,6 +526,9 @@ describe('paid from a bank account', function (): void {
         $category = expenseCategory('Bank Charges', 'headquarters');
 
         $this->postJson('/api/v1/bank-accounts', [
+            'accountType' => 'bank',
+            'usage' => 'both',
+            'bankId' => App\Models\MasterData\Bank::query()->where('code', 'CRDB')->value('id'),
             'bankName' => 'CRDB Bank',
             'accountName' => 'Mikopofasta Operations',
             'accountNumber' => '0150999888777',

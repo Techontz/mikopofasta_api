@@ -8,23 +8,10 @@ use App\Domain\Auth\Enums\PermissionName;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MasterDataResource;
 use App\Models\Customer;
-use App\Models\MasterData\AccountType;
-use App\Models\MasterData\Bank;
-use App\Models\MasterData\ContractType;
-use App\Models\MasterData\CustomerType;
-use App\Models\MasterData\DocumentType;
-use App\Models\MasterData\Employer;
-use App\Models\MasterData\EmploymentType;
-use App\Models\MasterData\IdType;
-use App\Models\MasterData\LoanType;
-use App\Models\MasterData\MaritalStatusOption;
 use App\Models\MasterData\MasterDataModel;
-use App\Models\MasterData\MobileMoneyProvider;
-use App\Models\MasterData\Occupation;
-use App\Models\MasterData\Sector;
 use App\Models\MasterData\SectorCategory;
-use App\Models\MasterData\WorkType;
 use App\Support\ApiResponse;
+use App\Support\MasterDataRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -50,33 +37,71 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class MasterDataController extends Controller
 {
     /**
+     * The slug-to-model map, which now lives in MasterDataRegistry because the
+     * registration form's field configuration resolves the same slugs — see
+     * the note there. This alias keeps every call site in this file unchanged.
+     *
      * @var array<string, class-string<MasterDataModel>>
      */
-    private const array LISTS = [
-        'loan-types' => LoanType::class,
-        'customer-types' => CustomerType::class,
-        'account-types' => AccountType::class,
-        'work-types' => WorkType::class,
-        'employment-types' => EmploymentType::class,
-        'occupations' => Occupation::class,
-        'banks' => Bank::class,
-        'mobile-money-providers' => MobileMoneyProvider::class,
-        'marital-statuses' => MaritalStatusOption::class,
-        /* KYC document types — what a category's required_documents names. */
-        'document-types' => DocumentType::class,
-        /* Which identity document was seen, and on what terms somebody is
-           employed — see the 2026_08_30 migrations. */
-        'id-types' => IdType::class,
-        'contract-types' => ContractType::class,
-        /* The employing body. Its cadres are NOT in this map: they belong to a
-           sector and are served by sectorCategories() below, which filters on
-           the parent the way the address lookups filter on region. */
-        'sectors' => Sector::class,
-        /* Private companies. A SEPARATE list from `sectors`: a ministry has
-           cadres inside it and a company does not, and one list would offer a
-           public servant a sugar mill to serve in. */
-        'employers' => Employer::class,
+    private const array LISTS = MasterDataRegistry::LISTS;
+
+    /**
+     * The columns a particular list has beyond the six every list shares.
+     *
+     * One list has one of these, and the map exists so that stays true: a
+     * second per-list column adds a row here rather than a branch inside four
+     * methods. Anything not named is rejected as an unknown field, which is
+     * what stops this generic controller from becoming a way to write arbitrary
+     * columns on fourteen tables.
+     *
+     * `documentTypeId` — which document evidences an identity type, so the
+     * registration form can name the upload slot. See the 2026_09_04 migration.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private const array EXTRA_RULES = [
+        'id-types' => [
+            'documentTypeId' => ['sometimes', 'nullable', 'integer'],
+        ],
     ];
+
+    /**
+     * GET /api/v1/master-data — every flat list, in one response.
+     *
+     * WHY THIS EXISTS. The registration screen needs fourteen of these lists to
+     * render one form, and it was asking for them one at a time: fourteen HTTP
+     * requests, fourteen authentications, fourteen rate-limiter increments, for
+     * data that is a few hundred rows in total and identical for every officer
+     * in the branch. Opening the screen six times in a minute exhausted the
+     * authenticated allowance and the seventh visit was refused with 429 — a
+     * form that could not be opened because opening it cost too much.
+     *
+     * The limit was not the problem and has not been removed. Fourteen round
+     * trips to build one dropdown set was the problem.
+     *
+     * The shape is deliberately the same as the single-list route's, keyed by
+     * the slug the client already knows, so nothing about how a list is read
+     * changes — only how many requests it takes to read them all.
+     *
+     * `sector-categories` is NOT here, and cannot be: its rows belong to a
+     * parent sector and are fetched one sector at a time.
+     */
+    public function all(Request $request): JsonResponse
+    {
+        $active = $request->boolean('active');
+
+        $lists = [];
+
+        foreach (self::LISTS as $slug => $model) {
+            $query = $active
+                ? $model::query()->selectable()
+                : $model::query()->orderByRaw('sort_order IS NULL, sort_order')->orderBy('name');
+
+            $lists[$slug] = MasterDataResource::collection($query->get());
+        }
+
+        return ApiResponse::data($lists);
+    }
 
     /**
      * GET /api/v1/master-data/sector-categories?sector_id=
@@ -187,7 +212,7 @@ final class MasterDataController extends Controller
         $this->requireOrgSettings($request);
         $model = $this->resolve($list);
 
-        $data = $this->toColumns($request->validate($this->rules($model, null)));
+        $data = $this->toColumns($request->validate($this->rules($model, null, $list)));
 
         /* Assigned field by field rather than through a `mixed` array: every
            lookup list shares these six columns and nothing else is writable
@@ -199,6 +224,12 @@ final class MasterDataController extends Controller
         $row->sort_order = $data['sort_order'] ?? null;
         $row->is_active = (bool) ($data['is_active'] ?? true);
         $row->created_by = $request->user()?->getKey();
+
+        /* The one per-list column, set only for the list that has it. */
+        if (array_key_exists('document_type_id', $data)) {
+            $row->setAttribute('document_type_id', $data['document_type_id']);
+        }
+
         $row->save();
 
         return ApiResponse::data(new MasterDataResource($row), [], 201);
@@ -210,7 +241,7 @@ final class MasterDataController extends Controller
         $model = $this->resolve($list);
         $row = $model::query()->findOrFail($id);
 
-        $row->update($this->toColumns($request->validate($this->rules($model, $id))));
+        $row->update($this->toColumns($request->validate($this->rules($model, $id, $list))));
 
         return ApiResponse::data(new MasterDataResource($row->refresh()));
     }
@@ -272,7 +303,12 @@ final class MasterDataController extends Controller
      */
     private function toColumns(array $input): array
     {
-        $map = ['sortOrder' => 'sort_order', 'isActive' => 'is_active', 'sectorId' => 'sector_id'];
+        $map = [
+            'sortOrder' => 'sort_order',
+            'isActive' => 'is_active',
+            'sectorId' => 'sector_id',
+            'documentTypeId' => 'document_type_id',
+        ];
 
         $columns = [];
         foreach ($input as $key => $value) {
@@ -298,11 +334,23 @@ final class MasterDataController extends Controller
      * @param class-string<MasterDataModel> $model
      * @return array<string, mixed>
      */
-    private function rules(string $model, ?int $ignore): array
+    private function rules(string $model, ?int $ignore, string $list = ''): array
     {
         $table = (new $model)->getTable();
 
-        return [
+        $extra = self::EXTRA_RULES[$list] ?? [];
+
+        /* The one per-list column, validated against the table it points at.
+           Written here rather than in the constant so the `exists` rule can
+           name the soft-delete condition the rest of this controller uses. */
+        if (array_key_exists('documentTypeId', $extra)) {
+            $extra['documentTypeId'] = [
+                'sometimes', 'nullable', 'integer',
+                Rule::exists('document_types', 'id')->whereNull('deleted_at'),
+            ];
+        }
+
+        return $extra + [
             'code' => [
                 'required', 'string', 'max:40',
                 Rule::unique($table, 'code')->ignore($ignore)->whereNull('deleted_at'),

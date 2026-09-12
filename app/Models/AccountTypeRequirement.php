@@ -46,6 +46,10 @@ class AccountTypeRequirement extends Model
      */
     protected $fillable = [
         'account_type_id',
+        /* The second scope axis. NULL on the default and on account-type
+           profiles; set on a profile that states one customer type's own
+           requirements. See the 2026_09_06_000001 migration. */
+        'customer_category_id',
         'requires_employment_details', 'requires_business_details',
         'requires_bank_account', 'requires_card_details',
         'min_guarantors', 'min_next_of_kin',
@@ -95,6 +99,17 @@ class AccountTypeRequirement extends Model
     public function isDefault(): bool
     {
         return $this->account_type_id === null;
+    }
+
+    /**
+     * The customer type this profile states requirements for, if it is scoped
+     * to one. Null on the default and on per-account-type profiles.
+     *
+     * @return BelongsTo<CustomerCategory, $this>
+     */
+    public function customerCategory(): BelongsTo
+    {
+        return $this->belongsTo(CustomerCategory::class, 'customer_category_id');
     }
 
     /**

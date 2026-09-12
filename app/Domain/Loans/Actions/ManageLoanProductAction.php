@@ -152,6 +152,15 @@ final class ManageLoanProductAction
             'penaltyGraceDays' => 'penalty_grace_days',
             'penaltyCapAmount' => 'penalty_cap_amount',
             'requiresMandate' => 'requires_mandate',
+            /* The Loan Category screen's own terms. Presence-keyed like the
+               rest of this map, so a caller that predates them leaves them
+               alone rather than nulling them. */
+            'minRepayments' => 'min_repayments',
+            'maxRepayments' => 'max_repayments',
+            'allowsDeduction' => 'allows_deduction',
+            'approvalStageId' => 'approval_stage_id',
+            'topupPercent' => 'topup_percent',
+            'takeHomePercent' => 'take_home_percent',
             'status' => 'status',
         ];
 

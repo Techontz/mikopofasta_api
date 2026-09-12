@@ -310,8 +310,11 @@ describe('configuration lookups', function (): void {
             ->and($this->getJson('/api/v1/repayment-schedules')->assertOk()->json('data'))->toHaveCount(4);
     });
 
+    /* Which products a category may borrow is part of that category's
+       configuration, so it moved to the Super Admin with the rest of it —
+       updateEligibility authorizes through CustomerCategoryPolicy::update. */
     it('exposes and replaces the category eligibility rules', function (): void {
-        officerAt('Head Office', RoleName::Admin);
+        officerAt('Head Office', RoleName::SuperAdmin);
 
         $boda = CustomerCategory::query()->where('code', 'BODA')->sole();
 
@@ -333,13 +336,19 @@ describe('configuration lookups', function (): void {
             ->and($updated[0]['maxAmountOverride'])->toBe('750000.00');
     });
 
-    it('gates eligibility edits on admin.org_settings', function (): void {
-        officerAt('Kakonko', RoleName::LoanOfficer);
-
+    it('lets only the Super Admin edit category eligibility', function (): void {
         $boda = CustomerCategory::query()->where('code', 'BODA')->sole();
 
+        officerAt('Kakonko', RoleName::LoanOfficer);
         $this->putJson("/api/v1/customer-categories/{$boda->id}/eligibility", ['rules' => []])
             ->assertForbidden();
+
+        /* An Admin too: holding admin.org_settings no longer buys a change to
+           what a category may borrow. Reading it stays open. */
+        officerAt('Head Office', RoleName::Admin);
+        $this->putJson("/api/v1/customer-categories/{$boda->id}/eligibility", ['rules' => []])
+            ->assertForbidden();
+        $this->getJson("/api/v1/customer-categories/{$boda->id}/eligibility")->assertOk();
     });
 });
 

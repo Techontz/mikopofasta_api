@@ -37,6 +37,13 @@ final class LoanProductResource extends JsonResource
             'penaltyRate' => $this->penalty_rate,
             'penaltyGraceDays' => $this->penalty_grace_days,
             'penaltyCapAmount' => $this->penalty_cap_amount,
+            /* The Loan Category screen's own terms. */
+            'minRepayments' => $this->min_repayments,
+            'maxRepayments' => $this->max_repayments,
+            'allowsDeduction' => (bool) $this->allows_deduction,
+            'approvalStageId' => $this->approval_stage_id === null ? null : (string) $this->approval_stage_id,
+            'topupPercent' => $this->topup_percent,
+            'takeHomePercent' => $this->take_home_percent,
             'requiresMandate' => $this->requires_mandate,
             'status' => $this->status->value,
             'createdBy' => $this->created_by === null ? null : (string) $this->created_by,
@@ -45,6 +52,30 @@ final class LoanProductResource extends JsonResource
             'interestFormulaCode' => $this->whenLoaded(
                 'interestFormula',
                 fn (): ?string => $this->interestFormula?->code,
+            ),
+            /* Which tier signs these loans off, named. Null means the loan
+               walks the whole configured chain. */
+            'approvalStageName' => $this->whenLoaded(
+                'approvalStage',
+                fn (): ?string => $this->approvalStage?->name,
+            ),
+            /* The cadence the schedule gives it — Daily, Weekly, Monthly. The
+               legacy screen calls this the Duration. */
+            'durationNames' => $this->whenLoaded(
+                'repaymentSchedules',
+                fn (): array => $this->repaymentSchedules->map(fn ($s): string => (string) $s->name)->all(),
+            ),
+            /* The branches that offer it. Empty means every branch — see the
+               model's `branches` relation. */
+            'branchNames' => $this->whenLoaded(
+                'branches',
+                fn (): array => $this->branches->map(fn ($b): string => (string) $b->name)->all(),
+            ),
+            /* Which Customer Types may borrow it, resolved through the existing
+               eligibility pivot — never a list held on the product. */
+            'customerTypeIds' => $this->whenLoaded(
+                'eligibilityRules',
+                fn (): array => $this->eligibilityRules->map(fn ($e): string => (string) $e->customer_category_id)->all(),
             ),
             'allowedRepaymentScheduleIds' => $this->whenLoaded(
                 'repaymentSchedules',

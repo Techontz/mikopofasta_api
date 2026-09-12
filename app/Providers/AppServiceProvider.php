@@ -131,8 +131,9 @@ class AppServiceProvider extends ServiceProvider
      *  - `password-reset` keyed on email + IP. Tighter still, since each
      *                     attempt sends mail to a third party.
      *  - `api`            the authenticated default, keyed per user (falling
-     *                     back to IP), generous enough not to interfere with
-     *                     normal table paging.
+     *                     back to IP), and split by method: reads get room for
+     *                     a dashboard screen's worth of parallel loads, writes
+     *                     keep the tighter allowance.
      */
     private function configureRateLimiting(): void
     {
@@ -157,9 +158,39 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', static function (Request $request): Limit {
             $user = $request->user();
 
-            return $user !== null
-                ? Limit::perMinute(120)->by('api:'.$user->getAuthIdentifier())
-                : Limit::perMinute(30)->by('api-ip:'.$request->ip());
+            if ($user === null) {
+                return Limit::perMinute(30)->by('api-ip:'.$request->ip());
+            }
+
+            /*
+             * READS AND WRITES HAVE DIFFERENT THREAT PROFILES, so they get
+             * different ceilings.
+             *
+             * A single flat allowance of 120/minute was refusing ordinary work.
+             * One dashboard screen legitimately issues a handful of GETs —
+             * branches, staff, requirement profiles, reference lists — and an
+             * officer moving between screens for a minute could exhaust it and
+             * be shown "Too many attempts" for doing their job. A limit that
+             * fires during normal use is not protection, it is an outage that
+             * arrives on a schedule.
+             *
+             * A GET moves no money and changes no record; the worst a flood of
+             * them does is cost database time, which a higher ceiling still
+             * bounds. Writes keep the tighter allowance, because those are the
+             * requests worth slowing down, and the auth, password-reset and
+             * webhook limiters above are untouched — none of this loosens
+             * anything that guards a credential or a transaction.
+             *
+             * The real fix for the screen that hit this was to stop asking for
+             * fourteen reference lists one at a time (see
+             * MasterDataController::all). This is the headroom that stops a
+             * legitimate burst reading as an attack.
+             */
+            $key = 'api:'.$user->getAuthIdentifier();
+
+            return $request->isMethodSafe()
+                ? Limit::perMinute(600)->by('api-read:'.$key)
+                : Limit::perMinute(120)->by($key);
         });
     }
 

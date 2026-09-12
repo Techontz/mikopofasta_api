@@ -15,10 +15,20 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Customer categories — the KYC/risk rule engine (§2.3).
+ * Customer Types — the broad customer classification, and the KYC/risk rule
+ * engine behind it (§2.3).
  *
- * Unpaginated: the registration wizard loads the full list to populate its
- * category picker and to render the matching dynamic form.
+ * The table is `customer_categories` and the payload property is
+ * `customerCategoryId`; both keep their names because production customers,
+ * eligibility rules, required documents and the KYC engine all point at them.
+ * The business term, and everything a person reads, is Customer Type.
+ *
+ * Unpaginated: the registration wizard loads the whole list to populate its
+ * picker and to render the matching dynamic form.
+ *
+ * WRITES ARE SUPER ADMIN ONLY — CustomerCategoryPolicy. Reads stay open,
+ * because registration needs them and a Loan Officer holds no admin
+ * permission.
  */
 final class CustomerCategoryController extends Controller
 {
@@ -31,6 +41,12 @@ final class CustomerCategoryController extends Controller
 
         $categories = CustomerCategory::query()
             ->withCount('customers')
+            /* `?activeOnly=1` is what the registration wizard asks for: a type
+               the institution has retired must not be offered to a new
+               customer, while the administration screen still lists it so it
+               can be switched back on. */
+            ->when($request->boolean('activeOnly'), fn ($query) => $query->where('is_active', true))
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 

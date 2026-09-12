@@ -20,6 +20,9 @@ beforeEach(function (): void {
 function bankAccountPayload(array $overrides = []): array
 {
     return array_merge([
+        'accountType' => 'bank',
+        'usage' => 'both',
+        'bankId' => App\Models\MasterData\Bank::query()->where('code', 'CRDB')->value('id'),
         'bankName' => 'CRDB Bank',
         'accountName' => 'Mikopofasta Operations',
         'accountNumber' => '0150999888777',
@@ -85,7 +88,11 @@ describe('registering', function (): void {
 
         $this->postJson('/api/v1/bank-accounts', bankAccountPayload())
             ->assertStatus(422)
-            ->assertJsonPath('errors.accountNumber.0', 'That account number is already registered.');
+            ->assertJsonPath(
+                'errors.accountNumber.0',
+                'This account is already registered. The same number under the same provider cannot be '
+                .'registered twice, however it is formatted.',
+            );
     });
 
     it('refuses an account number with letters in it', function (): void {
@@ -93,7 +100,7 @@ describe('registering', function (): void {
 
         $this->postJson('/api/v1/bank-accounts', bankAccountPayload(['accountNumber' => 'ACC-12345']))
             ->assertStatus(422)
-            ->assertJsonPath('errors.accountNumber.0', 'Digits and dashes only.');
+            ->assertJsonPath('errors.accountNumber.0', 'Digits, spaces and dashes only.');
     });
 
     it('refuses a negative opening balance', function (): void {
@@ -216,7 +223,11 @@ describe('account balance', function (): void {
             ->assertOk()
             ->assertJsonStructure([
                 'data' => [[
-                    'id', 'bankName', 'accountName', 'accountNumber', 'branch',
+                    /* No 'branch'. A company money account belongs to the
+                       company; the channel and its direction are what a caller
+                       needs instead. */
+                    'id', 'bankName', 'accountName', 'accountNumber',
+                    'accountType', 'usage', 'channelLabel',
                     'currency', 'openingBalance', 'balance', 'status', 'description',
                     'todayDeposit', 'todayWithdrawal',
                 ]],

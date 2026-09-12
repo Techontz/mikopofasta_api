@@ -135,6 +135,61 @@ enum LoanStatus: string
         return in_array($this, [self::Active, self::Arrears, self::Defaulted, self::Frozen], true);
     }
 
+    /*
+     * The four buckets the Branch List counts customers into.
+     *
+     * Named here rather than spelled out at the call site, because "which
+     * statuses mean the loan is still being decided" is the enum's own
+     * knowledge and a second copy of that list would drift the first time a
+     * status is added.
+     */
+
+    /**
+     * In default, or already written off.
+     *
+     * @return list<string>
+     */
+    public static function defaultedStates(): array
+    {
+        return [self::Defaulted->value, self::WrittenOff->value];
+    }
+
+    /**
+     * Money is out and the loan is live.
+     *
+     * @return list<string>
+     */
+    public static function openStates(): array
+    {
+        return [self::Active->value, self::Arrears->value, self::Frozen->value];
+    }
+
+    /**
+     * Applied for, not yet disbursed — still in flight.
+     *
+     * @return list<string>
+     */
+    public static function inFlightStates(): array
+    {
+        return array_values(array_map(
+            static fn (self $status): string => $status->value,
+            array_filter(
+                self::cases(),
+                static fn (self $status): bool => ! $status->isTerminal() && ! $status->isOpenBook(),
+            ),
+        ));
+    }
+
+    /**
+     * Finished cleanly.
+     *
+     * @return list<string>
+     */
+    public static function settledStates(): array
+    {
+        return [self::Closed->value, self::Recovered->value];
+    }
+
     /** @return list<string> */
     public static function values(): array
     {

@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use App\Domain\Customers\Services\KycDocumentStorage;
 use App\Models\Customer;
+use App\Support\JsonRecord;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\URL;
@@ -156,7 +157,10 @@ final class CustomerResource extends JsonResource
             'cardExpiryYear' => $this->card_expiry_year,
 
             'customerCategoryId' => self::id($this->customer_category_id),
-            'dynamicFormData' => $this->dynamic_form_data,
+            /* An OBJECT, always — see JsonRecord. A customer whose type asks
+               no JSON-stored questions holds an empty record, and PHP would
+               otherwise send it as `[]` and have the client refuse it. */
+            'dynamicFormData' => JsonRecord::from($this->dynamic_form_data),
             'branchId' => (string) $this->branch_id,
 
             'kycStatus' => $this->kyc_status->value,

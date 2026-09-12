@@ -41,13 +41,24 @@ final class BankAccountResource extends JsonResource
             'accountName' => $this->account_name,
             'accountNumber' => $this->account_number,
 
-            // The frontend schema declares a printed branch name.
-            'branch' => $this->whenLoaded(
-                'branch',
-                fn (): string => $this->branch_id === null ? '' : $this->branch->name,
-                '',
-            ),
-            'branchId' => $this->branch_id === null ? null : (string) $this->branch_id,
+            /*
+             * No branch. A company money account belongs to the company, not to
+             * a branch — see BankAccountData. Branch is still reported on the
+             * TRANSACTIONS that move through this account, which is where it
+             * genuinely means something.
+             */
+            'accountType' => $this->account_type->value,
+            'accountTypeLabel' => $this->account_type->label(),
+            'usage' => $this->usage->value,
+            'usageLabel' => $this->usage->label(),
+
+            'bankId' => $this->bank_id === null ? null : (string) $this->bank_id,
+            'mobileMoneyProviderId' => $this->mobile_money_provider_id === null
+                ? null
+                : (string) $this->mobile_money_provider_id,
+
+            /* How this account names itself in a selector — "NMB Bank — 2011…". */
+            'channelLabel' => $this->channelLabel(),
 
             'currency' => $this->currency->value,
             'openingBalance' => $this->opening_balance,

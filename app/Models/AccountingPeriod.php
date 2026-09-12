@@ -30,6 +30,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $realised_profit
  * @property string $reserve_percentage
  * @property string $reserve_appropriated
+ * @property string|null $reinvestment_percentage
+ * @property string|null $dividend_percentage
+ * @property string|null $reinvested_amount
+ * @property string|null $dividend_amount
+ * @property int|null $distribution_journal_entry_id
  * @property int|null $profit_journal_entry_id
  * @property int|null $reserve_journal_entry_id
  * @property int|null $closed_by
@@ -42,7 +47,12 @@ class AccountingPeriod extends Model
     protected $fillable = [
         'period', 'status', 'income_total', 'expense_total', 'realised_profit',
         'reserve_percentage', 'reserve_appropriated',
+        // What the period distributed, and at which rates — see the
+        // 2026_08_27 migration for why the rates are recorded here.
+        'reinvestment_percentage', 'dividend_percentage',
+        'reinvested_amount', 'dividend_amount',
         'profit_journal_entry_id', 'reserve_journal_entry_id',
+        'distribution_journal_entry_id',
         'closed_by', 'closed_at', 'notes',
     ];
 

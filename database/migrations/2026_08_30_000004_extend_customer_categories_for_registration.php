@@ -25,11 +25,13 @@ use Illuminate\Support\Facades\Schema;
  * decide which fields are required would give one column two unrelated jobs
  * and make either impossible to change alone.
  *
- * THE TWO MISSING CATEGORIES. `CUSTOMER REGISTRATION OVERVIEW.docx` lists
- * seven categories; five were seeded. Wanachuo and Retired are added here with
- * their own questions and document lists. Nothing is renamed: the five
- * existing codes are referenced by `category_product_eligibility` rows and by
- * every customer already filed under them.
+ * NO CUSTOMER TYPES ARE CREATED HERE. An earlier draft of this migration
+ * inserted two of them and updated five more; that seeding was removed, because
+ * which customer types an institution serves is its own decision and a
+ * migration is the wrong place to make one. This migration adds COLUMNS only.
+ * A fresh installation gets an empty list and the Super Administrator fills it.
+ * (Development and test databases get demonstration rows from
+ * CustomerCategorySeeder, which no production installation runs.)
  *
  * DOCUMENT LISTS ARE UPDATED, NOT ENFORCED. Changing `required_documents`
  * changes what the profile REPORTS as missing. It changes nothing about who

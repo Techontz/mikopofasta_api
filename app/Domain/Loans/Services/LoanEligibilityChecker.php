@@ -107,7 +107,7 @@ final class LoanEligibilityChecker
          * savings account type may legitimately require none, and a hardcoded
          * minimum made that unrepresentable.
          */
-        $minimumGuarantors = $this->requirements->forCustomer($customer)->min_guarantors;
+        $minimumGuarantors = $this->requirements->resolveForCustomer($customer)->minGuarantors;
 
         if ($minimumGuarantors > 0 && $guarantorCount < $minimumGuarantors) {
             $violations[] = new EligibilityViolation(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Organization;
 
+use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Services\BranchApprovalRouter;
 use App\Domain\Organization\Actions\ConfigureBranchRouteAction;
 use App\Domain\Organization\Actions\CreateBranchAction;
@@ -54,8 +55,50 @@ final class BranchController extends Controller
 
         $filters = $request->validated();
 
+        /*
+         * The Branch List's customer-status counts.
+         *
+         * Five numbers per branch, computed in the query rather than by loading
+         * every customer: the list is a handful of rows and each count is one
+         * correlated subquery.
+         *
+         * The four buckets are MUTUALLY EXCLUSIVE, in order of what an officer
+         * needs to see first — a customer in default is counted there and
+         * nowhere else, even if they also hold a healthy loan. Without the
+         * exclusion the columns would sum to more than the branch has
+         * customers, which is exactly the sort of number nobody can act on.
+         *
+         * A customer with no loan at all appears only in `all`. That is
+         * deliberate: they are on the book, but none of the four states
+         * describes them.
+         */
+        $default = LoanStatus::defaultedStates();
+        $open = LoanStatus::openStates();
+        $pending = LoanStatus::inFlightStates();
+        $done = LoanStatus::settledStates();
+
+        $inState = static fn (array $states) => static fn ($loans) => $loans->whereIn('status', $states);
+
         $query = Branch::query()
             ->with(['region', 'zone', 'parent'])
+            ->withCount([
+                'customers as customers_all_count',
+
+                'customers as customers_default_count' => static fn ($q) => $q
+                    ->whereHas('loans', $inState($default)),
+
+                'customers as customers_active_count' => static fn ($q) => $q
+                    ->whereHas('loans', $inState($open))
+                    ->whereDoesntHave('loans', $inState($default)),
+
+                'customers as customers_pending_count' => static fn ($q) => $q
+                    ->whereHas('loans', $inState($pending))
+                    ->whereDoesntHave('loans', $inState([...$default, ...$open])),
+
+                'customers as customers_done_count' => static fn ($q) => $q
+                    ->whereHas('loans', $inState($done))
+                    ->whereDoesntHave('loans', $inState([...$default, ...$open, ...$pending])),
+            ])
             ->when(
                 isset($filters['search']),
                 fn ($q) => $q->where(function ($q) use ($filters): void {

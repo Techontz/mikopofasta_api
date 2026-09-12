@@ -7,6 +7,7 @@ namespace App\Domain\Customers\Actions;
 use App\Domain\Customers\Enums\CustomerApprovalStatus;
 use App\Domain\Customers\Services\DynamicFormValidator;
 use App\Domain\Customers\Services\KycEvaluator;
+use App\Domain\Customers\Support\StructuredRegistrationField;
 use App\Enums\AuditAction;
 use App\Models\Customer;
 use App\Models\CustomerCategory;
@@ -37,7 +38,21 @@ final class AssignCustomerCategoryAction
         array $dynamicFormData,
         User $actor,
     ): Customer {
-        $clean = $this->dynamicForm->validate($category, $dynamicFormData);
+        /*
+         * The customer's OWN columns stand in for the registration payload.
+         *
+         * A configured field may name a real column — see
+         * StructuredRegistrationField — and the validator judges those against
+         * the payload rather than the JSON. This screen sends no payload: it is
+         * assigning a type to somebody already on file. Handing over an empty
+         * one would report every structured requirement missing on a customer
+         * whose salary and sector have been recorded for months.
+         */
+        $clean = $this->dynamicForm->validate(
+            $category,
+            $dynamicFormData,
+            StructuredRegistrationField::payloadFrom($customer->getAttributes()),
+        );
 
         return DB::transaction(function () use ($customer, $category, $clean, $actor): Customer {
             $before = [

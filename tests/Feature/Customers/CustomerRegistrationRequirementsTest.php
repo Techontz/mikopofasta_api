@@ -239,15 +239,32 @@ describe('identity capture', function (): void {
         'work ID' => ['workIdNumber', 'EMP-3391'],
     ]);
 
+    it('accepts an ID type and its number in place of the six named columns', function (): void {
+        officerAt();
+
+        $payload = registrationPayload();
+        unset($payload['nidaNumber']);
+        $payload['idTypeId'] = App\Models\MasterData\IdType::query()->value('id');
+        $payload['idNumber'] = '19900101334455';
+
+        /* The shape the 2026_08_30 migration introduced and the registration
+           form now sends. It used to be refused by one rule and accepted by
+           another; both now agree. */
+        $this->postJson('/api/v1/customers', $payload)->assertCreated();
+    });
+
     it('refuses a registration carrying no identity document at all', function (): void {
         officerAt();
 
         $payload = registrationPayload();
         unset($payload['nidaNumber']);
 
+        /* Reported on the ID TYPE, which is the first identity control on the
+           form. It used to land on `nationalIdNumber`, a box the form no longer
+           shows — an error nobody could see, let alone act on. */
         $this->postJson('/api/v1/customers', $payload)
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['nationalIdNumber']);
+            ->assertJsonValidationErrors(['idTypeId']);
     });
 
     /*
@@ -271,8 +288,10 @@ describe('identity capture', function (): void {
     it('does not let a missing NIDA integration block KYC completion', function (): void {
         officerAt();
 
-        $this->postJson('/api/v1/customers', registrationPayload())->assertCreated();
-        $customer = Customer::query()->latest('id')->firstOrFail();
+        /* Registered AND scanned — the subject here is whether a missing NIDA
+           integration blocks completion, not whether a face was verified, and
+           leaving the scan undone would fail this for the wrong reason. */
+        $customer = pendingRegistration();
 
         $status = $this->getJson("/api/v1/customers/{$customer->id}/kyc-status")->assertOk();
 

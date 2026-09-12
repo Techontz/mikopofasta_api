@@ -51,18 +51,13 @@ final class RegisterBankAccountAction
         return DB::transaction(function () use ($data, $actor): BankAccount {
             $chartAccount = $this->accounts->createAccountFor($data->bankName, $data->accountName);
 
-            $account = BankAccount::query()->create([
-                'bank_name' => $data->bankName,
-                'account_number' => $data->accountNumber,
-                'account_name' => $data->accountName,
-                'branch_id' => $data->branchId,
-                'currency' => $data->currency,
-                'opening_balance' => $data->openingBalance,
-                'description' => $data->description,
-                'chart_account_id' => $chartAccount->getKey(),
-                'status' => $data->status,
-                'created_by' => $actor->getKey(),
-            ]);
+            /* fill()+save() rather than create(): the attribute map is built
+               by the DTO, and `fill` is the API that takes one. */
+            $account = new BankAccount;
+            $account->fill($data->toAttributes());
+            $account->chart_account_id = (int) $chartAccount->getKey();
+            $account->created_by = (int) $actor->getKey();
+            $account->save();
 
             $opening = Money::of($data->openingBalance);
 
@@ -72,7 +67,11 @@ final class RegisterBankAccountAction
                     JournalSourceType::CapitalInjection,
                     (int) $account->getKey(),
                     [
-                        JournalLine::debit((int) $chartAccount->getKey(), $opening, branchId: $data->branchId),
+                        /* No branch on the line. The account is company-level,
+                           so attributing its opening balance to one branch
+                           would misstate that branch's position by the whole
+                           amount. */
+                        JournalLine::debit((int) $chartAccount->getKey(), $opening),
                         JournalLine::credit($this->chart->systemId(SystemAccountCode::Capital), $opening),
                     ],
                     $actor,
@@ -85,6 +84,8 @@ final class RegisterBankAccountAction
                 AuditAction::BankAccountRegistered,
                 $account,
                 after: [
+                    'account_type' => $account->account_type->value,
+                    'usage' => $account->usage->value,
                     'bank_name' => $account->bank_name,
                     'account_number' => $account->account_number,
                     'chart_account_code' => $chartAccount->code,
@@ -93,7 +94,7 @@ final class RegisterBankAccountAction
                 actor: $actor,
             );
 
-            return $account->load(['chartAccount', 'branch']);
+            return $account->load(['chartAccount', 'bank', 'mobileMoneyProvider']);
         });
     }
 }

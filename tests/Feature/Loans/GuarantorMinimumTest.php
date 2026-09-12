@@ -169,24 +169,27 @@ describe('changing the configuration', function (): void {
         $customer->forceFill(['account_type_id' => $accountType->getKey()])->save();
 
         $accountTypeId = $accountType->getKey();
-        $profile = app(AccountTypeRequirementResolver::class)->forCustomer($customer->refresh());
+        /* The COMPOSED profile, not a raw row. A stored row may leave a flag
+           NULL meaning "inherit"; the endpoint below wants a concrete answer
+           for every field, which is exactly what composition produces. */
+        $profile = app(AccountTypeRequirementResolver::class)->resolveForCustomer($customer->refresh());
 
         officerAt('Kakonko', RoleName::Admin);
 
         $this->putJson("/api/v1/registration/requirements/{$accountTypeId}", [
-            'requiresEmploymentDetails' => $profile->requires_employment_details,
-            'requiresBusinessDetails' => $profile->requires_business_details,
-            'requiresBankAccount' => $profile->requires_bank_account,
-            'requiresCardDetails' => $profile->requires_card_details,
+            'requiresEmploymentDetails' => $profile->requiresEmploymentDetails,
+            'requiresBusinessDetails' => $profile->requiresBusinessDetails,
+            'requiresBankAccount' => $profile->requiresBankAccount,
+            'requiresCardDetails' => $profile->requiresCardDetails,
             'minGuarantors' => 2,
-            'minNextOfKin' => $profile->min_next_of_kin,
-            'requiresCustomerCategory' => $profile->requires_customer_category,
-            'requiresMaritalStatus' => $profile->requires_marital_status,
-            'requiresAddress' => $profile->requires_address,
-            'requiresIdentityDocument' => $profile->requires_identity_document,
-            'requiresFaceVerification' => $profile->requires_face_verification,
-            'requiresNidaVerification' => $profile->requires_nida_verification,
-            'requiresOtpVerification' => $profile->requires_otp_verification,
+            'minNextOfKin' => $profile->minNextOfKin,
+            'requiresCustomerCategory' => $profile->requiresCustomerCategory,
+            'requiresMaritalStatus' => $profile->requiresMaritalStatus,
+            'requiresAddress' => $profile->requiresAddress,
+            'requiresIdentityDocument' => $profile->requiresIdentityDocument,
+            'requiresFaceVerification' => $profile->requiresFaceVerification,
+            'requiresNidaVerification' => $profile->requiresNidaVerification,
+            'requiresOtpVerification' => $profile->requiresOtpVerification,
         ])->assertOk();
 
         officerAt('Kakonko', RoleName::LoanOfficer);
