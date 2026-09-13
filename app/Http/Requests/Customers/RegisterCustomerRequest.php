@@ -6,6 +6,7 @@ namespace App\Http\Requests\Customers;
 
 use App\Domain\Auth\Enums\PermissionName;
 use App\Domain\Customers\Enums\Gender;
+use App\Domain\Customers\Enums\PaymentMethod;
 use App\Domain\Customers\Enums\GuarantorRelationship;
 use App\Domain\Customers\Enums\MaritalStatus;
 use App\Domain\Customers\Enums\ResidenceType;
@@ -171,6 +172,10 @@ final class RegisterCustomerRequest extends FormRequest
             'bankBranch' => ['nullable', 'string', 'max:100'],
             'mobileMoneyProvider' => ['nullable', 'string', 'max:60'],
             'walletNumber' => ['nullable', 'string', 'max:30'],
+            /* Which kind of account was chosen. Nullable: an account type that
+               requires none leaves a customer with neither, and a client from
+               before this existed sends nothing — see checkPaymentMethod. */
+            'paymentMethod' => ['nullable', Rule::enum(PaymentMethod::class)],
 
             // Where the record came from. Defaulted server-side rather than
             // trusted from the client for anything but the device string.
@@ -307,6 +312,7 @@ final class RegisterCustomerRequest extends FormRequest
                 $this->checkEmployment($validator, $profile);
                 $this->checkBusiness($validator, $profile);
                 $this->checkBankAccount($validator, $profile);
+                $this->checkPaymentMethod($validator);
                 $this->checkCard($validator, $profile);
                 $this->checkRelations($validator, $profile);
                 $this->checkCategory($validator, $profile);
@@ -550,6 +556,48 @@ final class RegisterCustomerRequest extends FormRequest
             'bankDetails.accountNumber',
             'A bank account or a mobile money wallet number is required for this account type.',
         );
+    }
+
+    /**
+     * The chosen kind of account must actually carry one.
+     *
+     * `checkBankAccount` above answers a different question — whether the
+     * ACCOUNT TYPE demands an account at all. This one is about the officer's
+     * own answer: having said "mobile money", a provider and a number are what
+     * that answer consists of, and a record that names MNO with neither is a
+     * choice with nothing behind it. The frontend refuses the same combination
+     * before Save; this is what makes it a rule rather than a convention, and
+     * what protects the column from a client that does not.
+     *
+     * SILENT WHEN NOTHING WAS CHOSEN. A payload with no `paymentMethod` is a
+     * client older than the column, and the values it does send are still
+     * accepted and still stored; the action derives the method from them.
+     */
+    private function checkPaymentMethod(Validator $validator): void
+    {
+        $method = $this->stringOrNull('paymentMethod');
+
+        if ($method === PaymentMethod::Mno->value) {
+            if ($this->input('mobileMoneyProviderId') === null) {
+                $validator->errors()->add('mobileMoneyProviderId', 'Choose the mobile money provider.');
+            }
+
+            if ($this->stringOrNull('walletNumber') === null) {
+                $validator->errors()->add('walletNumber', 'Enter the number the wallet is registered on.');
+            }
+        }
+
+        if ($method === PaymentMethod::Bank->value) {
+            $bank = $this->input('bankDetails');
+
+            if ($this->input('bankId') === null) {
+                $validator->errors()->add('bankId', 'Choose the bank.');
+            }
+
+            if (! is_array($bank) || ($bank['accountNumber'] ?? null) === null) {
+                $validator->errors()->add('bankDetails.accountNumber', 'Enter the account number.');
+            }
+        }
     }
 
     private function checkCard(Validator $validator, ResolvedRequirements $profile): void

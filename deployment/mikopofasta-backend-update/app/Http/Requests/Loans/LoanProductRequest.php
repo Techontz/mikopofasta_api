@@ -1,0 +1,107 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests\Loans;
+
+use App\Domain\Loans\Enums\PenaltyType;
+use App\Enums\ActiveStatus;
+use App\Models\LoanProduct;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+/**
+ * Mirrors the frontend's CreateLoanProductInputSchema.
+ *
+ * Money and rates arrive as decimal strings and are validated as such — see
+ * the note on ApplyForLoanRequest for why a float is never accepted.
+ *
+ * `penaltyRate` allows 3 decimals and a wide range because its unit depends on
+ * `penaltyType`: a percentage for the two percentage types, a flat TZS amount
+ * for `flat_fee` (§2.3, OSC-2).
+ */
+final class LoanProductRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        $product = $this->route('product');
+        $id = $product instanceof LoanProduct ? $product->getKey() : null;
+
+        return [
+            'name' => ['required', 'string', 'min:2', 'max:120'],
+            'code' => ['required', 'string', 'min:2', 'max:40', Rule::unique('loan_products', 'code')->ignore($id)->whereNull('deleted_at')],
+
+            'interestFormulaId' => ['required', 'integer', Rule::exists('interest_formulas', 'id')->whereNull('deleted_at')],
+            'interestRate' => ['required', 'numeric', 'decimal:0,3', 'min:0', 'max:999.999'],
+
+            /*
+             * What the rate means — P2, left open by the client and therefore
+             * optional here. Omitted means the default basis (AS_CONFIGURED),
+             * which is what every product configured before the question was
+             * asked already means.
+             *
+             * Restricted to ACTIVE bases. PER_ANNUM is seeded inactive, so the
+             * option cannot be selected until the client confirms — the answer
+             * is enforced by data, not by leaving the field out of the schema.
+             */
+            'interestRateBasisId' => [
+                'sometimes', 'nullable', 'integer',
+                Rule::exists('interest_rate_bases', 'id')->where('is_active', true)->whereNull('deleted_at'),
+            ],
+
+            'minAmount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
+            'maxAmount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'gte:minAmount'],
+
+            'minTenureDays' => ['required', 'integer', 'min:1', 'max:3650'],
+            'maxTenureDays' => ['required', 'integer', 'min:1', 'max:3650', 'gte:minTenureDays'],
+
+            /*
+             * The Loan Category screen's own terms. All optional, because every
+             * product that exists predates them and a save that does not
+             * mention one must not invent a value for it.
+             */
+            'minRepayments' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:600'],
+            'maxRepayments' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:600', 'gte:minRepayments'],
+            'allowsDeduction' => ['sometimes', 'boolean'],
+            /* A stage from the configured chain — never one of three hardcoded
+               words. Null means the loan walks the whole chain. */
+            'approvalStageId' => ['sometimes', 'nullable', 'integer', Rule::exists('loan_approval_stages', 'id')->whereNull('deleted_at')],
+            'topupPercent' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
+            'takeHomePercent' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
+
+            'penaltyType' => ['required', 'string', Rule::in(PenaltyType::values())],
+            'penaltyRate' => ['required', 'numeric', 'decimal:0,3', 'min:0'],
+            'penaltyGraceDays' => ['required', 'integer', 'min:0', 'max:365'],
+            'penaltyCapAmount' => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'gt:0'],
+
+            'requiresMandate' => ['required', 'boolean'],
+            'status' => ['sometimes', 'string', Rule::in(ActiveStatus::values())],
+
+            // Which cadences this product allows (§2.3 pivot). Required and
+            // non-empty: a product no schedule can be applied under is a
+            // product no loan can ever use.
+            'repaymentScheduleIds' => ['required', 'array', 'min:1'],
+            'repaymentScheduleIds.*' => ['integer', Rule::exists('repayment_schedules', 'id')->whereNull('deleted_at')],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'maxAmount.gte' => 'The maximum amount must be at least the minimum amount.',
+            'maxTenureDays.gte' => 'The maximum tenure must be at least the minimum tenure.',
+            'repaymentScheduleIds.required' => 'A product must allow at least one repayment schedule.',
+        ];
+    }
+}

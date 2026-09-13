@@ -234,6 +234,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     /* BEFORE the generic /master-data/{list} below, which would otherwise
        swallow this path and 404 on an unknown list name. Sector categories
        take a parent filter, so they cannot be served by the flat handler. */
+    /* Parented lists, narrowed by their parent. BEFORE the generic
+       /master-data/{list} below, which would otherwise swallow the slug. */
+    Route::get('/master-data/parented/{list}', [MasterDataController::class, 'parented'])
+        ->name('master-data.parented');
+
     Route::get('/master-data/sector-categories', [MasterDataController::class, 'sectorCategories'])
         ->name('master-data.sector-categories');
     /* The cadre write path. Without it a sector can be created and never

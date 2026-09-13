@@ -50,6 +50,9 @@ final class CustomerCategoryResource extends JsonResource
             'requiresContract' => $this->requires_contract,
             'requiresSalary' => $this->requires_salary,
             'dynamicFormSchema' => $this->dynamic_form_schema,
+            /* Standard questions this type declines to ask. Empty, never null, so
+               the client can iterate it without a guard. */
+            'omittedStandardFields' => $this->omitted_standard_fields ?? [],
             'requiresExtraApproval' => $this->requires_extra_approval,
             'createdBy' => $this->created_by === null ? null : (string) $this->created_by,
             'deletedAt' => $this->deleted_at?->toIso8601String(),

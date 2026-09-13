@@ -10,6 +10,7 @@ use App\Domain\Customers\Enums\FaceScanStatus;
 use App\Domain\Customers\Enums\Gender;
 use App\Domain\Customers\Enums\KycStatus;
 use App\Domain\Customers\Enums\MaritalStatus;
+use App\Domain\Customers\Enums\PaymentMethod;
 use App\Domain\Customers\Enums\ResidenceType;
 use App\Enums\FreezableType;
 use App\Models\MasterData\AccountType;
@@ -117,6 +118,8 @@ class Customer extends Model
         'business_name', 'business_type', 'business_address',
         'bank_name', 'bank_branch', 'account_name', 'account_number',
         'mobile_money_provider', 'wallet_number',
+        /* Which of the two the officer chose — see PaymentMethod. */
+        'payment_method',
         'profile_photo', 'face_photo',
         'registration_source', 'created_device', 'updated_device',
 
@@ -527,6 +530,7 @@ class Customer extends Model
             'gender' => Gender::class,
             'marital_status' => MaritalStatus::class,
             'residence_type' => ResidenceType::class,
+            'payment_method' => PaymentMethod::class,
             'kyc_status' => KycStatus::class,
             'status' => CustomerStatus::class,
             'approval_status' => CustomerApprovalStatus::class,

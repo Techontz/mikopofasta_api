@@ -6,17 +6,29 @@ namespace App\Support;
 
 use App\Models\MasterData\AccountType;
 use App\Models\MasterData\Bank;
+use App\Models\MasterData\BusinessSector;
+use App\Models\MasterData\BusinessType;
+use App\Models\MasterData\College;
 use App\Models\MasterData\ContractType;
+use App\Models\MasterData\Course;
 use App\Models\MasterData\CustomerType;
 use App\Models\MasterData\DocumentType;
 use App\Models\MasterData\Employer;
 use App\Models\MasterData\EmploymentType;
+use App\Models\MasterData\GovernmentBody;
+use App\Models\MasterData\GovernmentCadre;
+use App\Models\MasterData\GovernmentDepartment;
 use App\Models\MasterData\IdType;
 use App\Models\MasterData\LoanType;
 use App\Models\MasterData\MaritalStatusOption;
 use App\Models\MasterData\MasterDataModel;
 use App\Models\MasterData\MobileMoneyProvider;
 use App\Models\MasterData\Occupation;
+use App\Models\MasterData\PensionFund;
+use App\Models\MasterData\PrivateCadre;
+use App\Models\MasterData\PrivateDepartment;
+use App\Models\MasterData\PrivateEmployer;
+use App\Models\MasterData\PrivateSector;
 use App\Models\MasterData\Sector;
 use App\Models\MasterData\SectorCategory;
 use App\Models\MasterData\WorkType;
@@ -66,10 +78,36 @@ final class MasterDataRegistry
         'sectors' => Sector::class,
         /* Private companies. A SEPARATE list from `sectors`. */
         'employers' => Employer::class,
+        /* The roots of the five customer types' cascades — see the
+           2026_09_12 migration. Their children are parented and so are NOT
+           here, for the same reason `sector-categories` is not: a form that
+           has chosen a ministry wants that ministry's departments, not every
+           department in government. */
+        'government-bodies' => GovernmentBody::class,
+        'private-sectors' => PrivateSector::class,
+        'business-sectors' => BusinessSector::class,
+        'colleges' => College::class,
+        'pension-funds' => PensionFund::class,
     ];
 
-    /** The slug for the one list that has a parent. */
+    /** The first list that had a parent, and still the one `sectors` feeds. */
     public const string SECTOR_CATEGORIES = 'sector-categories';
+
+    /**
+     * Every parented source, and the model behind it.
+     *
+     * @var array<string, class-string<MasterDataModel>>
+     */
+    public const array PARENTED = [
+        self::SECTOR_CATEGORIES => SectorCategory::class,
+        'government-departments' => GovernmentDepartment::class,
+        'government-cadres' => GovernmentCadre::class,
+        'private-employers' => PrivateEmployer::class,
+        'private-departments' => PrivateDepartment::class,
+        'private-cadres' => PrivateCadre::class,
+        'business-types' => BusinessType::class,
+        'courses' => Course::class,
+    ];
 
     /**
      * Which column a parented source filters on.
@@ -82,6 +120,13 @@ final class MasterDataRegistry
      */
     public const array PARENT_COLUMNS = [
         self::SECTOR_CATEGORIES => 'sector_id',
+        'government-departments' => 'government_body_id',
+        'government-cadres' => 'government_department_id',
+        'private-employers' => 'private_sector_id',
+        'private-departments' => 'private_sector_id',
+        'private-cadres' => 'private_department_id',
+        'business-types' => 'business_sector_id',
+        'courses' => 'college_id',
     ];
 
     /** The column a source filters on when it depends on another field, or null. */
@@ -97,7 +142,7 @@ final class MasterDataRegistry
      */
     public static function sources(): array
     {
-        return [...array_keys(self::LISTS), self::SECTOR_CATEGORIES];
+        return [...array_keys(self::LISTS), ...array_keys(self::PARENTED)];
     }
 
     /**
@@ -112,10 +157,6 @@ final class MasterDataRegistry
      */
     public static function model(string $source): ?string
     {
-        if ($source === self::SECTOR_CATEGORIES) {
-            return SectorCategory::class;
-        }
-
-        return self::LISTS[$source] ?? null;
+        return self::PARENTED[$source] ?? self::LISTS[$source] ?? null;
     }
 }

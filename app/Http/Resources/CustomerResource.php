@@ -116,6 +116,9 @@ final class CustomerResource extends JsonResource
             'accountNumber' => $this->account_number,
             'mobileMoneyProvider' => $this->mobile_money_provider,
             'walletNumber' => $this->wallet_number,
+            /* Which kind of account this is, as the officer chose it, rather
+               than as the filled columns imply — see PaymentMethod. */
+            'paymentMethod' => $this->payment_method?->value,
 
             'registrationSource' => $this->registration_source,
 
