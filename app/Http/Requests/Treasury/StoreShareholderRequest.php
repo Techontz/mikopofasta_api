@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Treasury;
 
+use App\Domain\Treasury\Policies\CapitalPolicy;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,9 +16,18 @@ use Illuminate\Validation\Rule;
  */
 final class StoreShareholderRequest extends FormRequest
 {
+    /**
+     * Registering and editing a shareholder is `treasury.manage` (CapitalPolicy).
+     *
+     * Checked here, not only in the controller, so a caller without it is
+     * refused with 403 before validation runs — rather than being shown
+     * validation errors for a form they may not submit at all.
+     */
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user instanceof User && app(CapitalPolicy::class)->manage($user);
     }
 
     /** @return array<string, mixed> */

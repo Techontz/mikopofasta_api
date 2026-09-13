@@ -125,6 +125,49 @@ describe('rbac', function (): void {
         $this->postJson('/api/v1/shareholders', shareholderPayload())->assertForbidden();
     });
 
+    it('refuses a read-only treasury role on edit and delete too', function (): void {
+        officerAt('Head Office', RoleName::Finance);
+        $id = $this->postJson('/api/v1/shareholders', shareholderPayload())->assertCreated()->json('data.id');
+
+        officerAt('Head Office', RoleName::Admin);
+
+        $this->putJson("/api/v1/shareholders/{$id}", shareholderPayload(['fullName' => 'Changed Name']))
+            ->assertForbidden();
+        $this->deleteJson("/api/v1/shareholders/{$id}")->assertForbidden();
+
+        $shareholder = Shareholder::query()->findOrFail($id);
+        expect($shareholder->full_name)->toBe('Mseti Ally')
+            ->and($shareholder->trashed())->toBeFalse();
+    });
+
+    it('refuses an unauthorised write before validating it', function (): void {
+        // A caller who may not submit the form is told so, not shown its
+        // validation errors.
+        officerAt('Head Office', RoleName::Finance);
+        $id = $this->postJson('/api/v1/shareholders', shareholderPayload())->assertCreated()->json('data.id');
+
+        officerAt('Head Office', RoleName::Admin);
+
+        $this->postJson('/api/v1/shareholders', [])->assertForbidden();
+        $this->putJson("/api/v1/shareholders/{$id}", [])->assertForbidden();
+    });
+
+    it('lets every treasury.manage role edit and save a shareholder', function (RoleName $role): void {
+        officerAt('Head Office', RoleName::Finance);
+        $id = $this->postJson('/api/v1/shareholders', shareholderPayload())->assertCreated()->json('data.id');
+
+        officerAt('Head Office', $role);
+
+        $this->putJson("/api/v1/shareholders/{$id}", shareholderPayload(['fullName' => 'Mseti Ally Juma']))
+            ->assertOk()
+            ->assertJsonPath('data.fullName', 'Mseti Ally Juma');
+
+        expect(Shareholder::query()->findOrFail($id)->full_name)->toBe('Mseti Ally Juma');
+    })->with([
+        'finance' => [RoleName::Finance],
+        'super admin' => [RoleName::SuperAdmin],
+    ]);
+
     it('refuses an unauthenticated caller', function (): void {
         $this->getJson('/api/v1/shareholders')->assertUnauthorized();
     });
