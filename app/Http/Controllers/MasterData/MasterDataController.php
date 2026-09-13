@@ -6,6 +6,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Domain\Auth\Enums\PermissionName;
 use App\Http\Controllers\Controller;
+use App\Enums\ErrorCode;
 use App\Http\Resources\MasterDataResource;
 use App\Models\Customer;
 use App\Models\MasterData\MasterDataModel;
@@ -101,6 +102,54 @@ final class MasterDataController extends Controller
         }
 
         return ApiResponse::data($lists);
+    }
+
+    /**
+     * GET /api/v1/master-data/parented/{list}?parent_id=
+     *
+     * Every list whose rows belong to a parent, served one parent at a time.
+     *
+     * `sector-categories` had a handler of its own while it was the only such
+     * list. The five customer types brought seven more — a ministry's
+     * departments, a department's cadres, a sector's companies, a college's
+     * courses — and they differ only in which table and which column, both of
+     * which MasterDataRegistry already knows. So there is one handler rather
+     * than eight identical ones, and a ninth parented list needs no code here
+     * at all.
+     *
+     * WITHOUT A PARENT IT RETURNS NOTHING, deliberately. These lists exist to
+     * be narrowed: `government_cadres` alone is four hundred rows spanning
+     * every ministry, and a form that has not chosen a department wants none
+     * of them. An empty answer is also what the dependent dropdown renders as
+     * "choose the one above first".
+     *
+     * Reads are open to any authenticated user, as with every other list here:
+     * the registration form needs them.
+     */
+    public function parented(Request $request, string $list): JsonResponse
+    {
+        $model = MasterDataRegistry::PARENTED[$list] ?? null;
+        $column = MasterDataRegistry::parentColumn($list);
+
+        if ($model === null || $column === null) {
+            return ApiResponse::error(
+                'That list does not exist.',
+                ErrorCode::ResourceNotFound,
+                Response::HTTP_NOT_FOUND,
+            );
+        }
+
+        if (! $request->filled('parent_id')) {
+            return ApiResponse::data(MasterDataResource::collection(collect()));
+        }
+
+        $query = $model::query()->where($column, $request->integer('parent_id'));
+
+        $query = $request->boolean('active')
+            ? $query->selectable()
+            : $query->orderByRaw('sort_order IS NULL, sort_order')->orderBy('name');
+
+        return ApiResponse::data(MasterDataResource::collection($query->get()));
     }
 
     /**

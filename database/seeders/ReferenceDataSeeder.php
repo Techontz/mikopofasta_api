@@ -115,6 +115,14 @@ final class ReferenceDataSeeder extends Seeder
             ['employment_contract', 'Employment Contract', 'Signed contract of employment.', 140],
             ['student_id', 'Student ID', 'Institution-issued student identity card.', 150],
             ['pension_statement', 'Pension Statement', 'Statement evidencing pension income.', 160],
+
+            /* The single attachment registration now takes. The branch scans
+               the customer's KYC pack — identity, letters, statements — as one
+               file, which is how the paper actually arrives at a desk; the
+               types above remain for anything filed individually afterwards
+               from the customer's profile. Ordered first because it is the one
+               registration asks for. */
+            ['kyc_attachment', 'KYC Attachment', 'The customer\u2019s KYC documents, scanned as a single file.', 5],
         ];
 
         foreach ($rows as [$code, $name, $description, $order]) {

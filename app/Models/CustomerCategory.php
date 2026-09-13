@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $sort_order
  * @property list<string> $required_documents
  * @property list<array<string, mixed>> $dynamic_form_schema
+ * @property list<string>|null $omitted_standard_fields
  * @property bool $requires_extra_approval
  * @property int|null $created_by
  * @property CarbonImmutable|null $created_at
@@ -63,6 +64,8 @@ class CustomerCategory extends Model
            to the wizard, and widening it would have changed a contract three
            readers depend on in order to express one boolean. */
         'required_documents', 'optional_documents', 'dynamic_form_schema',
+        /* Standard questions this type does not ask — see the 2026_09_12 migration. */
+        'omitted_standard_fields',
         'requires_extra_approval', 'created_by',
     ];
 
@@ -103,6 +106,7 @@ class CustomerCategory extends Model
             'required_documents' => 'array',
             'optional_documents' => 'array',
             'dynamic_form_schema' => 'array',
+            'omitted_standard_fields' => 'array',
             'requires_extra_approval' => 'boolean',
             'requires_sector' => 'boolean',
             'requires_employer' => 'boolean',

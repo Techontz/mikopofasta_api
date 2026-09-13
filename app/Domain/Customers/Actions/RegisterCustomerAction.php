@@ -15,6 +15,7 @@ use App\Domain\Customers\Services\DynamicFormValidator;
 use App\Domain\Customers\Services\KycEvaluator;
 use App\Domain\Customers\Support\MaritalStatusMirror;
 use App\Enums\AuditAction;
+use App\Domain\Customers\Enums\PaymentMethod;
 use App\Models\Customer;
 use App\Models\CustomerCategory;
 use App\Models\User;
@@ -170,6 +171,7 @@ final class RegisterCustomerAction
                 'account_number' => $payload['bankDetails']['accountNumber'] ?? null,
                 'mobile_money_provider' => $payload['mobileMoneyProvider'] ?? null,
                 'wallet_number' => $payload['walletNumber'] ?? null,
+                'payment_method' => self::paymentMethod($payload)?->value,
 
                 /* Server-decided, not client-supplied: a record must not be
                    able to claim it came from NIDA when it was typed by hand. */
@@ -325,4 +327,39 @@ final class RegisterCustomerAction
             return $customer->fresh(['category', 'branch', 'bankDetails', 'guarantors', 'nextOfKin']);
         });
     }
+
+    /**
+     * Which kind of account the officer chose.
+     *
+     * Taken from the payload when the client states it, which is the point of
+     * storing it at all — the answer is a fact about what was asked, not a
+     * summary of which columns happen to be filled.
+     *
+     * DERIVED ONLY AS A FALLBACK, for a client older than the column. The order
+     * matches the frontend's own repair and the backfill in the 2026_09_12
+     * migration, so a record reads the same however it was created: a wallet
+     * wins, then an account number, then nothing. Keeping the three in step
+     * matters more than which way round they are.
+     */
+    private static function paymentMethod(array $payload): ?PaymentMethod
+    {
+        $stated = $payload['paymentMethod'] ?? null;
+
+        if (is_string($stated)) {
+            return PaymentMethod::tryFrom($stated);
+        }
+
+        $filled = static fn (mixed $v): bool => $v !== null && $v !== '';
+
+        if ($filled($payload['walletNumber'] ?? null) || $filled($payload['mobileMoneyProviderId'] ?? null)) {
+            return PaymentMethod::Mno;
+        }
+
+        if ($filled($payload['bankDetails']['accountNumber'] ?? null) || $filled($payload['bankId'] ?? null)) {
+            return PaymentMethod::Bank;
+        }
+
+        return null;
+    }
+
 }
