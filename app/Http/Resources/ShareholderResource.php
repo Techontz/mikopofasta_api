@@ -29,6 +29,20 @@ final class ShareholderResource extends JsonResource
 
             // Drives whether the delete action is offered at all.
             'contributionCount' => $this->whenCounted('contributions'),
+
+            /*
+             * Cumulative contributed capital and the ownership it buys. Set by
+             * the controller from ShareholderOwnership — contributions only,
+             * never a cash balance — so a list never computes it per row.
+             */
+            'totalContributed' => $this->when(
+                $this->resource->offsetExists('ownership_contributed'),
+                fn (): string => (string) $this->resource->getAttribute('ownership_contributed'),
+            ),
+            'ownershipPercentage' => $this->when(
+                $this->resource->offsetExists('ownership_percentage'),
+                fn (): string => (string) $this->resource->getAttribute('ownership_percentage'),
+            ),
         ];
     }
 }

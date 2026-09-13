@@ -112,7 +112,7 @@ final class DisbursementCallbackController extends Controller
 
         return ApiResponse::data(
             new LoanResource($loan),
-            ['batch' => new DisbursementBatchResource($batch->fresh())],
+            ['batch' => new DisbursementBatchResource($batch->fresh(['fundingAccount', 'journalEntry']))],
         );
     }
 

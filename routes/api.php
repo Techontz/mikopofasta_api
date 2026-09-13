@@ -567,11 +567,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
      * treasury.manage, enforced by CapitalPolicy. See docs/modules/capital.md.
      */
     Route::apiResource('shareholders', ShareholderController::class)
-        ->only(['index', 'store', 'update', 'destroy']);
+        ->only(['index', 'show', 'store', 'update', 'destroy']);
 
     Route::apiResource('capital-contributions', CapitalContributionController::class)
-        ->only(['index', 'store', 'destroy'])
+        ->only(['index', 'destroy'])
         ->parameters(['capital-contributions' => 'contribution']);
+    // Money in: a resubmitted request with the same Idempotency-Key replays
+    // rather than recording the contribution twice.
+    Route::post('/capital-contributions', [CapitalContributionController::class, 'store'])
+        ->middleware('idempotency')
+        ->name('capital-contributions.store');
 
     Route::get('/float-transfers', [FloatTransferController::class, 'index'])->name('float-transfers.index');
     Route::post('/float-transfers', [FloatTransferController::class, 'store'])->name('float-transfers.store');
@@ -693,14 +698,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/loans/{loan}/mandate/retry', [LoanController::class, 'retryMandate'])->name('loans.mandate.retry');
     Route::post('/loans/{loan}/telco-verify', [LoanController::class, 'telcoVerify'])->name('loans.telco-verify');
     Route::post('/loans/{loan}/prepare-disbursement', [LoanController::class, 'prepareDisbursement'])
+        ->middleware('idempotency')
         ->name('loans.prepare-disbursement');
     Route::post('/loans/{loan}/retry-disbursement', [LoanController::class, 'retryDisbursement'])
+        ->middleware('idempotency')
         ->name('loans.retry-disbursement');
+    Route::get('/loans/{loan}/disbursements', [LoanController::class, 'disbursements'])
+        ->name('loans.disbursements');
 
     // The authenticated twin of the §15.2 provider callback — what the
     // frontend's loan actions panel calls. Both reach the same action, so
     // there is one place a loan becomes active and one place it is posted.
     Route::post('/loans/{loan}/settle-disbursement', [DisbursementCallbackController::class, 'settle'])
+        ->middleware('idempotency')
         ->name('loans.settle-disbursement');
     /*
      * "Close Loan Early" — client Decision 1, Option B.

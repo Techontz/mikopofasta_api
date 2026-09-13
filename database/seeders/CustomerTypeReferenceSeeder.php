@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Domain\Customers\Enums\CategorySector;
+use App\Domain\Customers\Enums\RiskTier;
 use App\Models\CustomerCategory;
 use App\Models\MasterData\Bank;
 use App\Models\MasterData\BusinessSector;
@@ -19,6 +21,7 @@ use App\Models\MasterData\PrivateDepartment;
 use App\Models\MasterData\PrivateEmployer;
 use App\Models\MasterData\PrivateSector;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 /**
  * The five customer types and the register they ask from.
@@ -107,17 +110,6 @@ final class CustomerTypeReferenceSeeder extends Seeder
     ];
 
     /**
-     * Document questions whose `required` the business has since relaxed.
-     *
-     * Empty today — `tin` was the only entry and that question is no longer
-     * asked at all (see OMITTED_DOCUMENT). Kept because relaxing a rule is a
-     * different act from dropping a question, and the next one will want it.
-     *
-     * @var array<string, list<string>>
-     */
-    private const array MADE_OPTIONAL = [];
-
-    /**
      * A standard question this type asks in its own words.
      *
      * Declared with the STANDARD key and column, so the merge drops the
@@ -167,6 +159,20 @@ final class CustomerTypeReferenceSeeder extends Seeder
         'mstaafu' => ['code' => 'MSTAAFU_UMMA', 'sector' => 'employment', 'risk' => 'low'],
     ];
 
+    /**
+     * Document questions whose `required` the business has since relaxed.
+     *
+     * Empty today — `tin` was the only entry and that question is no longer
+     * asked at all (see OMITTED_DOCUMENT). Kept because relaxing a rule is a
+     * different act from dropping a question, and the next one will want it.
+     *
+     * A typed property rather than a constant: an empty constant is analysed
+     * as the literal `[]`, which would make every lookup "impossible".
+     *
+     * @var array<string, list<string>>
+     */
+    private static array $madeOptional = [];
+
     public function run(): void
     {
         $path = base_path('../Documents/customer-types.json');
@@ -185,7 +191,7 @@ final class CustomerTypeReferenceSeeder extends Seeder
 
         $this->command?->info(sprintf(
             'Register: %s',
-            implode(', ', array_map(static fn ($k, $v) => "{$k} {$v}", array_keys($ids), $ids))
+            implode(', ', array_map(static fn ($k, $v) => "{$k} {$v}", array_keys($ids), $ids)),
         ));
     }
 
@@ -280,12 +286,12 @@ final class CustomerTypeReferenceSeeder extends Seeder
     {
         $code ??= $this->code($name);
 
-        $keys = ['code' => $code];
+        $query = $model::query()->withTrashed()->where('code', $code);
         if ($parentColumn !== null) {
-            $keys[$parentColumn] = $parentId;
+            $query->getQuery()->where($parentColumn, $parentId);
         }
 
-        $row = $model::query()->withTrashed()->firstOrNew($keys);
+        $row = $query->first() ?? new $model;
         $row->name = $name;
         $row->is_active = true;
         if ($parentColumn !== null) {
@@ -323,7 +329,7 @@ final class CustomerTypeReferenceSeeder extends Seeder
 
             $category->name = $type['label'];
             $category->form_title = $type['sectionTitle'];
-            $category->sector = $meta['sector'];
+            $category->sector = CategorySector::from($meta['sector']);
             $category->is_active = true;
             $category->sort_order = $index + 1;
             $category->deleted_at = null;
@@ -331,7 +337,7 @@ final class CustomerTypeReferenceSeeder extends Seeder
             /* Only set on a type being created: an institution may have tuned
                these on the two that already existed. */
             if (! $category->exists) {
-                $category->risk_tier = $meta['risk'];
+                $category->risk_tier = RiskTier::from($meta['risk']);
                 $category->required_documents = [];
                 $category->optional_documents = [];
                 $category->requires_extra_approval = false;
@@ -345,7 +351,7 @@ final class CustomerTypeReferenceSeeder extends Seeder
             $category->requires_salary = false;
 
             $dropped = array_merge(self::ASKED_ELSEWHERE, self::OMITTED_DOCUMENT[$type['key']] ?? []);
-            $optional = self::MADE_OPTIONAL[$type['key']] ?? [];
+            $optional = self::$madeOptional[$type['key']] ?? [];
 
             $schema = array_values(array_map(
                 function (array $f) use ($optional): array {
@@ -412,25 +418,33 @@ final class CustomerTypeReferenceSeeder extends Seeder
                 $field['dataSource'] = self::FLAT_SOURCES[$source['tree']];
             } elseif ($source['kind'] === 'tree') {
                 $field['dataSource'] = self::SOURCES[$this->signature($source)][0]
-                    ?? throw new \RuntimeException("No list for {$this->signature($source)}");
+                    ?? throw new RuntimeException("No list for {$this->signature($source)}");
             }
         }
 
         return $field;
     }
 
-    /** `TAASISI|f,f|values` — the shape of a path into one of the trees. */
+    /**
+     * `TAASISI|f,f|values` — the shape of a path into one of the trees.
+     *
+     * @param array<string, mixed> $source
+     */
     private function signature(array $source): string
     {
         $path = array_map(
             static fn (array $s): string => isset($s['property']) ? 'p:'.$s['property'] : 'f',
-            $source['path']
+            $source['path'],
         );
 
         return $source['tree'].'|'.implode(',', $path).'|'.$source['take'];
     }
 
-    /** The document's control and input type as one of DYNAMIC_FIELD_TYPES. */
+    /**
+     * The document's control and input type as one of DYNAMIC_FIELD_TYPES.
+     *
+     * @param array<string, mixed> $f
+     */
     private function type(array $f): string
     {
         if ($f['control'] === 'select') {

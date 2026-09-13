@@ -77,7 +77,7 @@ describe('snapshotting', function (): void {
 });
 
 describe('posting at disbursement', function (): void {
-    it('credits Fee Income with the fee and Principal with the rest', function (): void {
+    it('credits Fee Income with the fee and the funding bank account with the rest', function (): void {
         configureLoanFee();
         $before = feeIncomeBalance();
 
@@ -93,8 +93,8 @@ describe('posting at disbursement', function (): void {
             ->where('source_id', $loan->id)
             ->latest('id')->firstOrFail();
 
-        // Dr Loan Receivable in full; the credit splits between Principal and
-        // Fee Income. The borrower owes the whole principal either way — the
+        // Dr Loan Receivable in full; the credit splits between the bank account
+        // the payout left and Fee Income. The borrower owes the whole principal either way — the
         // fee is deducted from the payout, not from the debt.
         expect($entry->lines)->toHaveCount(3);
 
@@ -105,9 +105,13 @@ describe('posting at disbursement', function (): void {
         $feeLine = $entry->lines->firstWhere('account_id', $feeAccountId);
         expect((float) $feeLine->credit_amount)->toBe($fee);
 
+        $batch = $loan->disbursementBatches()->where('status', 'success')->sole();
+        $payoutLine = $entry->lines->firstWhere('account_id', $batch->funding_account_id);
+        expect((float) $payoutLine->credit_amount)->toBe(round($principal - $fee, 2));
+
+        // Nothing is credited to equity: the money left a real account.
         $principalAccountId = app(AccountResolver::class)->systemId(SystemAccountCode::Principal);
-        $principalLine = $entry->lines->firstWhere('account_id', $principalAccountId);
-        expect((float) $principalLine->credit_amount)->toBe(round($principal - $fee, 2));
+        expect($entry->lines->firstWhere('account_id', $principalAccountId))->toBeNull();
     });
 
     it('posts a balanced entry', function (): void {

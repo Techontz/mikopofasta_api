@@ -8,6 +8,7 @@ use App\Domain\Loans\Enums\DisbursementChannel;
 use App\Domain\Loans\Enums\DisbursementStatus;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Exceptions\LoanStateException;
+use App\Domain\Loans\Services\DisbursementFunding;
 use App\Domain\Loans\Services\LoanStateMachine;
 use App\Enums\AuditAction;
 use App\Models\DisbursementBatch;
@@ -47,16 +48,51 @@ final class PrepareDisbursementAction
     public function __construct(
         private readonly LoanStateMachine $states,
         private readonly AuditLogger $audit,
+        private readonly DisbursementFunding $funding,
     ) {}
 
-    public function prepare(Loan $loan, DisbursementChannel $channel, User $financeUser): DisbursementBatch
-    {
+    /**
+     * @param int|null $fundingBankAccountId the registered company account to
+     *                                       pay from; null for the default one
+     * @param bool $fromCash pay from the loan branch's teller cash instead
+     */
+    public function prepare(
+        Loan $loan,
+        DisbursementChannel $channel,
+        User $financeUser,
+        ?int $fundingBankAccountId = null,
+        bool $fromCash = false,
+    ): DisbursementBatch {
         if ($loan->status !== LoanStatus::PendingFinance) {
             throw LoanStateException::notAwaitingDisbursement();
         }
 
-        return DB::transaction(function () use ($loan, $channel, $financeUser): DisbursementBatch {
-            $batch = $this->createBatch($loan, $channel, $financeUser, attemptNumber: 1);
+        return DB::transaction(function () use ($loan, $channel, $financeUser, $fundingBankAccountId, $fromCash): DisbursementBatch {
+            // Re-read under a lock: two Finance officers preparing the same
+            // loan at once must not both pass the status check.
+            $loan = Loan::query()->lockForUpdate()->findOrFail($loan->getKey());
+
+            if ($loan->status !== LoanStatus::PendingFinance) {
+                throw LoanStateException::notAwaitingDisbursement();
+            }
+
+            /*
+             * Chosen now and stored on the batch, so settlement pays from the
+             * account the officer chose. Refused here, before anything is sent
+             * to a provider, when the account cannot cover the payout plus what
+             * other batches in flight already have promised from it.
+             */
+            ['account' => $account, 'bankAccount' => $bankAccount] = $this->funding->choose($loan, $fundingBankAccountId, $fromCash);
+            $this->funding->assertCanCover($account, $loan);
+
+            $batch = $this->createBatch(
+                $loan,
+                $channel,
+                $financeUser,
+                attemptNumber: 1,
+                fundingAccountId: (int) $account->getKey(),
+                fundingBankAccountId: $bankAccount?->getKey(),
+            );
 
             $this->states->transition(
                 $loan,
@@ -72,6 +108,8 @@ final class PrepareDisbursementAction
                     'batch_reference' => $batch->batch_reference,
                     'channel' => $channel->value,
                     'attempt_number' => 1,
+                    'funding_account_id' => $account->getKey(),
+                    'funding_bank_account_id' => $bankAccount?->getKey(),
                 ],
                 actor: $financeUser,
             );
@@ -125,11 +163,18 @@ final class PrepareDisbursementAction
         return DB::transaction(function () use ($loan, $financeUser, $attempts): DisbursementBatch {
             $previous = $loan->disbursementBatches()->latest('id')->firstOrFail();
 
+            // A retry pays from the same account the failed attempt chose, and
+            // that account must still be able to cover it.
+            ['account' => $account, 'bankAccount' => $bankAccount] = $this->funding->forBatch($previous);
+            $this->funding->assertCanCover($account, $loan);
+
             $batch = $this->createBatch(
                 $loan,
                 $previous->channel,
                 $financeUser,
                 attemptNumber: $attempts + 1,
+                fundingAccountId: (int) $account->getKey(),
+                fundingBankAccountId: $bankAccount?->getKey(),
             );
 
             $this->states->transition(
@@ -156,8 +201,12 @@ final class PrepareDisbursementAction
         DisbursementChannel $channel,
         User $financeUser,
         int $attemptNumber,
+        ?int $fundingAccountId = null,
+        ?int $fundingBankAccountId = null,
     ): DisbursementBatch {
         return $loan->disbursementBatches()->create([
+            'funding_account_id' => $fundingAccountId,
+            'funding_bank_account_id' => $fundingBankAccountId,
             'batch_reference' => $this->reference($loan, $attemptNumber),
             'attempt_number' => $attemptNumber,
             'channel' => $channel,

@@ -44,7 +44,7 @@ describe('disbursement completion', function (): void {
             ->and($entry->totalDebits()->toDecimalString())->toBe($loan->principal()->toDecimalString());
     });
 
-    it('posts Dr Loan Receivable and Cr Principal for the principal', function (): void {
+    it('posts Dr Loan Receivable and Cr the funding bank account for the principal', function (): void {
         $loan = activeLoan();
         $accounts = app(AccountResolver::class);
 
@@ -54,7 +54,8 @@ describe('disbursement completion', function (): void {
             ->sole();
 
         $debit = $entry->lines->firstWhere('account_id', $accounts->systemId(SystemAccountCode::LoanReceivable));
-        $credit = $entry->lines->firstWhere('account_id', $accounts->systemId(SystemAccountCode::Principal));
+        $fundingAccountId = $loan->disbursementBatches()->where('status', 'success')->sole()->funding_account_id;
+        $credit = $entry->lines->firstWhere('account_id', $fundingAccountId);
 
         expect($debit->debit_amount)->toBe($loan->principal()->toDecimalString())
             ->and($credit->credit_amount)->toBe($loan->principal()->toDecimalString());

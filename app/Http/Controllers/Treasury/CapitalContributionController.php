@@ -44,7 +44,7 @@ final class CapitalContributionController extends Controller
         $this->authorizeCapital('view', $request);
 
         $contributions = CapitalContribution::query()
-            ->with('shareholder')
+            ->with(['shareholder', 'receivedAccount', 'journalEntry', 'recorder'])
             ->orderBy('shareholder_id')
             ->orderBy('created_at')
             ->get();

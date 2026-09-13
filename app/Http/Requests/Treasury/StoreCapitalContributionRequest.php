@@ -34,6 +34,22 @@ final class StoreCapitalContributionRequest extends FormRequest
                 Rule::requiredIf(fn (): bool => $this->input('payMethod') === PayMethod::Cheque->value),
                 'nullable', 'string', 'max:60',
             ],
+
+            /*
+             * The money trail. A registered company account that may receive
+             * money; cash lands in the head-office till instead, so naming an
+             * account for cash is refused rather than silently ignored.
+             */
+            'bankAccountId' => [
+                'nullable', 'integer',
+                Rule::prohibitedIf(fn (): bool => $this->input('payMethod') === PayMethod::Cash->value),
+                Rule::exists('bank_accounts', 'id')->whereNull('deleted_at'),
+            ],
+            // Unique across every contribution ever recorded — including removed
+            // ones — so the same payment cannot be recorded twice.
+            'reference' => ['nullable', 'string', 'max:60', Rule::unique('capital_contributions', 'reference')],
+            'sourceAccountName' => ['nullable', 'string', 'max:150'],
+            'sourceAccountNumber' => ['nullable', 'string', 'max:60'],
         ];
     }
 
@@ -43,6 +59,8 @@ final class StoreCapitalContributionRequest extends FormRequest
         return [
             'amount.gt' => 'Enter an amount greater than zero.',
             'chequeNo.required' => 'A cheque number is required when the pay method is cheque.',
+            'bankAccountId.prohibited' => 'Cash lands in the head-office till; a company account is only named for a cheque or bank transfer.',
+            'reference.unique' => 'A contribution with this reference has already been recorded.',
         ];
     }
 }

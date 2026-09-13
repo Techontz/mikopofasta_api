@@ -253,17 +253,42 @@ final class LoanController extends Controller
         $actor = $this->actor($request);
         $this->guard->authorizeBranchId($actor, $loan->branch_id, Loan::class);
 
+        $fundingBankAccountId = $request->validated('fundingBankAccountId');
+
         $batch = $action->prepare(
             $loan,
             DisbursementChannel::from((string) $request->validated('channel')),
             $actor,
+            $fundingBankAccountId === null ? null : (int) $fundingBankAccountId,
+            $request->validated('fundingSource') === 'cash',
         );
 
         return ApiResponse::data(
-            new DisbursementBatchResource($batch),
+            new DisbursementBatchResource($batch->load('fundingAccount')),
             ['loan' => new LoanResource($loan->fresh())],
             Response::HTTP_CREATED,
         );
+    }
+
+    /**
+     * GET /api/v1/loans/{loan}/disbursements
+     *
+     * Every disbursement attempt for the loan, oldest first, with the company
+     * account each was paid from and — for the one that succeeded — the
+     * journal entry and its lines: the account credited, Loan Receivable
+     * debited, and the customer and loan on every line.
+     */
+    public function disbursements(Request $request, Loan $loan): JsonResponse
+    {
+        $this->authorize('view', $loan);
+        $this->guard->authorizeBranchId($this->actor($request), $loan->branch_id, Loan::class);
+
+        $batches = $loan->disbursementBatches()
+            ->with(['fundingAccount', 'journalEntry.lines.account'])
+            ->orderBy('attempt_number')
+            ->get();
+
+        return ApiResponse::data(DisbursementBatchResource::collection($batches));
     }
 
     /**

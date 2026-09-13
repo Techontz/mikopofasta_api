@@ -114,10 +114,13 @@ enum SystemAccountCode: string
     /**
      * The account's type.
      *
-     * Principal is EQUITY, not asset — the frontend's chart of accounts
-     * explains why: per the business docs it is only ever credited at
-     * disbursement and never debited on repayment, making it a running measure
-     * of capital deployed into the loan book rather than a balance-sheet asset.
+     * Principal is EQUITY, not asset. It holds reinvested profit — the
+     * Principal (Reinvestment) share of the month-end distribution.
+     *
+     * It was once also credited at disbursement, as "capital deployed into the
+     * loan book". That counted the same money twice (still in the bank, and
+     * now a receivable too), so a disbursement now credits the Bank/Cash
+     * account the payout left instead. See SettleDisbursementAction.
      */
     public function type(): AccountType
     {

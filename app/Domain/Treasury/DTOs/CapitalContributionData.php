@@ -8,7 +8,9 @@ use App\Domain\Treasury\Enums\PayMethod;
 
 /**
  * Input for recording capital — Capital → Add Capitals.
- * Mirrors the legacy form's five fields, in its order.
+ * The legacy form's five fields, in its order, then the money trail: which
+ * company account received it, the transaction reference, and the
+ * shareholder's own account it came from.
  */
 final readonly class CapitalContributionData
 {
@@ -18,6 +20,10 @@ final readonly class CapitalContributionData
         public PayMethod $payMethod,
         public ?string $receiptNo,
         public ?string $chequeNo,
+        public ?int $bankAccountId = null,
+        public ?string $reference = null,
+        public ?string $sourceAccountName = null,
+        public ?string $sourceAccountNumber = null,
     ) {}
 
     /** @param array<string, mixed> $validated */
@@ -37,6 +43,10 @@ final readonly class CapitalContributionData
             payMethod: PayMethod::from((string) $validated['payMethod']),
             receiptNo: $blankToNull($validated['receiptNo'] ?? null),
             chequeNo: $blankToNull($validated['chequeNo'] ?? null),
+            bankAccountId: isset($validated['bankAccountId']) ? (int) $validated['bankAccountId'] : null,
+            reference: $blankToNull($validated['reference'] ?? null),
+            sourceAccountName: $blankToNull($validated['sourceAccountName'] ?? null),
+            sourceAccountNumber: $blankToNull($validated['sourceAccountNumber'] ?? null),
         );
     }
 }

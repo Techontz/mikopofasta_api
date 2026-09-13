@@ -688,10 +688,56 @@ function loanAtCreditReview(): App\Models\Loan
     return approveAtZone($loan);
 }
 
-/** A loan that has cleared credit review and is waiting on Finance. */
+/**
+ * Puts real money in a company account so a loan can be paid out of it.
+ *
+ * A disbursement credits the Bank/Cash account it leaves, and preparation
+ * refuses one the account cannot cover. So a test that disburses first needs
+ * money in the books — and it gets there the way money really does: a
+ * shareholder's capital contribution, posted through RecordCapitalAction
+ * (Dr the bank account · Cr 1000 Capital). No balance is set by hand.
+ *
+ * Idempotent per test: funds once, however many loans the test disburses.
+ */
+function fundDisbursements(string $amount = '500000000.00'): App\Models\BankAccount
+{
+    if (! App\Models\BankAccount::query()->exists()) {
+        test()->seed(Database\Seeders\DemoBankAccountSeeder::class);
+    }
+
+    $account = App\Models\BankAccount::query()->orderBy('id')->firstOrFail();
+
+    if (App\Models\CapitalContribution::query()->where('reference', 'TEST-FUNDING')->exists()) {
+        return $account;
+    }
+
+    $shareholder = App\Models\Shareholder::query()->firstOrCreate(
+        ['email' => 'funding.shareholder@example.test'],
+        ['full_name' => 'Funding Shareholder', 'phone' => '0700000999', 'gender' => 'male', 'date_of_birth' => '1980-01-01'],
+    );
+
+    app(App\Domain\Treasury\Actions\RecordCapitalAction::class)->handle(
+        $shareholder,
+        new App\Domain\Treasury\DTOs\CapitalContributionData(
+            shareholderId: $shareholder->id,
+            amount: $amount,
+            payMethod: App\Domain\Treasury\Enums\PayMethod::BankTransfer,
+            receiptNo: null,
+            chequeNo: null,
+            bankAccountId: $account->id,
+            reference: 'TEST-FUNDING',
+        ),
+        app(App\Domain\Ledger\Services\SystemActor::class)->resolve(),
+    );
+
+    return $account;
+}
+
+/** A loan that has cleared credit review and is waiting on Finance, with money to pay it. */
 function loanAtFinance(): App\Models\Loan
 {
     $loan = loanAtCreditReview();
+    fundDisbursements();
 
     officerAt('Kakonko', RoleName::CreditOfficer);
     test()->postJson("/api/v1/loans/{$loan->id}/telco-verify", ['passed' => true])->assertOk();
@@ -774,7 +820,8 @@ function seedLedgerActivity(): void
 /**
  * A single loan walked all the way to `active` through the real endpoints —
  * application, approval, telco verification, batch preparation, and finally
- * the disbursement callback that posts Dr Loan Receivable / Cr Principal.
+ * the disbursement callback that posts Dr Loan Receivable / Cr the bank account
+ * the payout left.
  *
  * Built through the API rather than the factory so the loan under test has a
  * genuine schedule and a genuine disbursement entry behind it. A factory-made

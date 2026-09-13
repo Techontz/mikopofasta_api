@@ -27,6 +27,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $requested_by
  * @property CarbonImmutable $requested_at
  * @property CarbonImmutable|null $completed_at
+ * @property int|null $funding_account_id
+ * @property int|null $funding_bank_account_id
+ * @property int|null $journal_entry_id
+ * @property int|null $settled_loan_id
  */
 class DisbursementBatch extends Model
 {
@@ -34,7 +38,34 @@ class DisbursementBatch extends Model
     protected $fillable = [
         'loan_id', 'batch_reference', 'attempt_number', 'channel',
         'status', 'failure_reason', 'requested_by', 'requested_at', 'completed_at',
+        'funding_account_id', 'funding_bank_account_id', 'journal_entry_id', 'settled_loan_id',
     ];
+
+    /**
+     * The company account the payout leaves.
+     *
+     * @return BelongsTo<ChartOfAccount, $this>
+     */
+    public function fundingAccount(): BelongsTo
+    {
+        return $this->belongsTo(ChartOfAccount::class, 'funding_account_id');
+    }
+
+    /** @return BelongsTo<BankAccount, $this> */
+    public function fundingBankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'funding_bank_account_id');
+    }
+
+    /**
+     * The entry a successful settlement posted.
+     *
+     * @return BelongsTo<JournalEntry, $this>
+     */
+    public function journalEntry(): BelongsTo
+    {
+        return $this->belongsTo(JournalEntry::class);
+    }
 
     /**
      * @return BelongsTo<Loan, $this>

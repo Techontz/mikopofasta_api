@@ -9,13 +9,13 @@ use App\Domain\Customers\DTOs\GuarantorData;
 use App\Domain\Customers\DTOs\NextOfKinData;
 use App\Domain\Customers\Enums\CustomerApprovalStatus;
 use App\Domain\Customers\Enums\CustomerStatus;
+use App\Domain\Customers\Enums\PaymentMethod;
 use App\Domain\Customers\Exceptions\CustomerAlreadyRegisteredException;
 use App\Domain\Customers\Services\CustomerNumberGenerator;
 use App\Domain\Customers\Services\DynamicFormValidator;
 use App\Domain\Customers\Services\KycEvaluator;
 use App\Domain\Customers\Support\MaritalStatusMirror;
 use App\Enums\AuditAction;
-use App\Domain\Customers\Enums\PaymentMethod;
 use App\Models\Customer;
 use App\Models\CustomerCategory;
 use App\Models\User;
@@ -340,6 +340,8 @@ final class RegisterCustomerAction
      * migration, so a record reads the same however it was created: a wallet
      * wins, then an account number, then nothing. Keeping the three in step
      * matters more than which way round they are.
+     *
+     * @param array<string, mixed> $payload
      */
     private static function paymentMethod(array $payload): ?PaymentMethod
     {
@@ -361,5 +363,4 @@ final class RegisterCustomerAction
 
         return null;
     }
-
 }

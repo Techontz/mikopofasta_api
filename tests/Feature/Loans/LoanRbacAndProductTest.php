@@ -74,7 +74,9 @@ describe('rbac — separation of duties', function (): void {
         $this->postJson("/api/v1/loans/{$loan->id}/telco-verify", ['passed' => true])->assertOk();
         $this->postJson("/api/v1/loans/{$loan->id}/prepare-disbursement", ['channel' => 'vodacom'])->assertForbidden();
 
-        // §14: "All disbursements execute through Finance."
+        // §14: "All disbursements execute through Finance." A payout leaves a
+        // real account, so the books need money in them first.
+        fundDisbursements();
         officerAt('Head Office', RoleName::Finance);
         $this->postJson("/api/v1/loans/{$loan->id}/prepare-disbursement", ['channel' => 'vodacom'])->assertCreated();
     });

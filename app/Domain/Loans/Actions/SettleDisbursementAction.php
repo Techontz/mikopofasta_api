@@ -12,6 +12,7 @@ use App\Domain\Ledger\Services\LedgerService;
 use App\Domain\Loans\Enums\DisbursementStatus;
 use App\Domain\Loans\Enums\LoanStatus;
 use App\Domain\Loans\Exceptions\LoanStateException;
+use App\Domain\Loans\Services\DisbursementFunding;
 use App\Domain\Loans\Services\LoanFeeCalculator;
 use App\Domain\Loans\Services\LoanStateMachine;
 use App\Enums\AuditAction;
@@ -27,20 +28,36 @@ use Illuminate\Support\Facades\Log;
  * Settles a disbursement batch — the provider callback from §15.2
  * (`POST /webhooks/vodacom/disbursement-status`).
  *
- * This is the piece Phase 5 deliberately left out, because it cannot exist
- * without the ledger. §6: "No ledger entry exists until a disbursement batch
- * reaches success", and §5's canonical posting for that moment is:
+ * §6: "No ledger entry exists until a disbursement batch reaches success." The
+ * entry records the money actually leaving the company:
  *
- *   Dr Loan Receivable          (the customer now owes us)
- *     Cr Principal Account      (capital deployed into the book)
+ *   Dr  1200 Loan Receivable        principal     (the customer now owes it)
+ *     Cr  funding Bank/Cash account principal − fee (what was paid out)
+ *     Cr  2100 Fee Income           fee           (withheld from the payout)
  *
- * The ORDER here is the point. The ledger is posted FIRST and the loan is
- * activated second, inside one transaction. If the posting fails the loan
- * never becomes active — which is exactly the invariant §6 states and the one
- * that would otherwise be violated by an `active` loan with no entry behind it.
+ * Every line carries the loan, customer and branch, so the customer's and the
+ * loan's ledgers show the disbursement and the funding account's ledger shows
+ * the money leaving for that loan.
  *
- * A failure callback does not post anything: no money moved, so there is
- * nothing to record beyond the batch's own status.
+ * ## Why no longer Cr Principal
+ *
+ * Until now the credit went to 1100 Principal, an equity account, and no
+ * Bank/Cash account was ever credited. The loan book therefore grew while the
+ * cash that paid for it stayed on the books too — the same money counted
+ * twice, once as cash and once as a receivable, with equity inflated to
+ * balance it. Crediting the account the money left fixes that. Principal keeps
+ * its other meaning — reinvested profit from the month-end close — untouched.
+ * Entries already posted are not rewritten; the ledger is immutable.
+ *
+ * ## Atomic and once only
+ *
+ * The loan and the batch are locked, re-checked, posted, linked and activated
+ * in ONE transaction. If the posting fails nothing commits: the batch stays
+ * pending and the loan is not active. A repeated or concurrent callback finds
+ * the batch no longer pending and is refused; and `settled_loan_id` is UNIQUE,
+ * so the database itself refuses a second successful batch for the same loan.
+ *
+ * A failure callback posts nothing: no money moved.
  */
 final class SettleDisbursementAction
 {
@@ -50,39 +67,29 @@ final class SettleDisbursementAction
         private readonly LoanStateMachine $states,
         private readonly LoanFeeCalculator $fees,
         private readonly AuditLogger $audit,
+        private readonly DisbursementFunding $funding,
     ) {}
 
     public function succeed(DisbursementBatch $batch, User $actor): Loan
     {
-        $loan = $batch->loan;
+        $this->guard($batch->loan, $batch);
 
-        $this->guard($loan, $batch);
+        return DB::transaction(function () use ($batch, $actor): Loan {
+            [$loan, $batch] = $this->lockAndRecheck($batch);
 
-        return DB::transaction(function () use ($loan, $batch, $actor): Loan {
             $principal = $loan->principal();
 
             /*
-             * The loan fee, withheld from the payout — Loan Fee → Deducted
-             * Income, and the fourth of the steps docs/modules/loan-charges.md
-             * named as needed to wire `loan_fees` in.
-             *
-             * The borrower owes the full principal either way: the fee is
-             * deducted from what they receive, not from what they owe. So Loan
-             * Receivable is still debited in full, and the credit splits.
-             *
-             * §5: Dr Loan Receivable · Cr Principal Account, plus, when a fee
-             * was agreed:
-             *
-             *   Dr Loan Receivable      principal
-             *     Cr Principal Account  principal − fee
-             *     Cr 2100 Fee Income    fee
-             *
-             * Principal Account is credited only with what actually left as
-             * capital, which keeps its meaning — a running measure of capital
-             * deployed into the loan book — true. Crediting it in full and
-             * debiting the fee back would report capital that never left.
+             * The loan fee, withheld from the payout. The borrower owes the full
+             * principal either way — the fee is deducted from what they receive,
+             * not from what they owe — so Loan Receivable is debited in full and
+             * the funding account is credited only with what actually left.
              */
             $fee = $this->fees->totalDeducted($loan);
+            $netPayout = $principal->subtract($fee);
+
+            ['account' => $fundingAccount] = $this->funding->forBatch($batch);
+
             $lines = [
                 JournalLine::debit(
                     $this->accounts->systemId(SystemAccountCode::LoanReceivable),
@@ -91,17 +98,20 @@ final class SettleDisbursementAction
                     $loan->customer_id,
                     (int) $loan->getKey(),
                 ),
-                JournalLine::credit(
-                    $this->accounts->systemId(SystemAccountCode::Principal),
-                    $principal->subtract($fee),
+            ];
+
+            // A loan whose fee swallows the whole principal pays nothing out,
+            // and LedgerService rejects a zero-amount line.
+            if ($netPayout->isPositive()) {
+                $lines[] = JournalLine::credit(
+                    (int) $fundingAccount->getKey(),
+                    $netPayout,
                     $loan->branch_id,
                     $loan->customer_id,
                     (int) $loan->getKey(),
-                ),
-            ];
+                );
+            }
 
-            // Only when there is one: LedgerService rejects a zero-amount line,
-            // and a loan on a product with no fee configured has none.
             if ($fee->isPositive()) {
                 $lines[] = JournalLine::credit(
                     $this->accounts->systemId(SystemAccountCode::FeeIncome),
@@ -113,7 +123,7 @@ final class SettleDisbursementAction
             }
 
             $entry = $this->ledger->post(
-                description: sprintf('Disbursement of %s', $loan->loan_number),
+                description: sprintf('Disbursement of %s — %s', $loan->loan_number, $batch->batch_reference),
                 sourceType: JournalSourceType::LoanDisbursement,
                 sourceId: (int) $loan->getKey(),
                 lines: $lines,
@@ -123,9 +133,13 @@ final class SettleDisbursementAction
             $batch->update([
                 'status' => DisbursementStatus::Success,
                 'completed_at' => Date::now(),
+                'funding_account_id' => $fundingAccount->getKey(),
+                'journal_entry_id' => $entry->getKey(),
+                // UNIQUE — the database's own refusal of a second success.
+                'settled_loan_id' => $loan->getKey(),
             ]);
 
-            // Only now, with the entry committed, does the loan go live.
+            // Only now, with the entry written, does the loan go live.
             $this->states->transition($loan, LoanStatus::Active, $actor, 'Disbursement confirmed by provider');
 
             /*
@@ -152,9 +166,10 @@ final class SettleDisbursementAction
                 after: [
                     'batch_reference' => $batch->batch_reference,
                     'journal_entry' => $entry->entry_number,
+                    'funding_account' => $fundingAccount->code,
                     'principal' => $principal->toDecimalString(),
                     'fee_charged' => $fee->toDecimalString(),
-                    'net_disbursed' => $principal->subtract($fee)->toDecimalString(),
+                    'net_disbursed' => $netPayout->toDecimalString(),
                 ],
                 actor: $actor,
             );
@@ -163,6 +178,7 @@ final class SettleDisbursementAction
                 'loan_number' => $loan->loan_number,
                 'batch_reference' => $batch->batch_reference,
                 'principal' => $principal->toDecimalString(),
+                'funding_account' => $fundingAccount->code,
                 'journal_entry' => $entry->entry_number,
             ]);
 
@@ -179,7 +195,9 @@ final class SettleDisbursementAction
 
         $this->guard($loan, $batch);
 
-        return DB::transaction(function () use ($loan, $batch, $reason, $actor): Loan {
+        return DB::transaction(function () use ($batch, $reason, $actor): Loan {
+            [$loan, $batch] = $this->lockAndRecheck($batch);
+
             $batch->update([
                 'status' => DisbursementStatus::Failed,
                 'failure_reason' => $reason,
@@ -196,6 +214,29 @@ final class SettleDisbursementAction
 
             return $loan->fresh();
         });
+    }
+
+    /**
+     * Locks the loan and the batch and checks them again.
+     *
+     * The guard outside the transaction reads rows another request may be
+     * about to change. Two callbacks for the same batch arriving together
+     * would both pass it; under these locks the second waits, then sees the
+     * batch already settled and is refused.
+     *
+     * @return array{0: Loan, 1: DisbursementBatch}
+     */
+    private function lockAndRecheck(DisbursementBatch $batch): array
+    {
+        $loan = Loan::query()->lockForUpdate()->findOrFail($batch->loan_id);
+        $locked = DisbursementBatch::query()->lockForUpdate()->findOrFail($batch->getKey());
+
+        $this->guard($loan, $locked);
+
+        // The caller's instance is the one the controller re-reads.
+        $batch->setRawAttributes($locked->getAttributes(), true);
+
+        return [$loan, $batch];
     }
 
     private function guard(Loan $loan, DisbursementBatch $batch): void

@@ -62,6 +62,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property CarbonImmutable|null $status_changed_at
  * @property int|null $status_changed_by
  * @property MaritalStatus|null $marital_status
+ * @property PaymentMethod|null $payment_method
  * @property int|null $region_id
  * @property int|null $district_id
  * @property int|null $ward_id
