@@ -57,6 +57,19 @@ enum JournalSourceType: string
     case Commission = 'commission';
     case StaffLoan = 'staff_loan';
     case StaffAdvance = 'staff_advance';
+
+    /*
+     * Salary Advance (Customer) — §Salary Advance, customer side.
+     *
+     * Two source types rather than one, because the two events are opposite in
+     * meaning and a report that cannot tell them apart cannot say what a month
+     * earned: an issue moves operational principal out and creates a
+     * receivable; a payment brings the principal back and recognises the
+     * profit. Reusing `Repayment` would mix advance collections into the loan
+     * book's own figures.
+     */
+    case CustomerAdvanceIssue = 'customer_advance_issue';
+    case CustomerAdvancePayment = 'customer_advance_payment';
     /*
      * Money moved between the company's own accounts — branch float, and
      * account-to-account transfers (Capital module). Not income, not expense:

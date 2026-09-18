@@ -6,9 +6,11 @@ namespace App\Providers;
 
 use App\Domain\Auth\Policies\RolePolicy;
 use App\Domain\Auth\Policies\UserPolicy;
+use App\Domain\CustomerAdvances\Policies\CustomerAdvancePolicy;
 use App\Domain\Customers\Policies\CustomerCategoryPolicy;
 use App\Domain\Customers\Policies\CustomerPolicy;
 use App\Domain\Customers\Policies\GroupPolicy;
+use App\Domain\Hr\DTOs\PayrollRates;
 use App\Domain\Hr\Policies\CommissionPolicy;
 use App\Domain\Hr\Policies\PayrollPolicy;
 use App\Domain\Hr\Policies\StaffPolicy;
@@ -21,10 +23,12 @@ use App\Domain\Organization\Policies\RegionPolicy;
 use App\Domain\Organization\Policies\ZonePolicy;
 use App\Domain\Repayments\Policies\PaymentPolicy;
 use App\Domain\Reports\Policies\ReportPolicy;
+use App\Domain\Reversals\Policies\ReversalPolicy;
 use App\Models\Branch;
 use App\Models\CommissionPool;
 use App\Models\CompanyProfile;
 use App\Models\Customer;
+use App\Models\CustomerAdvance;
 use App\Models\CustomerCategory;
 use App\Models\Group;
 use App\Models\JournalEntry;
@@ -32,7 +36,9 @@ use App\Models\Loan;
 use App\Models\LoanProduct;
 use App\Models\Payment;
 use App\Models\PayrollRun;
+use App\Models\PayrollSetting;
 use App\Models\Region;
+use App\Models\ReversalRequest;
 use App\Models\Role;
 use App\Models\StaffProfile;
 use App\Models\User;
@@ -56,7 +62,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        /*
+         * HRM → Payroll Settings. Built fresh on every resolution, never a
+         * singleton, so a rate changed on the settings screen applies to the
+         * next payroll or commission run without a restart.
+         */
+        $this->app->bind(PayrollRates::class, static fn (): PayrollRates => PayrollSetting::singleton()->rates());
     }
 
     /**
@@ -94,9 +105,11 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::policy(Loan::class, LoanPolicy::class);
         Gate::policy(LoanProduct::class, LoanProductPolicy::class);
+        Gate::policy(CustomerAdvance::class, CustomerAdvancePolicy::class);
 
         Gate::policy(JournalEntry::class, LedgerPolicy::class);
         Gate::policy(Payment::class, PaymentPolicy::class);
+        Gate::policy(ReversalRequest::class, ReversalPolicy::class);
 
         Gate::policy(StaffProfile::class, StaffPolicy::class);
         Gate::policy(PayrollRun::class, PayrollPolicy::class);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Loans\Services;
 
+use App\Domain\Repayments\Enums\PaymentStatus;
 use App\Models\Customer;
 use App\Models\Loan;
 use App\Models\LoanSchedule;
@@ -67,6 +68,13 @@ final class ChargeLedgerQueries
         return PaymentAllocation::query()
             ->with(['payment', 'schedule.loan.customer', 'schedule.loan.branch'])
             ->whereHas('schedule.loan')
+            /*
+             * A reversed payment keeps its original allocation rows beside the
+             * negative ones that cancel them. Only the positive rows reach this
+             * register, so the payment itself has to be excluded — otherwise a
+             * penalty whose collection went back would still read as paid.
+             */
+            ->whereHas('payment', fn (Builder $payment) => $payment->where('status', '!=', PaymentStatus::Reversed))
             ->where('penalty_allocated', '>', 0);
     }
 

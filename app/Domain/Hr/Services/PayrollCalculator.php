@@ -6,6 +6,7 @@ namespace App\Domain\Hr\Services;
 
 use App\Domain\Auth\Enums\RoleName;
 use App\Domain\Hr\DTOs\PayrollComputation;
+use App\Domain\Hr\DTOs\PayrollRates;
 use App\Domain\Hr\Enums\AllowanceType;
 use App\Domain\Hr\Enums\DeductionType;
 use App\Models\StaffAdvance;
@@ -14,7 +15,6 @@ use App\Models\StaffDeduction;
 use App\Models\StaffLoan;
 use App\Models\StaffProfile;
 use App\Support\Money;
-use App\Support\Percentage;
 use Illuminate\Support\Collection;
 
 /**
@@ -48,15 +48,6 @@ use Illuminate\Support\Collection;
 final class PayrollCalculator
 {
     /**
-     * §11's Staff Fund contribution, withheld from every salary. The frontend
-     * holds it as STAFF_FUND_CONTRIBUTION_PCT = 0.1.
-     *
-     * The HR document says "% ya salary (mfano 20%)" — an example, explicitly
-     * labelled as one — so the frontend's figure is what both sides use.
-     */
-    public const string STAFF_FUND_CONTRIBUTION_RATE = '10.000';
-
-    /**
      * The transport allowance a branch employee is enrolled on at registration.
      *
      * A default, not a rule: the value lands on a `staff_allowances` row that
@@ -86,6 +77,19 @@ final class PayrollCalculator
     public function __construct(
         private readonly SalaryAdvanceCalculator $advances,
         private readonly StaffLoanCalculator $loans,
+
+        /*
+         * §11's Staff Fund contribution rate, set on HRM → Payroll Settings.
+         * Handed in rather than read here so the engine stays pure; the
+         * container builds it from `PayrollSetting` (AppServiceProvider), and
+         * a caller that passes nothing gets the documented default.
+         */
+        private readonly PayrollRates $rates = new PayrollRates(
+            staffFund: PayrollRates::DEFAULT_STAFF_FUND,
+            commissionPool: PayrollRates::DEFAULT_COMMISSION_POOL,
+            hqHold: PayrollRates::DEFAULT_HQ_HOLD,
+            zoneOverride: PayrollRates::DEFAULT_ZONE_OVERRIDE,
+        ),
     ) {}
 
     /**
@@ -181,7 +185,7 @@ final class PayrollCalculator
      */
     public function staffFundContribution(StaffProfile $staff): Money
     {
-        return $staff->baseSalary()->percentage(Percentage::of(self::STAFF_FUND_CONTRIBUTION_RATE));
+        return $staff->baseSalary()->percentage($this->rates->staffFundPercentage());
     }
 
     /**

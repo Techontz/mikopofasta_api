@@ -410,6 +410,39 @@ describe('importing an existing guarantor', function (): void {
         expect(collect($this->getJson('/api/v1/guarantors')->assertOk()->json('data'))->pluck('id'))
             ->not->toContain($hidden);
     });
+
+    it('leaves out people already standing for the customer being imported for', function (): void {
+        officerAt('Kakonko', RoleName::LoanOfficer);
+        $source = customerWithoutGuarantors();
+        $target = customerWithoutGuarantors(['nidaNumber' => '19900202345678', 'phone' => '0755222444']);
+
+        $this->postJson("/api/v1/customers/{$source->id}/guarantors", guarantorPayload())->assertCreated();
+        $this->postJson("/api/v1/customers/{$source->id}/guarantors", guarantorPayload([
+            'name' => 'Other Person', 'phone' => '0700999888', 'nidaNumber' => '19900101999999',
+        ]))->assertCreated();
+
+        // Already imported onto the target: the same person, a copy of their row.
+        $this->postJson("/api/v1/customers/{$target->id}/guarantors", guarantorPayload())->assertCreated();
+
+        $pool = collect($this->getJson("/api/v1/guarantors?customer={$target->id}")->assertOk()->json('data'));
+
+        expect($pool->pluck('name')->all())->toBe(['Other Person']);
+    });
+
+    it('lists a guarantor who stands for several customers once', function (): void {
+        officerAt('Kakonko', RoleName::LoanOfficer);
+
+        $customers = [
+            customerWithoutGuarantors(),
+            customerWithoutGuarantors(['nidaNumber' => '19900202345678', 'phone' => '0755222444']),
+        ];
+
+        foreach ($customers as $customer) {
+            $this->postJson("/api/v1/customers/{$customer->id}/guarantors", guarantorPayload())->assertCreated();
+        }
+
+        expect($this->getJson('/api/v1/guarantors')->assertOk()->json('data'))->toHaveCount(1);
+    });
 });
 
 /* -------------------------------------------------------------------------

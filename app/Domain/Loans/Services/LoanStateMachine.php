@@ -96,9 +96,93 @@ final class LoanStateMachine
         ];
     }
 
+    /**
+     * The moves only an approved reversal may make — §5's undo, not §10's
+     * lifecycle.
+     *
+     * Kept OUT of `transitions()` on purpose. That table mirrors the
+     * frontend's LOAN_TRANSITIONS and describes how a loan moves forward under
+     * its own steam; every entry below runs a loan BACKWARDS, and none of them
+     * may be reachable from ordinary code. Folding them in would make `closed`
+     * a status any action could walk out of, which is exactly the property
+     * that makes `closed` mean something.
+     *
+     * Reaching them requires `reverseTransition()`, which only the reversal
+     * executors call and which records the move like any other.
+     *
+     * @return array<string, list<LoanStatus>>
+     */
+    public static function reversalTransitions(): array
+    {
+        return [
+            /*
+             * Reversing the payment that closed a loan reopens it. Which of
+             * the two it reopens INTO is not this table's decision —
+             * LoanStandingRecalculator reads the schedule and picks arrears if
+             * an installment is past due, active otherwise.
+             */
+            LoanStatus::Closed->value => [LoanStatus::Active, LoanStatus::Arrears],
+
+            // The same, for a loan an early settlement had frozen.
+            LoanStatus::Frozen->value => [LoanStatus::Active, LoanStatus::Arrears],
+
+            /*
+             * Reversing a disbursement. The loan lands in `disbursement_failed`
+             * — the position it is actually in once the payout has been taken
+             * back — from which the ordinary retry, escalate and cancel paths
+             * are already open. Sending it to `awaiting_disbursement` instead
+             * would be closer to the truth and useless: nothing prepares a
+             * batch from there, so the loan would have no way out.
+             *
+             * Only permitted while nothing has been repaid. That guard lives
+             * in the executor, because it is a fact about the loan's payments,
+             * not about its status.
+             */
+            LoanStatus::Active->value => [LoanStatus::DisbursementFailed, LoanStatus::Arrears],
+            LoanStatus::Arrears->value => [LoanStatus::DisbursementFailed, LoanStatus::Active],
+        ];
+    }
+
     public function canTransition(LoanStatus $from, LoanStatus $to): bool
     {
         return in_array($to, self::transitions()[$from->value] ?? [], true);
+    }
+
+    /**
+     * Moves a loan backwards under an approved reversal.
+     *
+     * Writes the same `loan_status_history` row a forward move does, with the
+     * reversal's reason on it, so the loan's history shows the undo rather
+     * than a status that silently changed.
+     *
+     * @throws IllegalLoanTransitionException
+     */
+    public function reverseTransition(Loan $loan, LoanStatus $to, ?User $actor, string $reason): Loan
+    {
+        $from = $loan->status;
+
+        if ($from === $to) {
+            return $loan;
+        }
+
+        $permitted = in_array($to, self::reversalTransitions()[$from->value] ?? [], true)
+            || $this->canTransition($from, $to);
+
+        if (! $permitted) {
+            throw new IllegalLoanTransitionException($from, $to);
+        }
+
+        $loan->update(['status' => $to]);
+
+        $loan->statusHistory()->create([
+            'from_status' => $from,
+            'to_status' => $to,
+            'changed_by' => $actor?->getKey(),
+            'reason' => $reason,
+            'created_at' => Date::now(),
+        ]);
+
+        return $loan;
     }
 
     /**

@@ -139,6 +139,8 @@ final class LoanController extends Controller
                 // one; loading them here is what turns `earlySettlement` from
                 // an absent key into a served answer.
                 'earlySettledBy', 'earlySettlementPayment',
+                // Only here, on the one loan: what a disbursement reversal names.
+                'settledBatch',
             ]),
         ));
     }

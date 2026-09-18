@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Domain\Auth\Enums\RoleName;
-use App\Domain\Hr\Services\CommissionCalculator;
+use App\Domain\Hr\DTOs\PayrollRates;
 use App\Domain\Ledger\Enums\AccountType;
 use App\Domain\Reports\DTOs\ReportFilters;
 use App\Domain\Reports\Services\ReportSources;
@@ -220,12 +220,12 @@ describe('HQ allocation (§4C)', function (): void {
         $rows = $response->json('data');
 
         expect($rows)->not->toBeEmpty()
-            ->and($rows[0]['holdRate'])->toBe(CommissionCalculator::HQ_HOLD_RATE);
+            ->and($rows[0]['holdRate'])->toBe(PayrollRates::DEFAULT_HQ_HOLD);
 
-        // Each row's hold is 2% of that row's branch profit.
+        // Each row's hold is its own recorded rate of that row's branch profit.
         foreach ($rows as $row) {
             $expected = Money::of((string) $row['branchProfit'])
-                ->percentage(App\Support\Percentage::of(CommissionCalculator::HQ_HOLD_RATE));
+                ->percentage(App\Support\Percentage::of((string) $row['holdRate']));
 
             expect($row['held'])->toBe($expected->toDecimalString());
         }

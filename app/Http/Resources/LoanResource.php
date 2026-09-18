@@ -68,6 +68,14 @@ final class LoanResource extends JsonResource
             'holdResumeStatus' => $this->hold_resume_status?->value,
 
             'disbursementDate' => $this->disbursement_date?->toDateString(),
+            'settledBatchId' => $this->whenLoaded(
+                'settledBatch',
+                fn (): ?string => self::id($this->settledBatch?->getKey()),
+            ),
+            'settledBatchReference' => $this->whenLoaded(
+                'settledBatch',
+                fn (): ?string => $this->settledBatch?->batch_reference,
+            ),
             'expectedCompletionDate' => $this->expected_completion_date?->toDateString(),
             'approvedBy' => self::id($this->approved_by),
             'approvedAt' => $this->approved_at?->toIso8601String(),

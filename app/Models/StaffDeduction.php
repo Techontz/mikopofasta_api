@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Domain\Hr\Enums\DeductionCategory;
 use App\Domain\Hr\Enums\DeductionType;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property int $staff_profile_id
  * @property DeductionType $type
+ * @property DeductionCategory $category
  * @property string $amount
  * @property string $period
  * @property string $reason
@@ -38,7 +40,7 @@ class StaffDeduction extends Model
     use SoftDeletes;
 
     /** @var list<string> */
-    protected $fillable = ['staff_profile_id', 'type', 'amount', 'period', 'reason', 'created_by'];
+    protected $fillable = ['staff_profile_id', 'type', 'category', 'amount', 'period', 'reason', 'created_by'];
 
     /** @return BelongsTo<StaffProfile, $this> */
     public function staffProfile(): BelongsTo
@@ -69,6 +71,6 @@ class StaffDeduction extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['type' => DeductionType::class];
+        return ['type' => DeductionType::class, 'category' => DeductionCategory::class];
     }
 }

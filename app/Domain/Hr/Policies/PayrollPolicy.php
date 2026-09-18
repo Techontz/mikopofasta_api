@@ -57,4 +57,18 @@ final class PayrollPolicy
     {
         return $actor->hasPermission(PermissionName::PayrollFinalize);
     }
+
+    /**
+     * HRM → Payroll Settings: the Staff Fund and commission rates.
+     *
+     * HR, who prepare payroll, or an administrator. Changing a rate moves
+     * nobody's money by itself — it applies to the next draft payroll or
+     * commission run, which Finance still has to approve — and every change
+     * is audited.
+     */
+    public function manageSettings(User $actor): bool
+    {
+        return $actor->hasPermission(PermissionName::HrManage)
+            || $actor->hasPermission(PermissionName::AdminOrgSettings);
+    }
 }

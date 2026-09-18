@@ -1,8 +1,15 @@
-# Module: Salary Advance
+# Module: Salary Advance — Staff
 
 Sidebar → **Salary Advance**: Salary Advance Category, Request, Approved,
 Active, Repayment, Paid List. HRM → *Staff salary advance category* reaches the
 same register.
+
+> The **customer** half of this product is
+> [salary-advance-customer.md](salary-advance-customer.md). It shares this
+> module's bands and shares nothing else: a customer advance is funded out of
+> operational money rather than the staff fund, is collected over the counter
+> rather than off a payslip, and books its profit to company income rather than
+> back into the fund the staff own.
 
 ## What was already here, and what was wrong with it
 

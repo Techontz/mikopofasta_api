@@ -18,6 +18,22 @@ enum SystemAccountCode: string
     case Capital = '1000';
     case Principal = '1100';
     case LoanReceivable = '1200';
+
+    /*
+     * What customers owe on salary advances — Salary Advance (Customer).
+     *
+     * A receivable, NOT a cash pot. The client's rule is explicit: "there is no
+     * TZS 1,000,000 sitting in a Salary Advance Account". Disbursing an advance
+     * pays it out of the operational money (a bank account or the branch till)
+     * and records the debt here; a repayment clears the debt and recognises the
+     * profit. Nothing is held under Salary Advance at any point.
+     *
+     * Separate from 1200 Loan Receivable because an advance is not a loan: it
+     * has no repayment schedule, no penalty and no mandate, and mixing the two
+     * would make "what is out on loan" unanswerable.
+     */
+    case CustomerAdvanceReceivable = '1250';
+
     case OutstandingLoan = '1300';
     case OutstandingInterest = '1400';
     case InterestIncome = '2000';
@@ -86,6 +102,7 @@ enum SystemAccountCode: string
             self::Capital => 'Capital Account',
             self::Principal => 'Principal Account',
             self::LoanReceivable => 'Loan Receivable Account',
+            self::CustomerAdvanceReceivable => 'Salary Advance Receivable',
             self::OutstandingLoan => 'Outstanding Loan Account',
             self::OutstandingInterest => 'Outstanding Interest Account',
             self::InterestIncome => 'Interest Income Account',
@@ -126,7 +143,8 @@ enum SystemAccountCode: string
     {
         return match ($this) {
             self::Capital, self::Principal, self::Profit, self::Dividend => AccountType::Equity,
-            self::LoanReceivable, self::OutstandingLoan, self::OutstandingInterest, self::DefaultLoan,
+            self::LoanReceivable, self::CustomerAdvanceReceivable, self::OutstandingLoan,
+            self::OutstandingInterest, self::DefaultLoan,
             self::StaffLoanReceivable, self::StaffAdvanceReceivable => AccountType::Asset,
             self::InterestIncome, self::FeeIncome, self::PenaltyIncome, self::RecoveredLoans => AccountType::Income,
             self::WriteOff, self::SalaryExpense, self::CommissionExpense,

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Ledger;
 
-use App\Domain\Ledger\Actions\ReverseJournalEntryAction;
 use App\Domain\Ledger\Services\TrialBalanceBuilder;
+use App\Domain\Reversals\Actions\DecideReversalAction;
+use App\Domain\Reversals\Actions\RequestReversalAction;
+use App\Domain\Reversals\Enums\ReversalType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Repayments\ReverseEntryRequest;
 use App\Http\Resources\ChartOfAccountResource;
@@ -160,12 +162,22 @@ final class LedgerController extends Controller
     /**
      * POST /api/v1/ledger/entries/{entry}/reverse — §15.4.
      * Requires `ledger.reverse.request`.
+     *
+     * The ledger's own door into the reversal desk, kept because this is where
+     * somebody reading an entry asks for it to go back. It raises exactly the
+     * request `POST /reversals` would with `reversal_type=ledger`, and is
+     * decided in the same queue — there is one reversal workflow, not two.
      */
-    public function requestReversal(ReverseEntryRequest $request, JournalEntry $entry, ReverseJournalEntryAction $action): JsonResponse
+    public function requestReversal(ReverseEntryRequest $request, JournalEntry $entry, RequestReversalAction $action): JsonResponse
     {
         $this->authorize('requestReversal', $entry);
 
-        $reversal = $action->request($entry, (string) $request->validated('reason'), $this->actor($request));
+        $reversal = $action->handle(
+            ReversalType::Ledger,
+            $entry,
+            (string) $request->validated('reason'),
+            $this->actor($request),
+        );
 
         return ApiResponse::data(
             new ReversalRequestResource($reversal->load('journalEntry')),
@@ -193,7 +205,7 @@ final class LedgerController extends Controller
      * POST /api/v1/ledger/reversals/{reversalRequest}/approve — §15.4.
      * Requires `ledger.reverse.approve`, a different grant from requesting.
      */
-    public function approveReversal(Request $request, ReversalRequest $reversalRequest, ReverseJournalEntryAction $action): JsonResponse
+    public function approveReversal(Request $request, ReversalRequest $reversalRequest, DecideReversalAction $action): JsonResponse
     {
         $this->authorize('approveReversal', JournalEntry::class);
 
@@ -205,7 +217,7 @@ final class LedgerController extends Controller
     /**
      * POST /api/v1/ledger/reversals/{reversalRequest}/reject
      */
-    public function rejectReversal(Request $request, ReversalRequest $reversalRequest, ReverseJournalEntryAction $action): JsonResponse
+    public function rejectReversal(Request $request, ReversalRequest $reversalRequest, DecideReversalAction $action): JsonResponse
     {
         $this->authorize('approveReversal', JournalEntry::class);
 

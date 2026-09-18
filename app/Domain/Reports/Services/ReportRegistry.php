@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Reports\Services;
 
+use App\Domain\CustomerAdvances\Services\CustomerAdvanceCalculator;
 use App\Domain\Hr\Services\SalaryAdvanceCalculator;
 use App\Domain\Hr\Services\StaffFundReader;
 use App\Domain\Hr\Services\StaffLoanCalculator;
@@ -20,6 +21,7 @@ use App\Domain\Reports\Reports\CashflowReport;
 use App\Domain\Reports\Reports\CashPositionReport;
 use App\Domain\Reports\Reports\CommissionEligibilityReport;
 use App\Domain\Reports\Reports\CommissionReport;
+use App\Domain\Reports\Reports\CustomerAdvanceReport;
 use App\Domain\Reports\Reports\DailyCollectionReport;
 use App\Domain\Reports\Reports\DailyDisbursementReport;
 use App\Domain\Reports\Reports\DailyPositionReport;
@@ -124,6 +126,16 @@ final class ReportRegistry
             new StaffLoanReport(app(StaffLoanCalculator::class)),
             new StaffAdvanceReport(app(SalaryAdvanceCalculator::class)),
             new StaffFundReport(app(StaffFundReader::class)),
+
+            /*
+             * The customer half of Salary Advance, grouped under Collections
+             * rather than HR: it answers what came in and what of it was
+             * profit, which is not a question anybody opens the HR reports to
+             * ask. It is also the transaction history the dashboard's monthly
+             * Salary Advance figure points at — see
+             * docs/modules/salary-advance-customer.md.
+             */
+            new CustomerAdvanceReport(app(CustomerAdvanceCalculator::class)),
 
             /*
              * Module 8 — the ten reports the reports document names that §15.6

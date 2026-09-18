@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $branch_profit
  * @property string $loss_carry_forward
  * @property string $hq_hold_amount
+ * @property string|null $hq_hold_percentage
  * @property string $distributable_profit
  * @property string $pool_percentage
  * @property string $pool_amount
@@ -32,7 +33,7 @@ class CommissionPool extends Model
     /** @var list<string> */
     protected $fillable = [
         'branch_id', 'period', 'branch_profit', 'reserve_appropriation',
-        'loss_carry_forward', 'hq_hold_amount',
+        'loss_carry_forward', 'hq_hold_amount', 'hq_hold_percentage',
         'distributable_profit', 'pool_percentage', 'pool_amount',
     ];
 

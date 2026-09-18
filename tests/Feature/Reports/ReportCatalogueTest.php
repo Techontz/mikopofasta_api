@@ -39,12 +39,16 @@ const SPEC_REPORTS = [
  * §3C, §4B, §4C, §6B, §6C, §7B, §7C, §9C, §10B, §10C. Each report's docblock
  * names the section it implements.
  *
+ * `customer-advance` is the customer half of Salary Advance — the transaction
+ * history the client asked to keep behind the dashboard's monthly figure. See
+ * docs/modules/salary-advance-customer.md.
+ *
  * Listed rather than derived, for the same reason SPEC_REPORTS is: adding a
  * report should be a deliberate edit here, not something that appears.
  */
 const EXTRA_REPORTS = [
     'trial-balance', 'performance',
-    'staff-payslip', 'staff-loan', 'staff-advance', 'staff-fund',
+    'staff-payslip', 'staff-loan', 'staff-advance', 'staff-fund', 'customer-advance',
     'branch-expense', 'hq-expense', 'hq-allocation', 'profit-adjustment',
     'commission-eligibility', 'balance-sheet', 'cash-position', 'daily-position',
     'growth', 'risk',
@@ -60,7 +64,7 @@ describe('the catalogue', function (): void {
         }
     });
 
-    it('publishes the three Phase 8 additions and nothing else beyond the spec', function (): void {
+    it('publishes the additions beyond §15.6 and nothing else', function (): void {
         $slugs = array_keys(app(ReportRegistry::class)->all());
 
         expect($slugs)->toHaveCount(count(SPEC_REPORTS) + count(EXTRA_REPORTS))

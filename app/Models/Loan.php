@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
@@ -225,6 +226,18 @@ class Loan extends Model
     public function disbursementBatches(): HasMany
     {
         return $this->hasMany(DisbursementBatch::class);
+    }
+
+    /**
+     * The one batch that actually paid this loan out — `settled_loan_id` is
+     * UNIQUE, and a reversed disbursement releases it. What the reversal desk
+     * names when Finance asks to take a disbursement back.
+     *
+     * @return HasOne<DisbursementBatch, $this>
+     */
+    public function settledBatch(): HasOne
+    {
+        return $this->hasOne(DisbursementBatch::class, 'settled_loan_id');
     }
 
     /**

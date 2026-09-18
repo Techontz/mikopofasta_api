@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Hr\DTOs;
 
+use App\Domain\Hr\Enums\DeductionCategory;
 use App\Domain\Hr\Enums\DeductionType;
 use App\Support\Money;
 
@@ -12,6 +13,7 @@ final readonly class StaffDeductionData
 {
     public function __construct(
         public DeductionType $type,
+        public DeductionCategory $category,
         public Money $amount,
         public string $period,
         public string $reason,
@@ -29,6 +31,7 @@ final readonly class StaffDeductionData
              * DTO cannot express the invalid state either.
              */
             type: DeductionType::Penalty,
+            category: DeductionCategory::tryFrom((string) ($validated['category'] ?? '')) ?? DeductionCategory::Other,
             amount: Money::of((string) $validated['amount']),
             period: trim((string) $validated['period']),
             reason: trim((string) $validated['reason']),

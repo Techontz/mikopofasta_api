@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\SystemConfigurationController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\ProfileController;
+use App\Http\Controllers\CustomerAdvances\CustomerAdvanceController;
 use App\Http\Controllers\Customers\CustomerCategoryController;
 use App\Http\Controllers\Customers\CustomerController;
 use App\Http\Controllers\Customers\CustomerDocumentController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Expenses\ExpenseCategoryController;
 use App\Http\Controllers\Expenses\ExpenseRequestController;
 use App\Http\Controllers\Hr\CommissionController;
 use App\Http\Controllers\Hr\PayrollController;
+use App\Http\Controllers\Hr\PayrollSettingController;
 use App\Http\Controllers\Hr\SalaryAdvanceController;
 use App\Http\Controllers\Hr\StaffController;
 use App\Http\Controllers\Hr\StaffPayController;
@@ -50,6 +52,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\Repayments\CashDepositController;
 use App\Http\Controllers\Repayments\PaymentController;
 use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Reversals\ReversalController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Treasury\BankController;
 use App\Http\Controllers\Treasury\CapitalContributionController;
@@ -827,6 +830,32 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/ledger/entries/{entry}/reverse', [LedgerController::class, 'requestReversal'])
         ->name('ledger.entries.reverse');
 
+    /*
+    |--------------------------------------------------------------------------
+    | Reversals (spec §5, §14)
+    |--------------------------------------------------------------------------
+    |
+    | One desk for every reversible transaction — a payment, a disbursement, an
+    | accrued penalty, or a bare journal entry. Two grants, deliberately split:
+    | `ledger.reverse.request` raises one, `ledger.reverse.approve` decides it,
+    | and the action refuses an approver who is the requester. Finance holds
+    | both, so a Finance request is decided by a SECOND Finance officer, by
+    | Admin, or by Super Admin.
+    |
+    | The four `/ledger/reversals*` routes above are the same workflow reached
+    | from the ledger, kept so existing links keep working.
+    |
+    */
+    Route::get('/reversals', [ReversalController::class, 'index'])->name('reversals.index');
+    Route::get('/reversals/pending', [ReversalController::class, 'pending'])->name('reversals.pending');
+    Route::post('/reversals', [ReversalController::class, 'store'])->name('reversals.store');
+    Route::get('/reversals/{reversalRequest}', [ReversalController::class, 'show'])
+        ->whereNumber('reversalRequest')->name('reversals.show');
+    Route::post('/reversals/{reversalRequest}/approve', [ReversalController::class, 'approve'])
+        ->whereNumber('reversalRequest')->name('reversals.approve');
+    Route::post('/reversals/{reversalRequest}/reject', [ReversalController::class, 'reject'])
+        ->whereNumber('reversalRequest')->name('reversals.reject');
+
     // §2.7's derived sub-ledgers: customers | loans | staff | branches.
     Route::get('/ledger/{dimension}/{id}', [LedgerController::class, 'subLedger'])
         ->whereIn('dimension', ['customers', 'loans', 'staff', 'branches'])
@@ -876,6 +905,51 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('salary-advances.repayments');
     Route::get('/salary-advances', [SalaryAdvanceController::class, 'index'])
         ->name('salary-advances.index');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Salary Advance — Customer
+    |--------------------------------------------------------------------------
+    |
+    | The customer side of the same product, priced from the same bands. Behind
+    | the LOAN grants rather than HR's: this is the company lending its own
+    | operational money to a customer, which is what `loans.create`,
+    | `loans.approve` and `loans.disburse` already describe. No new permission
+    | is minted, so nobody gains a power by this module existing.
+    |
+    | The money rule, in the client's words: the advance leaves operational
+    | principal when it is issued, the capital returns there when it is
+    | collected, and only the profit reaches income. Nothing is ever held under
+    | "Salary Advance" — see docs/modules/salary-advance-customer.md.
+    |
+    | `payments` is declared before `{advance}` so the literal segment is not
+    | swallowed as an id, the same ordering the repayments route above needs.
+    */
+    Route::get('/customer-advances/payments', [CustomerAdvanceController::class, 'payments'])
+        ->name('customer-advances.payments');
+    Route::get('/customer-advances', [CustomerAdvanceController::class, 'index'])
+        ->name('customer-advances.index');
+    Route::post('/customer-advances', [CustomerAdvanceController::class, 'store'])
+        ->name('customer-advances.store');
+    Route::get('/customer-advances/{advance}', [CustomerAdvanceController::class, 'show'])
+        ->name('customer-advances.show');
+    Route::post('/customer-advances/{advance}/approve', [CustomerAdvanceController::class, 'approve'])
+        ->name('customer-advances.approve');
+    Route::post('/customer-advances/{advance}/reject', [CustomerAdvanceController::class, 'reject'])
+        ->name('customer-advances.reject');
+    Route::post('/customer-advances/{advance}/disburse', [CustomerAdvanceController::class, 'disburse'])
+        ->name('customer-advances.disburse');
+    Route::post('/customer-advances/{advance}/payments', [CustomerAdvanceController::class, 'collect'])
+        ->name('customer-advances.collect');
+
+    /*
+     * The Branch List popup — one month per read, defaulting to the month in
+     * progress. It lives here rather than under /reports because it is the
+     * dashboard's own figure and is refused to nobody who can see the
+     * dashboard's lending numbers.
+     */
+    Route::get('/dashboard/branch-summary', [CustomerAdvanceController::class, 'branchSummary'])
+        ->name('dashboard.branch-summary');
     /*
      * Staff loans — §14, and the same request → HR approval → Finance
      * disbursement route an advance takes (§16.7–16.8). Read-only until
@@ -918,8 +992,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('staff.deductions.index');
     Route::post('/staff/{staffProfile}/deductions', [StaffPayController::class, 'recordDeduction'])
         ->name('staff.deductions.store');
+    Route::get('/staff-deductions', [StaffPayController::class, 'allDeductions'])
+        ->name('staff-deductions.index');
     Route::delete('/staff-deductions/{deduction}', [StaffPayController::class, 'cancelDeduction'])
         ->name('staff-deductions.destroy');
+
+    // HRM → Payroll Settings: the Staff Fund and commission rates.
+    Route::get('/payroll-settings', [PayrollSettingController::class, 'show'])->name('payroll-settings.show');
+    Route::put('/payroll-settings', [PayrollSettingController::class, 'update'])->name('payroll-settings.update');
     Route::get('/staff/performance', [StaffController::class, 'performance'])->name('staff.performance.index');
     Route::post('/staff/performance', [StaffController::class, 'recordPerformance'])->name('staff.performance.store');
 

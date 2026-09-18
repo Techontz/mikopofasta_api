@@ -28,6 +28,7 @@ final class CommissionPoolResource extends JsonResource
             'branchProfit' => $this->branch_profit,
             'lossCarryForward' => $this->loss_carry_forward,
             'hqHoldAmount' => $this->hq_hold_amount,
+            'hqHoldPercentage' => $this->hq_hold_percentage,
             'distributableProfit' => $this->distributable_profit,
             'poolPercentage' => $this->pool_percentage,
             'poolAmount' => $this->pool_amount,

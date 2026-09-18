@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Hr\Services;
 
+use App\Domain\Hr\DTOs\PayrollRates;
 use App\Domain\Hr\DTOs\PoolComputation;
 use App\Models\StaffProfile;
 use App\Support\Money;
@@ -28,14 +29,25 @@ use Illuminate\Support\Collection;
  */
 final class CommissionCalculator
 {
-    /** HQ's cut of branch profit, taken before anything is distributable. */
-    public const string HQ_HOLD_RATE = '2.000';
+    /**
+     * The HQ hold, pool and zone override rates, set on HRM → Payroll
+     * Settings. Handed in rather than read here so the engine stays pure; the
+     * container builds them from `PayrollSetting` (AppServiceProvider), and a
+     * caller that passes nothing gets the documented defaults.
+     */
+    public function __construct(
+        private readonly PayrollRates $rates = new PayrollRates(
+            staffFund: PayrollRates::DEFAULT_STAFF_FUND,
+            commissionPool: PayrollRates::DEFAULT_COMMISSION_POOL,
+            hqHold: PayrollRates::DEFAULT_HQ_HOLD,
+            zoneOverride: PayrollRates::DEFAULT_ZONE_OVERRIDE,
+        ),
+    ) {}
 
-    /** The share of distributable profit that becomes the staff pool. */
-    public const string POOL_RATE = '20.000';
-
-    /** A zone manager's override on the pools of the branches they oversee. */
-    public const string ZONE_OVERRIDE_RATE = '5.000';
+    public function hqHoldPercentage(): Percentage
+    {
+        return $this->rates->hqHoldPercentage();
+    }
 
     /**
      * The pool a branch has earned.
@@ -84,7 +96,7 @@ final class CommissionCalculator
 
         $profitAfterReserve = $branchProfit->subtract($reserve);
 
-        $hqHold = $profitAfterReserve->percentage(Percentage::of(self::HQ_HOLD_RATE));
+        $hqHold = $profitAfterReserve->percentage($this->rates->hqHoldPercentage());
 
         $distributableProfit = $profitAfterReserve->subtract($lossCarryForward)->subtract($hqHold);
 
@@ -100,12 +112,13 @@ final class CommissionCalculator
             lossCarryForward: $lossCarryForward,
             hqHoldAmount: $hqHold,
             distributableProfit: $distributableProfit,
-            poolPercentage: Percentage::of(self::POOL_RATE),
+            hqHoldPercentage: $this->rates->hqHoldPercentage(),
+            poolPercentage: $this->rates->commissionPoolPercentage(),
 
             // A loss-making branch produces a pool of exactly zero — never a
             // negative one, which would read as staff owing the company.
             poolAmount: $distributable
-                ? $distributableProfit->percentage(Percentage::of(self::POOL_RATE))
+                ? $distributableProfit->percentage($this->rates->commissionPoolPercentage())
                 : Money::zero(),
 
             distributable: $distributable,
@@ -157,11 +170,11 @@ final class CommissionCalculator
      */
     public function zoneOverride(Money $totalPoolBase): Money
     {
-        return $totalPoolBase->percentage(Percentage::of(self::ZONE_OVERRIDE_RATE));
+        return $totalPoolBase->percentage($this->rates->zoneOverridePercentage());
     }
 
     public function zoneOverridePercentage(): Percentage
     {
-        return Percentage::of(self::ZONE_OVERRIDE_RATE);
+        return $this->rates->zoneOverridePercentage();
     }
 }

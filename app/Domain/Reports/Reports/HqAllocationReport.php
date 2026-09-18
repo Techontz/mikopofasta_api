@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\Reports\Reports;
 
-use App\Domain\Hr\Services\CommissionCalculator;
+use App\Domain\Hr\DTOs\PayrollRates;
 use App\Domain\Reports\Contracts\Report;
 use App\Domain\Reports\DTOs\ReportColumn;
 use App\Domain\Reports\DTOs\ReportFilters;
 use App\Domain\Reports\DTOs\ReportResult;
 use App\Domain\Reports\Support\Cell;
 use App\Models\CommissionPool;
+use App\Models\PayrollSetting;
 use App\Support\Money;
 
 /**
@@ -69,7 +70,8 @@ final class HqAllocationReport implements Report
             'period' => $pool->period,
             'branch' => Cell::text($pool->branch?->name),
             'branchProfit' => $pool->branch_profit,
-            'holdRate' => CommissionCalculator::HQ_HOLD_RATE,
+            // The rate the pool was generated at — the setting is editable.
+            'holdRate' => $pool->hq_hold_percentage ?? PayrollRates::DEFAULT_HQ_HOLD,
             'held' => $pool->hq_hold_amount,
 
             /*
@@ -112,7 +114,7 @@ final class HqAllocationReport implements Report
             summary: [
                 ['label' => 'Held (filtered)', 'value' => $totalHeld->toDecimalString()],
                 ['label' => 'Accumulated Reserve', 'value' => $reserve->toDecimalString()],
-                ['label' => 'Hold Rate', 'value' => CommissionCalculator::HQ_HOLD_RATE.'%'],
+                ['label' => 'Current Hold Rate', 'value' => PayrollSetting::singleton()->hq_hold_percentage.'%'],
             ],
             emptyMessage: 'No commission pools have been generated for these filters.',
             reconciliation: 'One row per commission pool, holding the figures the engine computed when the pool was created — this report recomputes nothing. The hold is taken from branch profit BEFORE the loss carry-forward (§7 Step 1), so Held can be positive while Distributable is zero. Accumulated Reserve is every pool ever created, not only those matching the filter, because "total accumulated" is not a filtered quantity.',

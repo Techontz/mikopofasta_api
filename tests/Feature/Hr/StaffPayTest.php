@@ -347,6 +347,7 @@ describe('penalty deductions', function (): void {
 
         $this->postJson("/api/v1/staff/{$staff->getKey()}/deductions", [
             'type' => DeductionType::Penalty->value,
+            'category' => 'negligence',
             'amount' => 30000,
             'period' => '2027-07',
             'reason' => 'Repeated late opening of the branch',
@@ -359,6 +360,7 @@ describe('penalty deductions', function (): void {
 
         $this->postJson("/api/v1/staff/{$staff->getKey()}/deductions", [
             'type' => DeductionType::Penalty->value,
+            'category' => 'negligence',
             'amount' => 30000,
             'period' => '2027-07',
             'reason' => 'Repeated late opening of the branch',
@@ -391,9 +393,128 @@ describe('penalty deductions', function (): void {
 
         $this->postJson("/api/v1/staff/{$staff->getKey()}/deductions", [
             'type' => DeductionType::Penalty->value,
+            'category' => 'negligence',
             'amount' => 30000,
             'period' => '2027-07',
         ])->assertUnprocessable()->assertJsonValidationErrors('reason');
+    });
+
+    it('requires the category — negligence, loss or other', function (): void {
+        $staff = staffFor('0754000009');
+        actingAsHr();
+
+        $this->postJson("/api/v1/staff/{$staff->getKey()}/deductions", [
+            'type' => DeductionType::Penalty->value,
+            'amount' => 30000,
+            'period' => '2027-07',
+            'reason' => 'Cash shortage at the till',
+        ])->assertUnprocessable()->assertJsonValidationErrors('category');
+
+        $this->postJson("/api/v1/staff/{$staff->getKey()}/deductions", [
+            'type' => DeductionType::Penalty->value,
+            'category' => 'theft',
+            'amount' => 30000,
+            'period' => '2027-07',
+            'reason' => 'Cash shortage at the till',
+        ])->assertUnprocessable()->assertJsonValidationErrors('category');
+    });
+
+    it('records a loss and lists it with the whole month', function (): void {
+        $staff = staffFor('0754000009');
+        actingAsHr();
+
+        $this->postJson("/api/v1/staff/{$staff->getKey()}/deductions", [
+            'type' => DeductionType::Penalty->value,
+            'category' => 'loss',
+            'amount' => 45000,
+            'period' => '2027-07',
+            'reason' => 'Cash shortage at the till',
+        ])->assertCreated()
+            ->assertJsonPath('data.category', 'loss')
+            ->assertJsonPath('data.categoryLabel', 'Loss caused (Hasara)');
+
+        $rows = $this->getJson('/api/v1/staff-deductions?period=2027-07')->assertOk()->json('data');
+
+        expect($rows)->toHaveCount(1)
+            ->and($rows[0]['staffProfileId'])->toBe((string) $staff->getKey())
+            ->and($rows[0]['staffName'])->toBe($staff->user->name)
+            ->and($rows[0]['category'])->toBe('loss');
+
+        expect($this->getJson('/api/v1/staff-deductions?period=2027-08')->json('data'))->toBeEmpty();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Payroll settings — the rates the client sets
+// ---------------------------------------------------------------------------
+
+describe('payroll settings', function (): void {
+    it('starts on the rates the engines used to hard-code', function (): void {
+        actingAsHr();
+
+        $this->getJson('/api/v1/payroll-settings')
+            ->assertOk()
+            ->assertJsonPath('data.staffFundPercentage', '10.000')
+            ->assertJsonPath('data.commissionPoolPercentage', '20.000')
+            ->assertJsonPath('data.hqHoldPercentage', '2.000')
+            ->assertJsonPath('data.zoneOverridePercentage', '5.000');
+    });
+
+    it('lets HR change them, and audits the change', function (): void {
+        actingAsHr();
+
+        $this->putJson('/api/v1/payroll-settings', payrollRates(['staffFundPercentage' => 20]))
+            ->assertOk()
+            ->assertJsonPath('data.staffFundPercentage', '20.000');
+
+        $log = AuditLog::query()->where('action', AuditAction::PayrollSettingUpdated->value)->sole();
+
+        expect($log->before_json['staff_fund_percentage'])->toBe('10.000')
+            ->and($log->after_json['staff_fund_percentage'])->toBe('20.000');
+    });
+
+    it('refuses a rate outside 0–100', function (): void {
+        actingAsHr();
+
+        $this->putJson('/api/v1/payroll-settings', payrollRates(['commissionPoolPercentage' => 120]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('commissionPoolPercentage');
+    });
+
+    it('lets Finance read them but not change them', function (): void {
+        actingAsFinance();
+
+        $this->getJson('/api/v1/payroll-settings')->assertOk();
+        $this->putJson('/api/v1/payroll-settings', payrollRates())->assertForbidden();
+    });
+
+    it('withholds the Staff Fund at the rate that is set', function (): void {
+        $staff = staffFor('0754000009');
+        actingAsHr();
+
+        $this->putJson('/api/v1/payroll-settings', payrollRates(['staffFundPercentage' => 20]))->assertOk();
+
+        $line = runPayrollFor('2027-07')->lines->firstWhere('staff_profile_id', $staff->getKey());
+        $expected = $staff->baseSalary()->percentage(App\Support\Percentage::of('20'))->toDecimalString();
+
+        expect($line->deductions->firstWhere('type', DeductionType::StaffFund)?->amount)->toBe($expected);
+    });
+
+    it('computes the commission pool at the rates that are set, and keeps them on the pool', function (): void {
+        actingAsHr();
+        $this->putJson('/api/v1/payroll-settings', payrollRates([
+            'commissionPoolPercentage' => 10,
+            'hqHoldPercentage' => 3,
+        ]))->assertOk();
+
+        $pool = app(App\Domain\Hr\Services\CommissionCalculator::class)
+            ->computePool(Money::of('1000000.00'), Money::zero());
+
+        // 3% hold → 970,000 distributable → 10% pool.
+        expect($pool->hqHoldAmount->toDecimalString())->toBe('30000.00')
+            ->and($pool->poolAmount->toDecimalString())->toBe('97000.00')
+            ->and($pool->toPoolRow()['hq_hold_percentage'])->toBe('3.000')
+            ->and($pool->toPoolRow()['pool_percentage'])->toBe('10.000');
     });
 });
 
@@ -671,4 +792,21 @@ function runPayrollFor(string $period): PayrollRun
     forgetAuthGuards();
 
     return $finalized->load(['lines.allowances', 'lines.deductions']);
+}
+
+/**
+ * A full PUT /payroll-settings body — the rates the system started on, with
+ * whichever ones a test wants changed.
+ *
+ * @param array<string, int|string> $overrides
+ * @return array<string, int|string>
+ */
+function payrollRates(array $overrides = []): array
+{
+    return array_merge([
+        'staffFundPercentage' => 10,
+        'commissionPoolPercentage' => 20,
+        'hqHoldPercentage' => 2,
+        'zoneOverridePercentage' => 5,
+    ], $overrides);
 }

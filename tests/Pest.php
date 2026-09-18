@@ -782,7 +782,7 @@ function productPayload(array $overrides = []): array
 
 /**
  * Everything the ledger needs to exist: the loan foundation plus the §5 chart
- * of accounts (18 system accounts, the bank 8xxx rows, and one Teller Cash
+ * of accounts (every SystemAccountCode, the bank 8xxx rows, and one Teller Cash
  * account per branch).
  *
  * Nothing has been posted yet — this is an opened, empty set of books.

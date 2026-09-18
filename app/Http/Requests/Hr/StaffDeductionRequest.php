@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Hr;
 
+use App\Domain\Hr\Enums\DeductionCategory;
 use App\Domain\Hr\Enums\DeductionType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,6 +29,9 @@ final class StaffDeductionRequest extends FormRequest
     {
         return [
             'type' => ['required', Rule::in([DeductionType::Penalty->value])],
+
+            /* Negligence (uzembe), a loss the employee caused (hasara), or other. */
+            'category' => ['required', Rule::enum(DeductionCategory::class)],
             'amount' => ['required', 'numeric', 'gt:0', 'max:100000000'],
             'period' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
 

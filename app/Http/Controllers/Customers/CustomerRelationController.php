@@ -38,7 +38,7 @@ final class CustomerRelationController extends Controller
     public function __construct(private readonly BranchScopeGuard $guard) {}
 
     /**
-     * GET /api/v1/guarantors?search=&limit= — every guarantor on record.
+     * GET /api/v1/guarantors?search=&limit=&customer= — every guarantor on record.
      *
      * WHY THIS EXISTS. Guarantors are stored per customer, and every other
      * endpoint reads them that way. The loan application's "Import Guarantors"
@@ -87,15 +87,53 @@ final class CustomerRelationController extends Controller
         }
 
         /*
+         * ?customer= — the borrower the officer is importing FOR. Anybody who
+         * already stands for them is left out (importing them again would put
+         * the same person on the file twice), and so is the borrower's own
+         * phone or ID: a customer cannot guarantee their own loan. Only an
+         * exclusion, so resolving a customer outside the actor's branch
+         * reveals nothing — the result set is still branch-scoped above.
+         */
+        $forCustomer = $request->filled('customer')
+            ? Customer::query()->find($request->query('customer'))
+            : null;
+
+        if ($forCustomer !== null) {
+            $taken = $forCustomer->guarantors()->get(['phone', 'nida_number']);
+            $phones = $taken->pluck('phone')->push($forCustomer->phone)->filter()->unique()->values()->all();
+            $nidas = $taken->pluck('nida_number')->push($forCustomer->nida_number)->filter()->unique()->values()->all();
+
+            $query->where('customer_id', '!=', $forCustomer->id)
+                ->when($phones !== [], fn ($q) => $q->whereNotIn('phone', $phones))
+                ->when($nidas !== [], fn ($q) => $q->where(
+                    fn ($q) => $q->whereNull('nida_number')->orWhereNotIn('nida_number', $nidas),
+                ));
+        }
+
+        /*
          * Capped rather than paginated. This feeds a type-ahead: nobody scrolls
          * a guarantor list to page four, they type another letter. The cap
          * keeps an unfiltered open of the control cheap on a large book.
          */
         $limit = min(max((int) $request->query('limit', 50), 1), 100);
 
-        return ApiResponse::data(
-            GuarantorResource::collection($query->orderBy('name')->limit($limit)->get()),
-        );
+        /*
+         * One entry per PERSON, not per row. Every import is a copy, so a
+         * guarantor who stands for five customers is five rows — listing all
+         * five made the picker look like it was full of duplicates. The ID
+         * number identifies the person when there is one, the phone otherwise;
+         * the newest copy wins, being the most recently confirmed details.
+         * Over-fetched so the cap still means "this many people" after folding.
+         */
+        $people = $query->latest('id')->limit($limit * 5)->get()
+            ->unique(fn (Guarantor $g): string => $g->nida_number !== null && $g->nida_number !== ''
+                ? 'nida:'.$g->nida_number
+                : 'phone:'.$g->phone)
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->take($limit)
+            ->values();
+
+        return ApiResponse::data(GuarantorResource::collection($people));
     }
 
     /**

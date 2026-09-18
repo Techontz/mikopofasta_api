@@ -53,6 +53,7 @@ final class ManageStaffDeductionAction
             $deduction = StaffDeduction::query()->create([
                 'staff_profile_id' => $staff->getKey(),
                 'type' => $data->type,
+                'category' => $data->category,
                 'amount' => $data->amount->toDecimalString(),
                 'period' => $data->period,
                 'reason' => $data->reason,
@@ -98,6 +99,6 @@ final class ManageStaffDeductionAction
     /** @return array<string, mixed> */
     private function snapshot(StaffDeduction $deduction): array
     {
-        return $deduction->only(['staff_profile_id', 'type', 'amount', 'period', 'reason']);
+        return $deduction->only(['staff_profile_id', 'type', 'category', 'amount', 'period', 'reason']);
     }
 }

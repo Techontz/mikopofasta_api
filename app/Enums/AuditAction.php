@@ -158,6 +158,20 @@ enum AuditAction: string
     case ReversalRejected = 'REVERSAL_REJECTED';
     case LoanClosedByRepayment = 'LOAN_CLOSED_BY_REPAYMENT';
 
+    /*
+     * Transaction reversal (§5, §14). `PaymentReversed` and
+     * `LedgerEntryReversed` above already name two of the four outcomes; these
+     * name the rest, plus the two consequences a reversal can have on a loan.
+     *
+     * A reversal is the one operation that makes a financial fact untrue after
+     * the event, so each kind gets its own action rather than sharing a
+     * generic one — "REVERSAL_APPROVED" in an audit search would not tell a
+     * reader whether a receipt, a payout or a penalty went back.
+     */
+    case DisbursementReversed = 'DISBURSEMENT_REVERSED';
+    case PenaltyReversed = 'PENALTY_REVERSED';
+    case LoanReopenedByReversal = 'LOAN_REOPENED_BY_REVERSAL';
+
     // HR, payroll and commission (§11).
     case StaffRegistered = 'STAFF_REGISTERED';
     case StaffUpdated = 'STAFF_UPDATED';
@@ -171,6 +185,20 @@ enum AuditAction: string
     /* Recovery from payroll: one per instalment, plus a final closing event. */
     case StaffAdvanceRepaid = 'STAFF_ADVANCE_REPAID';
     case StaffAdvanceRecovered = 'STAFF_ADVANCE_RECOVERED';
+
+    /*
+     * Salary Advance (Customer). The same four-step trail as the staff advance
+     * above, plus the payment — a customer repays over the counter rather than
+     * off a payslip, so each collection is an event somebody performed and has
+     * to be attributable.
+     */
+    case CustomerAdvanceRequested = 'CUSTOMER_ADVANCE_REQUESTED';
+    case CustomerAdvanceApproved = 'CUSTOMER_ADVANCE_APPROVED';
+    case CustomerAdvanceRejected = 'CUSTOMER_ADVANCE_REJECTED';
+    case CustomerAdvanceDisbursed = 'CUSTOMER_ADVANCE_DISBURSED';
+    case CustomerAdvanceRepaid = 'CUSTOMER_ADVANCE_REPAID';
+    case CustomerAdvanceSettled = 'CUSTOMER_ADVANCE_SETTLED';
+    case CustomerAdvancePaymentReversed = 'CUSTOMER_ADVANCE_PAYMENT_REVERSED';
     case SalaryAdvanceCategoryCreated = 'SALARY_ADVANCE_CATEGORY_CREATED';
     case SalaryAdvanceCategoryUpdated = 'SALARY_ADVANCE_CATEGORY_UPDATED';
     case SalaryAdvanceCategoryDeleted = 'SALARY_ADVANCE_CATEGORY_DELETED';
@@ -199,6 +227,7 @@ enum AuditAction: string
     case StaffAllowanceRevoked = 'STAFF_ALLOWANCE_REVOKED';
     case StaffDeductionRecorded = 'STAFF_DEDUCTION_RECORDED';
     case StaffDeductionCancelled = 'STAFF_DEDUCTION_CANCELLED';
+    case PayrollSettingUpdated = 'PAYROLL_SETTING_UPDATED';
 
     /*
      * System configuration (§Administration). Changing an interest formula's

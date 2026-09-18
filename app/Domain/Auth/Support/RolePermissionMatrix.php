@@ -49,7 +49,19 @@ final class RolePermissionMatrix
                 P::CustomersView, P::CustomersManage, P::CustomersApprove, P::CustomersAssignOfficer,
                 P::LoansView, P::LoansCreate, P::LoansApprove,
                 P::RepaymentsView, P::RepaymentsManage, P::RepaymentsCashEntry,
-                P::LedgerView, P::LedgerReverseRequest,
+                /*
+                 * Reversals: Admin can raise one AND decide one.
+                 *
+                 * The approve grant was added when reversal stopped being a
+                 * purely accounting mirror and started undoing payments,
+                 * disbursements and penalties. The client's rule is that a
+                 * Finance request is decided by somebody else — a second
+                 * Finance officer, Admin, or Super Admin — and without this
+                 * grant Admin could only ask, never answer. Self-approval is
+                 * still refused outright in DecideReversalAction, so holding
+                 * both is not a way around the control.
+                 */
+                P::LedgerView, P::LedgerReverseRequest, P::LedgerReverseApprove,
                 P::TreasuryView,
                 P::HrView, P::HrManage, P::PayrollGenerate,
                 P::ReportsView,

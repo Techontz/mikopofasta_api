@@ -132,6 +132,30 @@ final class StaffPayController extends Controller
     // Deductions — §11's penalties, the only type a person records by hand
     // -----------------------------------------------------------------------
 
+    /**
+     * GET /api/v1/staff-deductions?period=
+     *
+     * Every hand-entered deduction for a month, across all staff — HRM →
+     * Deductions, where HR records them without opening each profile.
+     */
+    public function allDeductions(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', PayrollRun::class);
+
+        $deductions = StaffDeduction::query()
+            ->with(['creator', 'staffProfile.user'])
+            ->when(
+                $request->filled('period'),
+                fn (Builder $q) => $q->where('period', $request->string('period')),
+            )
+            ->latest('period')
+            ->latest('id')
+            ->limit(500)
+            ->get();
+
+        return ApiResponse::data(StaffDeductionResource::collection($deductions));
+    }
+
     /** GET /api/v1/staff/{staffProfile}/deductions */
     public function deductions(Request $request, StaffProfile $staffProfile): JsonResponse
     {

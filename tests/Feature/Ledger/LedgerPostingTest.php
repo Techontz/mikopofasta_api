@@ -327,18 +327,39 @@ describe('reversal', function (): void {
     it('separates requesting from approving', function (): void {
         $entry = JournalEntry::query()->where('is_reversal', false)->firstOrFail();
 
-        // Admin holds `ledger.reverse.request` and NOT
-        // `ledger.reverse.approve` — the frontend's role map is precise about
-        // that, and it is the whole separation-of-duties control.
-        officerAt('Head Office', RoleName::Admin);
+        /*
+         * The Accountant is the clean test of the grant boundary: they hold
+         * `ledger.reverse.request` and not `ledger.reverse.approve`, which is
+         * the point of the role — they find the error, somebody with the money
+         * grant decides what to do about it.
+         *
+         * Admin used to be the example here and no longer is. Since reversal
+         * started undoing payments and disbursements rather than only mirroring
+         * entries, Admin holds the approve grant too, so that a Finance request
+         * can be decided by a second Finance officer, by Admin, or by Super
+         * Admin. The control is that the approver is a DIFFERENT PERSON — see
+         * the self-approval test below — not that they hold a different job.
+         */
+        officerAt('Head Office', RoleName::Accountant);
         $this->postJson("/api/v1/ledger/entries/{$entry->id}/reverse", ['reason' => 'Posted in error'])->assertCreated();
 
         $request = App\Models\ReversalRequest::query()->latest('id')->firstOrFail();
 
-        // §14: only Finance or Super Admin approve.
         $this->postJson("/api/v1/ledger/reversals/{$request->id}/approve")->assertForbidden();
 
         officerAt('Head Office', RoleName::Finance);
+        $this->postJson("/api/v1/ledger/reversals/{$request->id}/approve")->assertOk();
+    });
+
+    it('lets Admin approve, since reversal now moves money and not only entries', function (): void {
+        $entry = JournalEntry::query()->where('is_reversal', false)->firstOrFail();
+
+        officerAt('Head Office', RoleName::Finance);
+        $this->postJson("/api/v1/ledger/entries/{$entry->id}/reverse", ['reason' => 'Posted in error'])->assertCreated();
+
+        $request = App\Models\ReversalRequest::query()->latest('id')->firstOrFail();
+
+        officerAt('Head Office', RoleName::Admin);
         $this->postJson("/api/v1/ledger/reversals/{$request->id}/approve")->assertOk();
     });
 
