@@ -1,81 +1,63 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use App\Support\Money;
+use App\Services\LoanRecoveryService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A loan the business has stopped expecting to collect — §5's Write-Off account.
- *
- * The split between what is written off and what is merely forgone matters.
- * Only principal reaches the ledger: under the collection basis this system
- * uses, uncollected interest and penalty were never recognised as income, so
- * writing them off would reverse revenue that does not exist. They are kept
- * here because the recovery officer and the arrears report both need to know
- * what the borrower actually owed.
- *
- * @property int $id
- * @property int $loan_id
- * @property string $principal_written_off
- * @property string $interest_forgone
- * @property string $penalty_forgone
- * @property string $reason
- * @property int $approved_by
- * @property int|null $journal_entry_id
+ * A posted write-off. principal_amount / interest_amount / penalty_amount / insurance_amount snapshot the loan's outstanding
+ * components at write-off (NULL on write-offs posted before the snapshot existed) and cap the recoveries per component
+ * ({@see LoanRecoveryService::components()}).
  */
 class WriteOff extends Model
 {
-    /** @var list<string> */
-    protected $fillable = [
-        'loan_id', 'principal_written_off', 'interest_forgone', 'penalty_forgone',
-        'reason', 'approved_by', 'journal_entry_id',
-    ];
+    protected $guarded = ['id'];
 
-    /** @return BelongsTo<Loan, $this> */
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'written_off_on' => 'date',
+            'amount' => 'decimal:2',
+            'principal_amount' => 'decimal:2',
+            'interest_amount' => 'decimal:2',
+            'penalty_amount' => 'decimal:2',
+            'insurance_amount' => 'decimal:2',
+            'recovered_amount' => 'decimal:2',
+        ];
+    }
+
+    /**
+     * Recovered so far: the legacy recovered_amount column (never written by this system) plus every recovery that still
+     * stands ({@see LoanRecovery}), as a SQL expression usable in selects and filters.
+     */
+    public static function recoveredSql(string $table = 'write_offs'): string
+    {
+        return "({$table}.recovered_amount + COALESCE((SELECT SUM(loan_recoveries.amount) FROM loan_recoveries WHERE loan_recoveries.write_off_id = {$table}.id AND loan_recoveries.reversed_at IS NULL), 0))";
+    }
+
+    public function recoveries(): HasMany
+    {
+        return $this->hasMany(LoanRecovery::class);
+    }
+
+    public function recoveredTotal(): float
+    {
+        return round((float) $this->recovered_amount + (float) $this->recoveries()->whereNull('reversed_at')->sum('amount'), 2);
+    }
+
     public function loan(): BelongsTo
     {
         return $this->belongsTo(Loan::class);
     }
 
-    /** @return BelongsTo<User, $this> */
-    public function approver(): BelongsTo
+    public function employee(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    /** @return HasMany<Recovery, $this> */
-    public function recoveries(): HasMany
-    {
-        return $this->hasMany(Recovery::class);
-    }
-
-    public function principalMoney(): Money
-    {
-        return Money::of($this->principal_written_off);
-    }
-
-    /** What has come back since, across every recovery against this write-off. */
-    public function recoveredTotal(): Money
-    {
-        return Money::sum(
-            $this->recoveries()->pluck('amount')->map(static fn ($a): Money => Money::of((string) $a)),
-        );
-    }
-
-    /**
-     * What remains unrecovered.
-     *
-     * Floored at zero: a recovery may exceed the principal written off when it
-     * carries interest the borrower agreed to pay on settlement, and a negative
-     * outstanding would read as the company owing the borrower.
-     */
-    public function outstanding(): Money
-    {
-        return $this->principalMoney()->subtract($this->recoveredTotal())->max(Money::zero());
+        return $this->belongsTo(Employee::class);
     }
 }

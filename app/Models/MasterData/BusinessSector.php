@@ -1,11 +1,15 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models\MasterData;
 
-/** Admin-managed lookup list — see MasterDataModel. A line of trade — the Sekta ya Biashara a trader operates in. */
-final class BusinessSector extends MasterDataModel
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class BusinessSector extends MasterDataModel
 {
     protected $table = 'business_sectors';
+
+    public function businessTypes(): HasMany
+    {
+        return $this->hasMany(BusinessType::class, 'business_sector_id');
+    }
 }

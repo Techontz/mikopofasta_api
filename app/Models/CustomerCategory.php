@@ -1,97 +1,27 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use App\Domain\Customers\Enums\CategorySector;
-use App\Domain\Customers\Enums\RiskTier;
-use Carbon\CarbonImmutable;
+use App\Models\Concerns\Auditable;
+use Database\Factories\CustomerCategoryFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Backend spec §2.3 — `customer_categories`. The KYC/risk rule engine.
- *
- * @property int $id
- * @property string $name
- * @property string $code
- * @property RiskTier $risk_tier
- * @property CategorySector $sector
- * @property string|null $description
- * @property string|null $form_title
- * @property list<string>|null $optional_documents
- * @property bool $is_active
- * @property int $sort_order
- * @property list<string> $required_documents
- * @property list<array<string, mixed>> $dynamic_form_schema
- * @property list<string>|null $omitted_standard_fields
- * @property bool $requires_extra_approval
- * @property int|null $created_by
- * @property CarbonImmutable|null $created_at
- * @property CarbonImmutable|null $updated_at
- * @property CarbonImmutable|null $deleted_at
+ * Customer type (shown as "Customer Type" everywhere in the UI; the table keeps its historical name): who the customer is —
+ * required documents, risk level and the dynamic registration form. It holds NO loan configuration: its loan products are the
+ * loan categories that reference it (loan_categories.customer_category_id, one customer type → many loan categories).
  */
 class CustomerCategory extends Model
 {
-    use SoftDeletes;
+    /** @use HasFactory<CustomerCategoryFactory> */
+    use Auditable, HasFactory, SoftDeletes;
 
-    /**
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name', 'code', 'description',
-        /* The heading the registration form shows over this type's own
-           questions. Null means "use the name". */
-        'form_title',
-        /* Whether the type is offered to new registrations, and in what order
-           the officer sees it. Switching one off leaves every customer already
-           filed under it exactly as they are. */
-        'is_active', 'sort_order',
-        'risk_tier', 'sector',
-        /* Which of the first-class registration blocks this category asks
-           for. Booleans on the category rather than entries in
-           `dynamic_form_schema`, because sector, contract and salary are real
-           typed columns on `customers` and declaring them in the schema too
-           would store the same fact in two shapes. See the 2026_08_30
-           migration. */
-        'requires_sector', 'requires_employer', 'requires_contract', 'requires_salary',
-        /* What the file MUST contain, and what it MAY contain. Two lists
-           rather than one list of objects with a flag, because
-           `required_documents` already means "mandatory" to KycEvaluator and
-           to the wizard, and widening it would have changed a contract three
-           readers depend on in order to express one boolean. */
-        'required_documents', 'optional_documents', 'dynamic_form_schema',
-        /* Standard questions this type does not ask — see the 2026_09_12 migration. */
-        'omitted_standard_fields',
-        'requires_extra_approval', 'created_by',
-    ];
-
-    /**
-     * @return HasMany<Customer, $this>
-     */
-    public function customers(): HasMany
-    {
-        return $this->hasMany(Customer::class, 'customer_category_id');
-    }
-
-    /**
-     * @return BelongsTo<User, $this>
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Mirrors the frontend's needsApproval().
-     */
-    public function needsApproval(): bool
-    {
-        return $this->requires_extra_approval;
-    }
+    protected $guarded = ['id'];
 
     /**
      * @return array<string, string>
@@ -99,19 +29,45 @@ class CustomerCategory extends Model
     protected function casts(): array
     {
         return [
-            'risk_tier' => RiskTier::class,
-            'sector' => CategorySector::class,
-            'is_active' => 'boolean',
-            'sort_order' => 'integer',
             'required_documents' => 'array',
+            'form_schema' => 'array',
+            'is_active' => 'boolean',
             'optional_documents' => 'array',
             'dynamic_form_schema' => 'array',
             'omitted_standard_fields' => 'array',
-            'requires_extra_approval' => 'boolean',
+            'sort_order' => 'integer',
             'requires_sector' => 'boolean',
             'requires_employer' => 'boolean',
             'requires_contract' => 'boolean',
             'requires_salary' => 'boolean',
+            'requires_extra_approval' => 'boolean',
         ];
+    }
+
+    /**
+     * The customer types a user may choose for one company: active, not deleted, in display order. The single
+     * source for every Customer Type select, filter and option list.
+     */
+    public function scopeSelectable(Builder $query, int $companyId): void
+    {
+        $query->where('company_id', $companyId)->where('is_active', true)->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
+    }
+
+    /**
+     * The loan categories (loan products) offered to this customer type.
+     */
+    public function loanCategories(): HasMany
+    {
+        return $this->hasMany(LoanCategory::class, 'customer_category_id');
     }
 }

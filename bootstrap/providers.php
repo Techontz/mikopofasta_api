@@ -1,11 +1,13 @@
 <?php
 
-declare(strict_types=1);
-
 use App\Providers\AppServiceProvider;
-use App\Providers\LoanEngineServiceProvider;
+use App\Providers\CustomersServiceProvider;
+use App\Providers\LoansServiceProvider;
+use App\Providers\PaymentsServiceProvider;
 
 return [
     AppServiceProvider::class,
-    LoanEngineServiceProvider::class,
+    CustomersServiceProvider::class,
+    PaymentsServiceProvider::class,
+    LoansServiceProvider::class,
 ];

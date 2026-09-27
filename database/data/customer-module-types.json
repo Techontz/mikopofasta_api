@@ -1,0 +1,1023 @@
+{
+  "_about": "Customer types exported from the live reference implementation's customer_categories table (dynamic_form_schema, omitted_standard_fields and flags are exact). 'standardFieldBlocks' and 'compositionRules' are transcribed from the reference frontend code. 'resolvedStep2Fields' is DERIVED by applying compositionRules to each type (assuming no requirement profile adds employment/business blocks) and is what the Step 2 card actually shows, before the separate Account Number section.",
+  "fieldDefinitionSchema": {
+    "key": "string, unique within the type; the answer key in dynamicFormData",
+    "label": "string, exact label shown to the officer",
+    "type": [
+      "text",
+      "textarea",
+      "number",
+      "currency",
+      "date",
+      "select",
+      "boolean"
+    ],
+    "required": "boolean",
+    "options": "array of strings — fixed options for a select; the chosen string is stored",
+    "dataSource": "master-data list slug for a select; the chosen row ID is stored",
+    "dependsOn": "key of the parent field (cascading select); options filtered by parent id; changing parent clears this field",
+    "requiredWhen": "{ field: <key>, equals: [values or master-data codes] } — conditionally required",
+    "storesIn": "allowlisted customer column (camelCase payload name) — answer stored in that column instead of dynamicFormData",
+    "fullWidth": "display hint (reference renderer only spans textarea across both columns)",
+    "placeholder": "optional string",
+    "helpText": "optional string"
+  },
+  "masterDataSources": {
+    "government-bodies": {
+      "parent": null
+    },
+    "government-departments": {
+      "parent": "government-bodies",
+      "parentColumn": "government_body_id"
+    },
+    "government-cadres": {
+      "parent": "government-departments",
+      "parentColumn": "government_department_id"
+    },
+    "private-sectors": {
+      "parent": null
+    },
+    "private-employers": {
+      "parent": "private-sectors",
+      "parentColumn": "private_sector_id"
+    },
+    "private-departments": {
+      "parent": "private-sectors",
+      "parentColumn": "private_sector_id"
+    },
+    "private-cadres": {
+      "parent": "private-departments",
+      "parentColumn": "private_department_id"
+    },
+    "business-sectors": {
+      "parent": null
+    },
+    "business-types": {
+      "parent": "business-sectors",
+      "parentColumn": "business_sector_id"
+    },
+    "colleges": {
+      "parent": null
+    },
+    "courses": {
+      "parent": "colleges",
+      "parentColumn": "college_id"
+    },
+    "pension-funds": {
+      "parent": null
+    }
+  },
+  "standardFieldBlocks": {
+    "employment": [
+      {
+        "key": "place_of_employment",
+        "label": "Place of Employment",
+        "type": "text",
+        "required": false,
+        "storesIn": "placeOfEmployment"
+      },
+      {
+        "key": "check_number",
+        "label": "Check Number",
+        "type": "text",
+        "required": false,
+        "storesIn": "checkNumber",
+        "helpText": "The payroll check number, where the employer issues one."
+      },
+      {
+        "key": "basic_salary",
+        "label": "Basic Salary",
+        "type": "currency",
+        "required": false,
+        "storesIn": "basicSalary"
+      },
+      {
+        "key": "take_home",
+        "label": "Take Home",
+        "type": "currency",
+        "required": false,
+        "storesIn": "takeHome"
+      },
+      {
+        "key": "monthly_income",
+        "label": "Monthly Income",
+        "type": "currency",
+        "required": false,
+        "storesIn": "monthlyIncome"
+      },
+      {
+        "key": "retirement_date",
+        "label": "Date of Retirement",
+        "type": "date",
+        "required": false,
+        "storesIn": "retirementDate",
+        "helpText": "Where the employer sets one."
+      }
+    ],
+    "employmentConditional": {
+      "whenRequiresSector": [
+        {
+          "key": "sector_id",
+          "label": "Sector",
+          "type": "select",
+          "required": false,
+          "storesIn": "sectorId",
+          "dataSource": "sectors"
+        },
+        {
+          "key": "sector_category_id",
+          "label": "Cadre",
+          "type": "select",
+          "required": false,
+          "storesIn": "sectorCategoryId",
+          "dataSource": "sector-categories",
+          "dependsOn": "sector_id"
+        }
+      ],
+      "whenRequiresEmployer": [
+        {
+          "key": "employer_id",
+          "label": "Employer",
+          "type": "select",
+          "required": false,
+          "storesIn": "employerId",
+          "dataSource": "employers"
+        }
+      ],
+      "whenRequiresContract": [
+        {
+          "key": "contract_type_id",
+          "label": "Contract Type",
+          "type": "select",
+          "required": false,
+          "storesIn": "contractTypeId",
+          "dataSource": "contract-types"
+        },
+        {
+          "key": "contract_expiry_date",
+          "label": "Contract Expiry Date",
+          "type": "date",
+          "required": false,
+          "storesIn": "contractExpiryDate",
+          "dependsOn": "contract_type_id",
+          "requiredWhen": {
+            "field": "contract_type_id",
+            "equals": [
+              "TEMPORARY"
+            ]
+          }
+        }
+      ]
+    },
+    "business": [
+      {
+        "key": "business_name",
+        "label": "Business Name",
+        "type": "text",
+        "required": false,
+        "storesIn": "businessName"
+      },
+      {
+        "key": "business_type",
+        "label": "Business Type",
+        "type": "text",
+        "required": false,
+        "storesIn": "businessType",
+        "placeholder": "Retail, transport, agriculture…"
+      },
+      {
+        "key": "business_address",
+        "label": "Business Address",
+        "type": "text",
+        "required": false,
+        "storesIn": "businessAddress",
+        "fullWidth": true
+      },
+      {
+        "key": "tin_number",
+        "label": "TIN Number (Optional)",
+        "type": "text",
+        "required": false,
+        "storesIn": "tinNumber",
+        "helpText": "Where the business is registered for tax."
+      },
+      {
+        "key": "monthly_income",
+        "label": "Monthly Income",
+        "type": "currency",
+        "required": false,
+        "storesIn": "monthlyIncome"
+      }
+    ],
+    "other": [
+      {
+        "key": "monthly_income",
+        "label": "Monthly Income",
+        "type": "currency",
+        "required": false,
+        "storesIn": "monthlyIncome"
+      }
+    ]
+  },
+  "compositionRules": [
+    "1. Start with the type's dynamicFormSchema, in order.",
+    "2. Standard block by sector: employment -> employment block (Sector/Cadre only if requiresSector; Employer only if requiresEmployer; Contract Type/Contract Expiry Date only if requiresContract, inserted after Check Number); business -> business block; other -> other block. A requirement profile with requires_employment_details / requires_business_details also adds that block. If no block applies, use 'other'.",
+    "3. Skip a standard field if its key is in omittedStandardFields, OR a configured field has the same key, OR a configured field has the same storesIn.",
+    "4. Append the remaining standard fields after the configured ones. All standard fields are optional.",
+    "5. Do not render on Step 2 fields whose storesIn is collected elsewhere: dependentsCount, alternativePhone, email, nationality, maritalStatusId, residenceType (Step 1) and bankId, bankBranch, mobileMoneyProviderId, walletNumber (Account Number section).",
+    "6. The same composed list is used for rendering AND client-side validation. The server validates the configured dynamicFormSchema; standard fields are nullable columns."
+  ],
+  "removedQuestions": {
+    "allTypes": [
+      "bank",
+      "account",
+      "kadi_muda",
+      "mshahara"
+    ],
+    "note": "Bank/account questions are asked by the Account Number (MNO/BANK) section instead; 'Kadi Muda' and 'Mshahara Anaopokea (TZS)' are not asked.",
+    "SEKTA_BINAFSI": [
+      "sb_taasisi_other (free-text company name when 'other')",
+      "sb_tarehe_ajira (Tarehe ya Kuajiriwa)"
+    ],
+    "WAJASIRIAMALI": [
+      "tin (Namba ya TIN) — the standard 'TIN Number (Optional)' is used instead"
+    ],
+    "MSTAAFU_UMMA": [
+      "mstaafu_check (Check Namba)"
+    ]
+  },
+  "customerTypes": [
+    {
+      "name": "Mtumishi wa Umma",
+      "code": "WATUMISHI_WA_UMMA",
+      "description": null,
+      "formTitle": "Taarifa za Mtumishi wa Umma",
+      "sortOrder": 1,
+      "isActive": true,
+      "riskTier": "medium",
+      "sector": "employment",
+      "requiresSector": false,
+      "requiresEmployer": false,
+      "requiresContract": false,
+      "requiresSalary": false,
+      "requiresExtraApproval": false,
+      "requiredDocuments": [
+        "confirmation_letter",
+        "salary_slip",
+        "bank_card",
+        "employee_id",
+        "national_id"
+      ],
+      "optionalDocuments": [],
+      "omittedStandardFields": [
+        "place_of_employment",
+        "monthly_income"
+      ],
+      "dynamicFormSchema": [
+        {
+          "key": "taasisi",
+          "type": "select",
+          "label": "Wizara / Taasisi ya Serikali",
+          "required": true,
+          "fullWidth": true,
+          "dataSource": "government-bodies"
+        },
+        {
+          "key": "idara",
+          "type": "select",
+          "label": "Idara",
+          "required": true,
+          "dependsOn": "taasisi",
+          "dataSource": "government-departments"
+        },
+        {
+          "key": "cheo",
+          "type": "select",
+          "label": "Cheo",
+          "required": true,
+          "dependsOn": "idara",
+          "dataSource": "government-cadres"
+        },
+        {
+          "key": "kituo",
+          "type": "text",
+          "label": "Kituo cha Kazi",
+          "required": true
+        },
+        {
+          "key": "check_number",
+          "type": "text",
+          "label": "Check Namba",
+          "required": true
+        },
+        {
+          "key": "aina_ajira",
+          "type": "select",
+          "label": "Aina ya Ajira",
+          "options": [
+            "Ajira ya Kudumu",
+            "Mkataba",
+            "Muda Maalum"
+          ],
+          "required": true
+        }
+      ],
+      "resolvedStep2Fields": [
+        {
+          "key": "taasisi",
+          "type": "select",
+          "label": "Wizara / Taasisi ya Serikali",
+          "required": true,
+          "fullWidth": true,
+          "dataSource": "government-bodies",
+          "origin": "configured"
+        },
+        {
+          "key": "idara",
+          "type": "select",
+          "label": "Idara",
+          "required": true,
+          "dependsOn": "taasisi",
+          "dataSource": "government-departments",
+          "origin": "configured"
+        },
+        {
+          "key": "cheo",
+          "type": "select",
+          "label": "Cheo",
+          "required": true,
+          "dependsOn": "idara",
+          "dataSource": "government-cadres",
+          "origin": "configured"
+        },
+        {
+          "key": "kituo",
+          "type": "text",
+          "label": "Kituo cha Kazi",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "check_number",
+          "type": "text",
+          "label": "Check Namba",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "aina_ajira",
+          "type": "select",
+          "label": "Aina ya Ajira",
+          "options": [
+            "Ajira ya Kudumu",
+            "Mkataba",
+            "Muda Maalum"
+          ],
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "basic_salary",
+          "label": "Basic Salary",
+          "type": "currency",
+          "required": false,
+          "storesIn": "basicSalary",
+          "origin": "standard"
+        },
+        {
+          "key": "take_home",
+          "label": "Take Home",
+          "type": "currency",
+          "required": false,
+          "storesIn": "takeHome",
+          "origin": "standard"
+        },
+        {
+          "key": "retirement_date",
+          "label": "Date of Retirement",
+          "type": "date",
+          "required": false,
+          "storesIn": "retirementDate",
+          "helpText": "Where the employer sets one.",
+          "origin": "standard"
+        }
+      ]
+    },
+    {
+      "name": "Sekta Binafsi",
+      "code": "SEKTA_BINAFSI",
+      "description": null,
+      "formTitle": "Taarifa za Sekta Binafsi",
+      "sortOrder": 2,
+      "isActive": true,
+      "riskTier": "medium",
+      "sector": "employment",
+      "requiresSector": false,
+      "requiresEmployer": false,
+      "requiresContract": false,
+      "requiresSalary": false,
+      "requiresExtraApproval": false,
+      "requiredDocuments": [],
+      "optionalDocuments": [],
+      "omittedStandardFields": [
+        "place_of_employment",
+        "check_number",
+        "monthly_income"
+      ],
+      "dynamicFormSchema": [
+        {
+          "key": "sb_sekta",
+          "type": "select",
+          "label": "Sekta",
+          "required": true,
+          "fullWidth": true,
+          "dataSource": "private-sectors"
+        },
+        {
+          "key": "sb_taasisi",
+          "type": "select",
+          "label": "Taasisi / Kampuni",
+          "required": true,
+          "dependsOn": "sb_sekta",
+          "dataSource": "private-employers"
+        },
+        {
+          "key": "sb_idara",
+          "type": "select",
+          "label": "Kitengo Alichopo (Idara)",
+          "required": true,
+          "dependsOn": "sb_sekta",
+          "dataSource": "private-departments"
+        },
+        {
+          "key": "sb_cheo",
+          "type": "select",
+          "label": "Cheo Chake",
+          "required": true,
+          "dependsOn": "sb_idara",
+          "dataSource": "private-cadres"
+        },
+        {
+          "key": "sb_kituo",
+          "type": "text",
+          "label": "Kituo cha Kazi",
+          "required": true
+        },
+        {
+          "key": "sb_aina_mkataba",
+          "type": "select",
+          "label": "Aina ya Mkataba",
+          "options": [
+            "Ajira ya Kudumu",
+            "Mkataba wa Muda",
+            "Vibarua"
+          ],
+          "required": true
+        },
+        {
+          "key": "sb_kitambulisho",
+          "type": "text",
+          "label": "Namba ya Kitambulisho cha Kazi",
+          "required": true
+        }
+      ],
+      "resolvedStep2Fields": [
+        {
+          "key": "sb_sekta",
+          "type": "select",
+          "label": "Sekta",
+          "required": true,
+          "fullWidth": true,
+          "dataSource": "private-sectors",
+          "origin": "configured"
+        },
+        {
+          "key": "sb_taasisi",
+          "type": "select",
+          "label": "Taasisi / Kampuni",
+          "required": true,
+          "dependsOn": "sb_sekta",
+          "dataSource": "private-employers",
+          "origin": "configured"
+        },
+        {
+          "key": "sb_idara",
+          "type": "select",
+          "label": "Kitengo Alichopo (Idara)",
+          "required": true,
+          "dependsOn": "sb_sekta",
+          "dataSource": "private-departments",
+          "origin": "configured"
+        },
+        {
+          "key": "sb_cheo",
+          "type": "select",
+          "label": "Cheo Chake",
+          "required": true,
+          "dependsOn": "sb_idara",
+          "dataSource": "private-cadres",
+          "origin": "configured"
+        },
+        {
+          "key": "sb_kituo",
+          "type": "text",
+          "label": "Kituo cha Kazi",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "sb_aina_mkataba",
+          "type": "select",
+          "label": "Aina ya Mkataba",
+          "options": [
+            "Ajira ya Kudumu",
+            "Mkataba wa Muda",
+            "Vibarua"
+          ],
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "sb_kitambulisho",
+          "type": "text",
+          "label": "Namba ya Kitambulisho cha Kazi",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "basic_salary",
+          "label": "Basic Salary",
+          "type": "currency",
+          "required": false,
+          "storesIn": "basicSalary",
+          "origin": "standard"
+        },
+        {
+          "key": "take_home",
+          "label": "Take Home",
+          "type": "currency",
+          "required": false,
+          "storesIn": "takeHome",
+          "origin": "standard"
+        },
+        {
+          "key": "retirement_date",
+          "label": "Date of Retirement",
+          "type": "date",
+          "required": false,
+          "storesIn": "retirementDate",
+          "helpText": "Where the employer sets one.",
+          "origin": "standard"
+        }
+      ]
+    },
+    {
+      "name": "Mjasiriamali/Mfanyabiashara",
+      "code": "WAJASIRIAMALI",
+      "description": null,
+      "formTitle": "Taarifa za Mjasiriamali/Mfanyabiashara",
+      "sortOrder": 3,
+      "isActive": true,
+      "riskTier": "medium",
+      "sector": "business",
+      "requiresSector": false,
+      "requiresEmployer": false,
+      "requiresContract": false,
+      "requiresSalary": false,
+      "requiresExtraApproval": false,
+      "requiredDocuments": [
+        "employment_contract",
+        "bank_statement",
+        "national_id",
+        "driving_license"
+      ],
+      "optionalDocuments": [],
+      "omittedStandardFields": [
+        "business_name",
+        "business_type",
+        "business_address",
+        "monthly_income"
+      ],
+      "dynamicFormSchema": [
+        {
+          "key": "sekta",
+          "type": "select",
+          "label": "Sekta ya Biashara",
+          "required": true,
+          "dataSource": "business-sectors"
+        },
+        {
+          "key": "aina",
+          "type": "select",
+          "label": "Aina Maalum ya Biashara",
+          "required": true,
+          "dependsOn": "sekta",
+          "dataSource": "business-types"
+        },
+        {
+          "key": "jina_biashara",
+          "type": "text",
+          "label": "Jina la Biashara",
+          "required": true
+        },
+        {
+          "key": "muda_biashara",
+          "type": "number",
+          "label": "Muda wa Kufanya Biashara (miaka)",
+          "required": false
+        },
+        {
+          "key": "mapato",
+          "type": "number",
+          "label": "Mapato ya Wastani kwa Mwezi (TZS)",
+          "required": true
+        },
+        {
+          "key": "wafanyakazi",
+          "type": "number",
+          "label": "Idadi ya Wafanyakazi",
+          "required": false
+        },
+        {
+          "key": "mahali_biashara",
+          "type": "text",
+          "label": "Mahali Biashara Ilipo",
+          "required": true,
+          "fullWidth": true
+        }
+      ],
+      "resolvedStep2Fields": [
+        {
+          "key": "sekta",
+          "type": "select",
+          "label": "Sekta ya Biashara",
+          "required": true,
+          "dataSource": "business-sectors",
+          "origin": "configured"
+        },
+        {
+          "key": "aina",
+          "type": "select",
+          "label": "Aina Maalum ya Biashara",
+          "required": true,
+          "dependsOn": "sekta",
+          "dataSource": "business-types",
+          "origin": "configured"
+        },
+        {
+          "key": "jina_biashara",
+          "type": "text",
+          "label": "Jina la Biashara",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "muda_biashara",
+          "type": "number",
+          "label": "Muda wa Kufanya Biashara (miaka)",
+          "required": false,
+          "origin": "configured"
+        },
+        {
+          "key": "mapato",
+          "type": "number",
+          "label": "Mapato ya Wastani kwa Mwezi (TZS)",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "wafanyakazi",
+          "type": "number",
+          "label": "Idadi ya Wafanyakazi",
+          "required": false,
+          "origin": "configured"
+        },
+        {
+          "key": "mahali_biashara",
+          "type": "text",
+          "label": "Mahali Biashara Ilipo",
+          "required": true,
+          "fullWidth": true,
+          "origin": "configured"
+        },
+        {
+          "key": "tin_number",
+          "label": "TIN Number (Optional)",
+          "type": "text",
+          "required": false,
+          "storesIn": "tinNumber",
+          "helpText": "Where the business is registered for tax.",
+          "origin": "standard"
+        }
+      ]
+    },
+    {
+      "name": "Mwanafunzi wa Chuo",
+      "code": "MWANAFUNZI_CHUO",
+      "description": null,
+      "formTitle": "Taarifa za Mwanafunzi wa Chuo",
+      "sortOrder": 4,
+      "isActive": true,
+      "riskTier": "high",
+      "sector": "other",
+      "requiresSector": false,
+      "requiresEmployer": false,
+      "requiresContract": false,
+      "requiresSalary": false,
+      "requiresExtraApproval": false,
+      "requiredDocuments": [],
+      "optionalDocuments": [],
+      "omittedStandardFields": [],
+      "dynamicFormSchema": [
+        {
+          "key": "chuo",
+          "type": "select",
+          "label": "Chuo",
+          "required": true,
+          "fullWidth": true,
+          "dataSource": "colleges"
+        },
+        {
+          "key": "kozi",
+          "type": "select",
+          "label": "Kozi",
+          "required": true,
+          "dependsOn": "chuo",
+          "dataSource": "courses"
+        },
+        {
+          "key": "level",
+          "type": "select",
+          "label": "Level",
+          "options": [
+            "Astashahada (Certificate)",
+            "Stashahada (Diploma)",
+            "Shahada (Degree)",
+            "Shahada ya Uzamili (Masters)",
+            "Shahada ya Uzamivu (PhD)"
+          ],
+          "required": true
+        },
+        {
+          "key": "mwaka",
+          "type": "select",
+          "label": "Mwaka wa Ngapi",
+          "options": [
+            "Mwaka wa 1",
+            "Mwaka wa 2",
+            "Mwaka wa 3",
+            "Mwaka wa 4",
+            "Mwaka wa 5",
+            "Mwaka wa 6"
+          ],
+          "required": true
+        },
+        {
+          "key": "email_chuo",
+          "type": "text",
+          "label": "Barua Pepe",
+          "required": false
+        },
+        {
+          "key": "mdhamini",
+          "type": "text",
+          "label": "Jina la Mdhamini",
+          "required": true
+        },
+        {
+          "key": "mdhamini_simu",
+          "type": "text",
+          "label": "Simu ya Mdhamini",
+          "required": true
+        },
+        {
+          "key": "monthly_income",
+          "type": "currency",
+          "label": "Boom",
+          "required": false,
+          "storesIn": "monthlyIncome"
+        }
+      ],
+      "resolvedStep2Fields": [
+        {
+          "key": "chuo",
+          "type": "select",
+          "label": "Chuo",
+          "required": true,
+          "fullWidth": true,
+          "dataSource": "colleges",
+          "origin": "configured"
+        },
+        {
+          "key": "kozi",
+          "type": "select",
+          "label": "Kozi",
+          "required": true,
+          "dependsOn": "chuo",
+          "dataSource": "courses",
+          "origin": "configured"
+        },
+        {
+          "key": "level",
+          "type": "select",
+          "label": "Level",
+          "options": [
+            "Astashahada (Certificate)",
+            "Stashahada (Diploma)",
+            "Shahada (Degree)",
+            "Shahada ya Uzamili (Masters)",
+            "Shahada ya Uzamivu (PhD)"
+          ],
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "mwaka",
+          "type": "select",
+          "label": "Mwaka wa Ngapi",
+          "options": [
+            "Mwaka wa 1",
+            "Mwaka wa 2",
+            "Mwaka wa 3",
+            "Mwaka wa 4",
+            "Mwaka wa 5",
+            "Mwaka wa 6"
+          ],
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "email_chuo",
+          "type": "text",
+          "label": "Barua Pepe",
+          "required": false,
+          "origin": "configured"
+        },
+        {
+          "key": "mdhamini",
+          "type": "text",
+          "label": "Jina la Mdhamini",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "mdhamini_simu",
+          "type": "text",
+          "label": "Simu ya Mdhamini",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "monthly_income",
+          "type": "currency",
+          "label": "Boom",
+          "required": false,
+          "storesIn": "monthlyIncome",
+          "origin": "configured"
+        }
+      ]
+    },
+    {
+      "name": "Mstaafu (Umma)",
+      "code": "MSTAAFU_UMMA",
+      "description": null,
+      "formTitle": "Taarifa za Mstaafu (Umma)",
+      "sortOrder": 5,
+      "isActive": true,
+      "riskTier": "low",
+      "sector": "employment",
+      "requiresSector": false,
+      "requiresEmployer": false,
+      "requiresContract": false,
+      "requiresSalary": false,
+      "requiresExtraApproval": false,
+      "requiredDocuments": [],
+      "optionalDocuments": [],
+      "omittedStandardFields": [
+        "place_of_employment",
+        "check_number",
+        "basic_salary",
+        "take_home",
+        "monthly_income"
+      ],
+      "dynamicFormSchema": [
+        {
+          "key": "mstaafu_taasisi",
+          "type": "select",
+          "label": "Wizara / Taasisi ya Serikali (Aliyokuwepo)",
+          "required": true,
+          "fullWidth": true,
+          "dataSource": "government-bodies"
+        },
+        {
+          "key": "mstaafu_idara",
+          "type": "select",
+          "label": "Idara",
+          "required": true,
+          "dependsOn": "mstaafu_taasisi",
+          "dataSource": "government-departments"
+        },
+        {
+          "key": "mstaafu_cheo",
+          "type": "select",
+          "label": "Cheo Alichokuwa Nacho",
+          "required": true,
+          "dependsOn": "mstaafu_idara",
+          "dataSource": "government-cadres"
+        },
+        {
+          "key": "makazi",
+          "type": "text",
+          "label": "Makazi ya Sasa",
+          "required": true
+        },
+        {
+          "key": "pensheni",
+          "type": "number",
+          "label": "Pensheni Anayopokea (TZS/mwezi)",
+          "required": true
+        },
+        {
+          "key": "mfuko",
+          "type": "select",
+          "label": "Mfuko wa Hifadhi ya Jamii",
+          "required": true,
+          "dataSource": "pension-funds"
+        },
+        {
+          "key": "namba_mfuko",
+          "type": "text",
+          "label": "Namba ya Mfuko",
+          "required": true
+        }
+      ],
+      "resolvedStep2Fields": [
+        {
+          "key": "mstaafu_taasisi",
+          "type": "select",
+          "label": "Wizara / Taasisi ya Serikali (Aliyokuwepo)",
+          "required": true,
+          "fullWidth": true,
+          "dataSource": "government-bodies",
+          "origin": "configured"
+        },
+        {
+          "key": "mstaafu_idara",
+          "type": "select",
+          "label": "Idara",
+          "required": true,
+          "dependsOn": "mstaafu_taasisi",
+          "dataSource": "government-departments",
+          "origin": "configured"
+        },
+        {
+          "key": "mstaafu_cheo",
+          "type": "select",
+          "label": "Cheo Alichokuwa Nacho",
+          "required": true,
+          "dependsOn": "mstaafu_idara",
+          "dataSource": "government-cadres",
+          "origin": "configured"
+        },
+        {
+          "key": "makazi",
+          "type": "text",
+          "label": "Makazi ya Sasa",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "pensheni",
+          "type": "number",
+          "label": "Pensheni Anayopokea (TZS/mwezi)",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "mfuko",
+          "type": "select",
+          "label": "Mfuko wa Hifadhi ya Jamii",
+          "required": true,
+          "dataSource": "pension-funds",
+          "origin": "configured"
+        },
+        {
+          "key": "namba_mfuko",
+          "type": "text",
+          "label": "Namba ya Mfuko",
+          "required": true,
+          "origin": "configured"
+        },
+        {
+          "key": "retirement_date",
+          "label": "Date of Retirement",
+          "type": "date",
+          "required": false,
+          "storesIn": "retirementDate",
+          "helpText": "Where the employer sets one.",
+          "origin": "standard"
+        }
+      ]
+    }
+  ]
+}

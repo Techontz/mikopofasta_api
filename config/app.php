@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 return [
 
     /*
@@ -61,19 +59,13 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | The business runs in a single jurisdiction (Tanzania, UTC+3, no DST), and
-    | the "business day" boundary is load-bearing: penalty accrual, due-date
-    | comparison, daily collection/disbursement reports and month-end close all
-    | key off calendar dates. Running the app in UTC would roll `today()` over
-    | at 03:00 EAT, mis-bucketing every one of those for three hours a day and
-    | putting DATE columns a day out for late-evening activity.
-    |
-    | It also matches the telco and bank statements this system reconciles
-    | against, which are issued in EAT.
+    | Here you may specify the default timezone for your application, which
+    | will be used by the PHP date and date-time functions. The timezone
+    | is set to "UTC" by default as it is suitable for most use cases.
     |
     */
 
-    'timezone' => env('APP_TIMEZONE', 'Africa/Dar_es_Salaam'),
+    'timezone' => 'UTC',
 
     /*
     |--------------------------------------------------------------------------
@@ -109,7 +101,7 @@ return [
 
     'previous_keys' => [
         ...array_filter(
-            explode(',', (string) env('APP_PREVIOUS_KEYS', '')),
+            explode(',', (string) env('APP_PREVIOUS_KEYS', ''))
         ),
     ],
 
@@ -122,7 +114,7 @@ return [
     | manage Laravel's "maintenance mode" status. The "cache" driver will
     | allow maintenance mode to be controlled across multiple machines.
     |
-    | Supported drivers: "file", "cache"
+    | Supported drivers: "file", "cache", "array"
     |
     */
 

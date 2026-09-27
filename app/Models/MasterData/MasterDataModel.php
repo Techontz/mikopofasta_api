@@ -1,69 +1,26 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models\MasterData;
 
-use App\Models\User;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * The behaviour every admin-managed lookup list shares.
- *
- * Nine tables have the same shape and the same rules, so they have one base
- * class rather than nine near-identical models. A subclass only declares its
- * table; everything below is common.
- *
- * The point of these existing at all is that no dropdown value lives in the
- * frontend. A list entry is created, renamed, reordered, disabled and
- * soft-deleted from the Administration module, and the registration form reads
- * whatever is active at the moment it loads.
- *
- * @property int $id
- * @property string $code
- * @property string $name
- * @property string|null $description
- * @property int|null $sort_order
- * @property bool $is_active
- * @property int|null $created_by
- * @property CarbonImmutable|null $created_at
- * @property CarbonImmutable|null $updated_at
- * @property CarbonImmutable|null $deleted_at
+ * Common shape of a master-data list (id, code, name, description, sort_order, is_active, created_by).
+ * Parented lists set PARENT_COLUMN and PARENT_MODEL.
  */
 abstract class MasterDataModel extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['code', 'name', 'description', 'sort_order', 'is_active', 'created_by'];
+    /** Foreign key to the parent list, or null for a flat list. */
+    public const PARENT_COLUMN = null;
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
+    /** @var class-string<MasterDataModel>|null */
+    public const PARENT_MODEL = null;
 
-    /**
-     * What a form may offer: active entries, in the order the business chose.
-     *
-     * `sort_order` first so a list can put its common choice at the top —
-     * several of the legacy dropdowns are ordered by frequency, not
-     * alphabetically — then by name so entries without an explicit order are
-     * still predictable rather than arriving in insertion order.
-     */
-    /**
-     * @param Builder<static> $query
-     * @return Builder<static>
-     */
-    public function scopeSelectable(Builder $query): Builder
-    {
-        return $query->where('is_active', true)->orderByRaw('sort_order IS NULL, sort_order')->orderBy('name');
-    }
+    protected $guarded = ['id'];
 
     /**
      * @return array<string, string>
@@ -74,5 +31,21 @@ abstract class MasterDataModel extends Model
             'is_active' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     */
+    public function scopeActive(Builder $query): void
+    {
+        $query->where('is_active', true);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     */
+    public function scopeOrdered(Builder $query): void
+    {
+        $query->orderBy('sort_order')->orderBy('name');
     }
 }

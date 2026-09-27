@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -47,33 +45,12 @@ return [
     | utilizes the Monolog PHP logging library, which includes a variety
     | of powerful log handlers and formatters that you're free to use.
     |
-    | Available drivers: "single", "daily", "slack", "syslog",
+    | Available drivers: "single", "daily", "monthly", "slack", "syslog",
     |                    "errorlog", "monolog", "custom", "stack"
     |
     */
 
     'channels' => [
-
-        /*
-         * The operational trace an on-call engineer reads: webhooks received
-         * and rejected, ledger postings that failed, scheduler runs, payroll
-         * and payment processing.
-         *
-         * Separate from the application log on purpose. These are the events
-         * that explain money movement, and they must not be lost in the noise
-         * of framework deprecations — nor rotated away on the same 14-day
-         * cycle, which is why this channel keeps a longer history.
-         *
-         * It carries NO secrets: never a signature, a token, a password or a
-         * raw webhook body. Identifiers and amounts only.
-         */
-        'operations' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/operations.log'),
-            'level' => env('LOG_OPERATIONS_LEVEL', 'info'),
-            'days' => env('LOG_OPERATIONS_DAYS', 90),
-            'replace_placeholders' => true,
-        ],
 
         'stack' => [
             'driver' => 'stack',
@@ -92,7 +69,15 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
-            'days' => env('LOG_DAILY_DAYS', 14),
+            'max_files' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
+        'monthly' => [
+            'driver' => 'monthly',
+            'path' => storage_path('logs/laravel.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'max_files' => 3,
             'replace_placeholders' => true,
         ],
 

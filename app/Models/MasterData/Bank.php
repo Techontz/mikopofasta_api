@@ -1,11 +1,8 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models\MasterData;
 
-/** Admin-managed lookup list — see MasterDataModel. */
-final class Bank extends MasterDataModel
+class Bank extends MasterDataModel
 {
     protected $table = 'banks';
 }

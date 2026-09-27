@@ -1,11 +1,20 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models\MasterData;
 
-/** Admin-managed lookup list — see MasterDataModel. A private-sector industry — the Sekta a private employee works in. */
-final class PrivateSector extends MasterDataModel
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class PrivateSector extends MasterDataModel
 {
     protected $table = 'private_sectors';
+
+    public function privateEmployers(): HasMany
+    {
+        return $this->hasMany(PrivateEmployer::class, 'private_sector_id');
+    }
+
+    public function privateDepartments(): HasMany
+    {
+        return $this->hasMany(PrivateDepartment::class, 'private_sector_id');
+    }
 }

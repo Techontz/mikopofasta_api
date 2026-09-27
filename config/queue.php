@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 return [
 
     /*
@@ -95,29 +93,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Named Queues
-    |--------------------------------------------------------------------------
-    |
-    | Work is separated onto dedicated queues (backend spec §1) so a slow SMS
-    | gateway can never delay a ledger posting. Jobs reference these by name
-    | — e.g. ->onQueue(config('queue.names.ledger')) — rather than hardcoding
-    | the string, so the routing can be retuned per environment.
-    |
-    |   ledger        ledger-affecting side effects
-    |   notifications SMS / mail fan-out
-    |   reports       report and risk-score recomputation
-    |
-    */
-
-    'names' => [
-        'default' => env('REDIS_QUEUE', 'default'),
-        'ledger' => env('QUEUE_LEDGER', 'ledger'),
-        'notifications' => env('QUEUE_NOTIFICATIONS', 'notifications'),
-        'reports' => env('QUEUE_REPORTS', 'reports'),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Job Batching
     |--------------------------------------------------------------------------
     |
@@ -128,7 +103,7 @@ return [
     */
 
     'batching' => [
-        'database' => env('DB_CONNECTION', 'mysql'),
+        'database' => env('DB_CONNECTION', 'sqlite'),
         'table' => 'job_batches',
     ],
 
@@ -147,7 +122,7 @@ return [
 
     'failed' => [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
-        'database' => env('DB_CONNECTION', 'mysql'),
+        'database' => env('DB_CONNECTION', 'sqlite'),
         'table' => 'failed_jobs',
     ],
 
