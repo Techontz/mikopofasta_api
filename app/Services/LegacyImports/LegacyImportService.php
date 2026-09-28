@@ -41,7 +41,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *
  *  - a loan keeps the printed Loan Amount (old principal + old interest) as amount_approved and total_payable, and what
  *    the old system had collected as opening_paid_principal = Loan Amount − Remain Amount, so its outstanding principal is
- *    exactly the printed Remain Amount. The old system cannot split principal from interest, so no interest is invented
+ *    exactly the printed Remain Amount. The old system cannot split principal , so no interest is invented
  *    (interest_amount = 0); the January–September columns stay history on the import row and reduce nothing;
  *  - a penalty is its own debt, on no loan's principal. It is attached to the customer's old-system loan only when there
  *    is exactly one it can belong to, so a loan repayment collects it in the usual Principal → Penalty order;
@@ -353,7 +353,7 @@ final class LegacyImportService
             if (! in_array($import->status, [LegacyImport::STATUS_DRAFT, LegacyImport::STATUS_PENDING, LegacyImport::STATUS_REJECTED], true)) {
                 throw ValidationException::withMessages(['customer_id' => 'Rows of an approved or rolled back import can no longer be mapped.']);
             }
-            if ($customer !== null && $customer->company_id !== $import->company_id) {
+            if ($customer !== null && (int) $customer->company_id !== $import->company_id) {
                 throw ValidationException::withMessages(['customer_id' => 'The customer belongs to another company.']);
             }
             if ($customer === null && ! $create) {

@@ -47,6 +47,14 @@ class LegacyImport extends Model
     protected function casts(): array
     {
         return [
+            // Foreign keys as integers: some MySQL drivers return them as strings, and the code compares ids strictly.
+            'company_id' => 'integer',
+            'branch_id' => 'integer',
+            'uploaded_by' => 'integer',
+            'submitted_by' => 'integer',
+            'approved_by' => 'integer',
+            'rejected_by' => 'integer',
+            'rolled_back_by' => 'integer',
             'year' => 'integer',
             'totals' => 'array',
             'uploaded_at' => 'datetime',

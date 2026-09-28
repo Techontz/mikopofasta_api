@@ -52,6 +52,10 @@ class LegacyImportRow extends Model
     protected function casts(): array
     {
         return [
+            // Foreign keys as integers: some MySQL drivers return them as strings, and the code compares ids strictly.
+            'legacy_import_id' => 'integer',
+            'customer_id' => 'integer',
+            'mapped_by' => 'integer',
             'row_number' => 'integer',
             'raw' => 'array',
             'messages' => 'array',

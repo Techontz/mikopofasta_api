@@ -33,3 +33,6 @@ Thumbs.db
 
 # Old-system reports: real customer names and phone numbers — never in the (public) repository
 /database/data/historical/
+
+# Deployment packages and backups built in the project root
+/*.zip

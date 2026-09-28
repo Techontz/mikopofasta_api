@@ -66,7 +66,7 @@ final class LegacyCustomerMatcher
 
             if ($same->count() === 1) {
                 $customer = $same->first();
-                if ($customer->branch_id !== $branchId) {
+                if ((int) $customer->branch_id !== $branchId) {
                     return $this->found($customer, LegacyImportRow::MATCH_PHONE, LegacyImportRow::STATUS_WARNING,
                         "Matched by phone to {$this->describe($customer)}, who is registered in another branch.");
                 }
@@ -80,8 +80,8 @@ final class LegacyCustomerMatcher
                 : "Phone {$phone} belongs to more than one customer with this name: {$this->list($same)}. Map it by hand.");
         }
 
-        $inBranch = $this->customers->filter(fn (Customer $customer): bool => $customer->branch_id === $branchId);
-        $exact = $this->customers->only(array_unique($this->byName[$key] ?? []))->filter(fn (Customer $customer): bool => $customer->branch_id === $branchId);
+        $inBranch = $this->customers->filter(fn (Customer $customer): bool => (int) $customer->branch_id === $branchId);
+        $exact = $this->customers->only(array_unique($this->byName[$key] ?? []))->filter(fn (Customer $customer): bool => (int) $customer->branch_id === $branchId);
         $candidates = $exact->isNotEmpty() ? $exact : $inBranch->filter(fn (Customer $customer): bool => $this->sameName($name, $customer));
 
         if ($candidates->count() > 1) {
