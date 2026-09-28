@@ -1,92 +1,108 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use App\Domain\Hr\Enums\AllowanceType;
-use App\Support\Money;
+use App\Models\Concerns\Auditable;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * What an employee is entitled to draw — HRM → Staff → Allowances.
- *
- * Distinct from `allowances`, which is what a payslip actually paid. Payroll
- * copies this into that, and keeping them apart is what lets a transport rate
- * change next month without rewriting last month's payslip.
- *
- * A row with no `period` is recurring: drawn every month until stood down. A
- * row with one applies to that month alone, which is what a bonus is — §10 of
- * the HR document lists it beside transport and airtime, but a bonus that
- * repeated silently every month would be a salary increase nobody approved.
- *
- * @property int $id
- * @property int $staff_profile_id
- * @property AllowanceType $type
- * @property string $amount
- * @property string|null $period
- * @property string|null $reason
- * @property bool $active
- * @property int $created_by
+ * Staff allowance (spec §24, §58): a payroll entitlement, never a cash account. HR creates it with a reason for a payroll period
+ * (pending) → Finance approves it (approved: "Approved / Awaiting Payroll") → the payroll that pays it consumes it (paid).
+ * Allowances created before Finance approval existed are recurring approved allowances (`active`) until HR stops them.
  */
 class StaffAllowance extends Model
 {
-    use SoftDeletes;
+    use Auditable;
 
-    /** @var list<string> */
-    protected $fillable = [
-        'staff_profile_id', 'type', 'amount', 'period', 'reason', 'active', 'created_by',
-    ];
+    public const STATUS_PENDING = 'pending';
 
-    /** @return BelongsTo<StaffProfile, $this> */
-    public function staffProfile(): BelongsTo
-    {
-        return $this->belongsTo(StaffProfile::class);
-    }
+    public const STATUS_APPROVED = 'approved';
 
-    /** @return BelongsTo<User, $this> */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
+    public const STATUS_PAID = 'paid';
 
-    public function amountMoney(): Money
-    {
-        return Money::of($this->amount);
-    }
+    public const STATUS_REJECTED = 'rejected';
 
-    /** Recurring — drawn every month rather than in one named month. */
-    public function isRecurring(): bool
-    {
-        return $this->period === null;
-    }
+    /** Legacy recurring allowance, approved before Finance approval existed; added to every payroll until stopped. */
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_STOPPED = 'stopped';
 
     /**
-     * The entitlements that apply to a given month.
-     *
-     * Every live recurring row, plus the one-offs stamped with this period.
-     * Inactive rows are excluded here rather than by the caller, so a
-     * stood-down allowance cannot be picked up by a code path that forgot to
-     * check.
-     *
-     * @param Builder<StaffAllowance> $query
-     * @return Builder<StaffAllowance>
+     * @var list<string>
      */
-    public function scopeForPeriod(Builder $query, string $period): Builder
-    {
-        return $query->where('active', true)
-            ->where(fn (Builder $q) => $q->whereNull('period')->orWhere('period', $period));
-    }
+    public const REASONS = ['overtime', 'leave', 'transport', 'other'];
 
-    /** @return array<string, string> */
+    protected $guarded = ['id'];
+
+    /**
+     * @return array<string, string>
+     */
     protected function casts(): array
     {
         return [
-            'type' => AllowanceType::class,
-            'active' => 'boolean',
+            'amount' => 'decimal:2',
+            'payroll_period' => 'date',
+            'recurring' => 'boolean',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
+            'paid_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Allowances a payroll of the month may pay: recurring approved allowances, and Finance-approved allowances of this or an
+     * earlier payroll period not yet taken by another payroll (an allowance approved after its month's payroll carries forward).
+     *
+     * @param  Builder<StaffAllowance>  $query
+     */
+    public function scopePayableIn(Builder $query, CarbonImmutable $month): void
+    {
+        $query->where(fn (Builder $inner) => $inner
+            ->where('status', self::STATUS_ACTIVE)
+            ->orWhere(fn (Builder $approved) => $approved
+                ->where('status', self::STATUS_APPROVED)
+                ->whereNull('payroll_run_id')
+                ->whereDate('payroll_period', '<=', $month->startOfMonth()->toDateString())));
+    }
+
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_PENDING => 'Pending Finance Approval',
+            self::STATUS_APPROVED => 'Approved / Awaiting Payroll',
+            self::STATUS_PAID => 'Paid',
+            self::STATUS_REJECTED => 'Rejected',
+            self::STATUS_ACTIVE => 'Approved (recurring)',
+            self::STATUS_STOPPED => 'Stopped',
+            default => (string) $this->status,
+        };
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'created_by');
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'approved_by');
+    }
+
+    public function payrollRun(): BelongsTo
+    {
+        return $this->belongsTo(PayrollRun::class);
     }
 }

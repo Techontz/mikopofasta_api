@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 return [
 
     /*
@@ -46,21 +44,6 @@ return [
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
-            'report' => false,
-        ],
-
-        /*
-         * Private disk for regulated documents: NIDA photos, liveness
-         * captures, bank deposit slips and payslips (backend spec §1).
-         * Never symlinked into public/ — access is via temporary signed
-         * URLs only.
-         */
-        'kyc' => [
-            'driver' => 'local',
-            'root' => storage_path('app/private/kyc'),
-            'serve' => false,
-            'visibility' => 'private',
-            'throw' => true,
             'report' => false,
         ],
 

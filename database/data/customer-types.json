@@ -1,0 +1,3651 @@
+{
+  "source": "mikopofast.html",
+  "types": [
+    {
+      "key": "mtumishi_umma",
+      "label": "Mtumishi wa Umma",
+      "icon": "🏛️",
+      "sectionTitle": "Taarifa za Mtumishi wa Umma",
+      "fields": [
+        {
+          "key": "taasisi",
+          "label": "Wizara / Taasisi ya Serikali",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": true,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "TAASISI",
+            "path": [],
+            "take": "keys",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "idara",
+          "label": "Idara",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "taasisi",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "TAASISI",
+            "path": [
+              {
+                "field": "taasisi"
+              }
+            ],
+            "take": "keys",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "cheo",
+          "label": "Cheo",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "idara",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "TAASISI",
+            "path": [
+              {
+                "field": "taasisi"
+              },
+              {
+                "field": "idara"
+              }
+            ],
+            "take": "values",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "kituo",
+          "label": "Kituo cha Kazi",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "check_number",
+          "label": "Check Namba",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "mshahara",
+          "label": "Mshahara Anaopokea (TZS)",
+          "control": "input",
+          "inputType": "number",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "aina_ajira",
+          "label": "Aina ya Ajira",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "fixed",
+            "options": [
+              "Ajira ya Kudumu",
+              "Mkataba",
+              "Muda Maalum"
+            ]
+          }
+        },
+        {
+          "key": "bank",
+          "label": "Aina ya Benki",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "flat",
+            "tree": "BANKS"
+          },
+          "group": "Taarifa za Benki"
+        },
+        {
+          "key": "account",
+          "label": "Namba ya Akaunti",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "group": "Taarifa za Benki"
+        },
+        {
+          "key": "kadi_muda",
+          "label": "Tarehe ya Kuisha Muda wa Kadi",
+          "control": "input",
+          "inputType": "date",
+          "required": false,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "group": "Taarifa za Benki"
+        }
+      ]
+    },
+    {
+      "key": "sekta_binafsi",
+      "label": "Sekta Binafsi",
+      "icon": "🏢",
+      "sectionTitle": "Taarifa za Sekta Binafsi",
+      "fields": [
+        {
+          "key": "sb_sekta",
+          "label": "Sekta",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": true,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "SEKTA_BINAFSI",
+            "path": [],
+            "take": "keys",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "sb_taasisi",
+          "label": "Taasisi / Kampuni",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "sb_sekta",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "SEKTA_BINAFSI",
+            "path": [
+              {
+                "field": "sb_sekta"
+              },
+              {
+                "property": "taasisi"
+              }
+            ],
+            "take": "values",
+            "extraOptions": [
+              "Nyingine (andika)"
+            ]
+          }
+        },
+        {
+          "key": "sb_taasisi_other",
+          "label": "Andika Jina la Taasisi/Kampuni",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": {
+            "field": "sb_taasisi",
+            "equals": [
+              "Nyingine (andika)"
+            ]
+          }
+        },
+        {
+          "key": "sb_idara",
+          "label": "Kitengo Alichopo (Idara)",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "sb_sekta",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "SEKTA_BINAFSI",
+            "path": [
+              {
+                "field": "sb_sekta"
+              },
+              {
+                "property": "idara"
+              }
+            ],
+            "take": "keys",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "sb_cheo",
+          "label": "Cheo Chake",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "sb_idara",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "SEKTA_BINAFSI",
+            "path": [
+              {
+                "field": "sb_sekta"
+              },
+              {
+                "property": "idara"
+              },
+              {
+                "field": "sb_idara"
+              }
+            ],
+            "take": "values",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "sb_kituo",
+          "label": "Kituo cha Kazi",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "sb_tarehe_ajira",
+          "label": "Tarehe ya Kuajiriwa",
+          "control": "input",
+          "inputType": "date",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "sb_aina_mkataba",
+          "label": "Aina ya Mkataba",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "fixed",
+            "options": [
+              "Ajira ya Kudumu",
+              "Mkataba wa Muda",
+              "Vibarua"
+            ]
+          }
+        },
+        {
+          "key": "sb_kitambulisho",
+          "label": "Namba ya Kitambulisho cha Kazi",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "bank",
+          "label": "Aina ya Benki",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "flat",
+            "tree": "BANKS"
+          },
+          "group": "Taarifa za Benki"
+        },
+        {
+          "key": "account",
+          "label": "Namba ya Akaunti",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "group": "Taarifa za Benki"
+        },
+        {
+          "key": "kadi_muda",
+          "label": "Tarehe ya Kuisha Muda wa Kadi",
+          "control": "input",
+          "inputType": "date",
+          "required": false,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "group": "Taarifa za Benki"
+        }
+      ]
+    },
+    {
+      "key": "mjasiriamali",
+      "label": "Mjasiriamali/Mfanyabiashara",
+      "icon": "🛍️",
+      "sectionTitle": "Taarifa za Mjasiriamali/Mfanyabiashara",
+      "fields": [
+        {
+          "key": "tin",
+          "label": "Namba ya TIN",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "sekta",
+          "label": "Sekta ya Biashara",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "SEKTA",
+            "path": [],
+            "take": "keys",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "aina",
+          "label": "Aina Maalum ya Biashara",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "sekta",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "SEKTA",
+            "path": [
+              {
+                "field": "sekta"
+              }
+            ],
+            "take": "values",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "jina_biashara",
+          "label": "Jina la Biashara",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "muda_biashara",
+          "label": "Muda wa Kufanya Biashara (miaka)",
+          "control": "input",
+          "inputType": "number",
+          "required": false,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "mapato",
+          "label": "Mapato ya Wastani kwa Mwezi (TZS)",
+          "control": "input",
+          "inputType": "number",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "wafanyakazi",
+          "label": "Idadi ya Wafanyakazi",
+          "control": "input",
+          "inputType": "number",
+          "required": false,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "mahali_biashara",
+          "label": "Mahali Biashara Ilipo",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": true,
+          "dependsOn": null,
+          "requiredWhen": null
+        }
+      ]
+    },
+    {
+      "key": "mwanafunzi",
+      "label": "Mwanafunzi wa Chuo",
+      "icon": "🎓",
+      "sectionTitle": "Taarifa za Mwanafunzi wa Chuo",
+      "fields": [
+        {
+          "key": "chuo",
+          "label": "Chuo",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": true,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "VYUO",
+            "path": [],
+            "take": "keys",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "kozi",
+          "label": "Kozi",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "chuo",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "VYUO",
+            "path": [
+              {
+                "field": "chuo"
+              }
+            ],
+            "take": "values",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "level",
+          "label": "Level",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "fixed",
+            "options": [
+              "Astashahada (Certificate)",
+              "Stashahada (Diploma)",
+              "Shahada (Degree)",
+              "Shahada ya Uzamili (Masters)",
+              "Shahada ya Uzamivu (PhD)"
+            ]
+          }
+        },
+        {
+          "key": "mwaka",
+          "label": "Mwaka wa Ngapi",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "fixed",
+            "options": [
+              "Mwaka wa 1",
+              "Mwaka wa 2",
+              "Mwaka wa 3",
+              "Mwaka wa 4",
+              "Mwaka wa 5",
+              "Mwaka wa 6"
+            ]
+          }
+        },
+        {
+          "key": "email_chuo",
+          "label": "Barua Pepe",
+          "control": "input",
+          "inputType": "email",
+          "required": false,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "mdhamini",
+          "label": "Jina la Mdhamini",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "mdhamini_simu",
+          "label": "Simu ya Mdhamini",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        }
+      ]
+    },
+    {
+      "key": "mstaafu",
+      "label": "Mstaafu (Umma)",
+      "icon": "🧓",
+      "sectionTitle": "Taarifa za Mstaafu (Umma)",
+      "fields": [
+        {
+          "key": "mstaafu_taasisi",
+          "label": "Wizara / Taasisi ya Serikali (Aliyokuwepo)",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": true,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "TAASISI",
+            "path": [],
+            "take": "keys",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "mstaafu_idara",
+          "label": "Idara",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "mstaafu_taasisi",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "TAASISI",
+            "path": [
+              {
+                "field": "mstaafu_taasisi"
+              }
+            ],
+            "take": "keys",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "mstaafu_cheo",
+          "label": "Cheo Alichokuwa Nacho",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": "mstaafu_idara",
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "tree",
+            "tree": "TAASISI",
+            "path": [
+              {
+                "field": "mstaafu_taasisi"
+              },
+              {
+                "field": "mstaafu_idara"
+              }
+            ],
+            "take": "values",
+            "extraOptions": []
+          }
+        },
+        {
+          "key": "makazi",
+          "label": "Makazi ya Sasa",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "mstaafu_check",
+          "label": "Check Namba",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "pensheni",
+          "label": "Pensheni Anayopokea (TZS/mwezi)",
+          "control": "input",
+          "inputType": "number",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        },
+        {
+          "key": "mfuko",
+          "label": "Mfuko wa Hifadhi ya Jamii",
+          "control": "select",
+          "inputType": null,
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null,
+          "optionSource": {
+            "kind": "flat",
+            "tree": "MFUKO_HIFADHI"
+          }
+        },
+        {
+          "key": "namba_mfuko",
+          "label": "Namba ya Mfuko",
+          "control": "input",
+          "inputType": "text",
+          "required": true,
+          "fullWidth": false,
+          "dependsOn": null,
+          "requiredWhen": null
+        }
+      ]
+    }
+  ],
+  "optionTrees": {
+    "TAASISI": {
+      "OFISI YA RAIS - TAMISEMI": {
+        "Elimu Msingi": [
+          "Mwalimu",
+          "Mkuu wa Shule",
+          "Mwalimu Mkuu",
+          "Afisa Elimu Kata",
+          "Afisa Elimu Wilaya",
+          "Afisa Elimu Mkoa",
+          "Afisa Taaluma",
+          "Mkaguzi wa Elimu",
+          "Afisa Elimu Maalum"
+        ],
+        "Elimu Sekondari": [
+          "Mwalimu",
+          "Mkuu wa Shule",
+          "Makamu Mkuu wa Shule",
+          "Afisa Elimu Sekondari",
+          "Afisa Elimu Wilaya",
+          "Afisa Elimu Mkoa",
+          "Mkaguzi wa Elimu"
+        ],
+        "Afya": [
+          "Daktari",
+          "Daktari Bingwa",
+          "Mganga Mfawidhi",
+          "Muuguzi",
+          "Afisa Tabibu",
+          "Afisa Afya",
+          "Mfamasia",
+          "Mtaalamu wa Maabara",
+          "Mtaalamu wa Mionzi",
+          "Afisa Afya ya Mazingira"
+        ],
+        "Kilimo": [
+          "Afisa Kilimo",
+          "Afisa Ugani",
+          "Afisa Kilimo Wilaya",
+          "Afisa Kilimo Mkoa",
+          "Mtaalamu wa Kilimo"
+        ],
+        "Mifugo": [
+          "Afisa Mifugo",
+          "Daktari wa Mifugo",
+          "Afisa Ugani Mifugo",
+          "Afisa Mifugo Wilaya",
+          "Afisa Mifugo Mkoa"
+        ],
+        "Maendeleo ya Jamii": [
+          "Afisa Maendeleo ya Jamii",
+          "Afisa Maendeleo ya Jamii Wilaya",
+          "Afisa Maendeleo ya Jamii Mkoa"
+        ],
+        "Ustawi wa Jamii": [
+          "Afisa Ustawi wa Jamii",
+          "Afisa Ustawi wa Jamii Wilaya",
+          "Afisa Ustawi wa Jamii Mkoa"
+        ],
+        "Ardhi": [
+          "Afisa Ardhi",
+          "Afisa Ardhi Wilaya",
+          "Afisa Mipango Miji",
+          "Mthamini",
+          "Mpima Ardhi"
+        ],
+        "Mipango": [
+          "Afisa Mipango",
+          "Afisa Takwimu",
+          "Mchumi"
+        ],
+        "Fedha": [
+          "Mhasibu",
+          "Mweka Hazina",
+          "Afisa Mapato",
+          "Afisa Bajeti",
+          "Mkaguzi wa Ndani"
+        ],
+        "Utawala": [
+          "Afisa Utawala",
+          "Afisa Utumishi",
+          "Katibu",
+          "Afisa Sheria"
+        ],
+        "TEHAMA": [
+          "Afisa TEHAMA",
+          "ICT Officer",
+          "Systems Administrator",
+          "Database Administrator",
+          "Network Administrator"
+        ]
+      },
+      "TARURA": {
+        "Uhandisi wa Barabara": [
+          "Meneja wa TARURA",
+          "Mhandisi",
+          "Mhandisi wa Barabara",
+          "Assistant Engineer",
+          "Technician",
+          "Road Inspector",
+          "Surveyor",
+          "Draughtsman"
+        ],
+        "Matengenezo ya Barabara": [
+          "Mhandisi",
+          "Technician",
+          "Road Inspector",
+          "Site Supervisor"
+        ],
+        "Utafiti na Ubunifu": [
+          "Mhandisi",
+          "Surveyor",
+          "GIS Specialist",
+          "Draughtsman"
+        ],
+        "Manunuzi": [
+          "Afisa Manunuzi",
+          "Procurement Officer",
+          "Procurement Assistant"
+        ],
+        "Fedha": [
+          "Mhasibu",
+          "Accountant",
+          "Afisa Fedha",
+          "Internal Auditor"
+        ],
+        "Utawala na Rasilimali Watu": [
+          "Afisa Utawala",
+          "Afisa Utumishi",
+          "HR Officer"
+        ],
+        "TEHAMA": [
+          "Afisa TEHAMA",
+          "Network Administrator",
+          "Systems Administrator"
+        ]
+      },
+      "WIZARA YA ELIMU, SAYANSI NA TEKNOLOJIA": {
+        "Elimu ya Juu": [
+          "Mhadhiri",
+          "Profesa",
+          "Associate Professor",
+          "Assistant Lecturer",
+          "Tutorial Assistant",
+          "Dean",
+          "Mkuu wa Idara",
+          "Registrar"
+        ],
+        "Elimu ya Ufundi": [
+          "Mkufunzi",
+          "Instructor",
+          "Technician",
+          "Mkuu wa Chuo",
+          "Afisa Mafunzo"
+        ],
+        "Sayansi na Teknolojia": [
+          "Scientist",
+          "Researcher",
+          "ICT Specialist",
+          "Technology Specialist",
+          "Research Officer"
+        ],
+        "Mitaala": [
+          "Curriculum Developer",
+          "Curriculum Officer",
+          "Education Specialist"
+        ],
+        "Mitihani": [
+          "Examination Officer",
+          "Examination Specialist",
+          "Invigilator"
+        ],
+        "Ukaguzi": [
+          "Education Inspector",
+          "Chief Inspector"
+        ]
+      },
+      "WIZARA YA AFYA": {
+        "Tiba": [
+          "Daktari",
+          "Daktari Bingwa",
+          "Medical Officer",
+          "Specialist"
+        ],
+        "Uuguzi": [
+          "Muuguzi",
+          "Nurse Officer",
+          "Nurse Specialist",
+          "Midwife"
+        ],
+        "Famasi": [
+          "Mfamasia",
+          "Pharmaceutical Technician"
+        ],
+        "Maabara": [
+          "Medical Laboratory Scientist",
+          "Laboratory Technician"
+        ],
+        "Afya ya Mazingira": [
+          "Environmental Health Officer",
+          "Health Inspector"
+        ],
+        "Afya ya Jamii": [
+          "Community Health Officer",
+          "Public Health Officer"
+        ],
+        "Utawala": [
+          "Afisa Utawala",
+          "Afisa Utumishi",
+          "Mhasibu",
+          "Afisa TEHAMA"
+        ]
+      },
+      "WIZARA YA KILIMO": {
+        "Kilimo": [
+          "Afisa Kilimo",
+          "Agricultural Officer",
+          "Agricultural Engineer"
+        ],
+        "Ugani": [
+          "Afisa Ugani",
+          "Extension Officer"
+        ],
+        "Umwagiliaji": [
+          "Mhandisi wa Umwagiliaji",
+          "Irrigation Engineer",
+          "Technician"
+        ],
+        "Mazao": [
+          "Afisa Mazao",
+          "Crop Specialist"
+        ],
+        "Ushirika": [
+          "Afisa Ushirika",
+          "Cooperative Officer"
+        ],
+        "Utafiti": [
+          "Researcher",
+          "Research Officer",
+          "Scientist"
+        ]
+      },
+      "WIZARA YA MIFUGO NA UVUVI": {
+        "Mifugo": [
+          "Daktari wa Mifugo",
+          "Afisa Mifugo",
+          "Livestock Officer",
+          "Veterinary Officer"
+        ],
+        "Uvuvi": [
+          "Afisa Uvuvi",
+          "Fisheries Officer",
+          "Fisheries Inspector"
+        ],
+        "Maabara": [
+          "Laboratory Scientist",
+          "Laboratory Technician"
+        ]
+      },
+      "WIZARA YA MAJI": {
+        "Uhandisi wa Maji": [
+          "Mhandisi wa Maji",
+          "Water Engineer",
+          "Technician"
+        ],
+        "Maji Vijijini": [
+          "Water Officer",
+          "Afisa Maji"
+        ],
+        "Maji Mijini": [
+          "Water Engineer",
+          "Technician"
+        ],
+        "Usafi wa Mazingira": [
+          "Environmental Engineer",
+          "Environmental Health Officer"
+        ],
+        "RUWASA": [
+          "Mhandisi",
+          "Technician",
+          "Afisa Maji",
+          "Community Development Officer"
+        ]
+      },
+      "WIZARA YA UJENZI": {
+        "TANROADS": [
+          "Regional Manager",
+          "Engineer",
+          "Road Engineer",
+          "Technician",
+          "Surveyor",
+          "Road Inspector"
+        ],
+        "Ujenzi wa Majengo": [
+          "Civil Engineer",
+          "Architect",
+          "Quantity Surveyor",
+          "Technician"
+        ],
+        "Madaraja": [
+          "Bridge Engineer",
+          "Civil Engineer",
+          "Technician"
+        ]
+      },
+      "WIZARA YA ARDHI, NYUMBA NA MAENDELEO YA MAKAZI": {
+        "Ardhi": [
+          "Afisa Ardhi",
+          "Land Officer"
+        ],
+        "Upimaji": [
+          "Surveyor",
+          "Land Surveyor",
+          "Survey Technician"
+        ],
+        "Mipango Miji": [
+          "Town Planner",
+          "Urban Planner",
+          "Afisa Mipango Miji"
+        ],
+        "Uthamini": [
+          "Valuer",
+          "Mthamini"
+        ],
+        "GIS/Ramani": [
+          "GIS Specialist",
+          "Cartographer",
+          "GIS Technician"
+        ]
+      },
+      "WIZARA YA FEDHA": {
+        "Hazina": [
+          "Treasury Officer",
+          "Economist",
+          "Accountant"
+        ],
+        "Uhasibu": [
+          "Accountant",
+          "Senior Accountant",
+          "Accounting Officer"
+        ],
+        "Bajeti": [
+          "Budget Officer",
+          "Economist"
+        ],
+        "Manunuzi": [
+          "Procurement Officer",
+          "Procurement Specialist"
+        ],
+        "Ukaguzi": [
+          "Internal Auditor",
+          "Auditor"
+        ],
+        "Mapato": [
+          "Revenue Officer"
+        ]
+      },
+      "WIZARA YA MALIASILI NA UTALII": {
+        "Wanyamapori": [
+          "Wildlife Officer",
+          "Wildlife Ranger",
+          "Conservation Officer"
+        ],
+        "Misitu": [
+          "Forest Officer",
+          "Forest Ranger"
+        ],
+        "Utalii": [
+          "Tourism Officer",
+          "Tourism Specialist"
+        ],
+        "Hifadhi": [
+          "Park Warden",
+          "Ranger",
+          "Conservation Officer"
+        ]
+      },
+      "WIZARA YA NISHATI": {
+        "Umeme": [
+          "Electrical Engineer",
+          "Electrical Technician",
+          "Energy Officer"
+        ],
+        "Mafuta na Gesi": [
+          "Petroleum Engineer",
+          "Petroleum Officer",
+          "Geologist"
+        ],
+        "Nishati Jadidifu": [
+          "Renewable Energy Engineer",
+          "Energy Specialist"
+        ],
+        "Vijijini": [
+          "Energy Officer",
+          "Engineer",
+          "Technician"
+        ]
+      },
+      "WIZARA YA MADINI": {
+        "Madini": [
+          "Mining Engineer",
+          "Geologist",
+          "Mining Officer"
+        ],
+        "Ukaguzi": [
+          "Mining Inspector",
+          "Inspector"
+        ],
+        "Maabara": [
+          "Laboratory Scientist",
+          "Geochemist"
+        ],
+        "Leseni": [
+          "Licensing Officer"
+        ]
+      },
+      "WIZARA YA VIWANDA NA BIASHARA": {
+        "Biashara": [
+          "Trade Officer",
+          "Afisa Biashara"
+        ],
+        "Viwanda": [
+          "Industrial Development Officer",
+          "Industrial Engineer"
+        ],
+        "Uwekezaji": [
+          "Investment Officer",
+          "Investment Specialist"
+        ],
+        "Ushindani": [
+          "Competition Officer"
+        ]
+      },
+      "WIZARA YA UCHUKUZI": {
+        "Anga": [
+          "Aviation Officer",
+          "Aviation Inspector",
+          "Pilot",
+          "Air Traffic Controller"
+        ],
+        "Reli": [
+          "Railway Engineer",
+          "Railway Technician",
+          "Operations Officer"
+        ],
+        "Bandari": [
+          "Port Officer",
+          "Marine Engineer",
+          "Harbour Master"
+        ],
+        "Usalama wa Usafiri": [
+          "Transport Safety Officer",
+          "Inspector"
+        ]
+      },
+      "WIZARA YA MAWASILIANO NA TEKNOLOJIA YA HABARI": {
+        "TEHAMA": [
+          "ICT Officer",
+          "Software Developer",
+          "Systems Administrator",
+          "Network Engineer",
+          "Cybersecurity Specialist",
+          "Database Administrator"
+        ],
+        "Mawasiliano": [
+          "Telecommunications Engineer",
+          "Communications Officer"
+        ],
+        "TEHAMA Serikalini": [
+          "ICT Specialist",
+          "Digital Transformation Officer"
+        ]
+      },
+      "WIZARA YA KATIBA NA SHERIA": {
+        "Sheria": [
+          "Mwanasheria",
+          "Legal Officer",
+          "State Attorney"
+        ],
+        "Mashtaka": [
+          "Prosecutor",
+          "State Attorney"
+        ],
+        "Urekebishaji": [
+          "Legal Officer",
+          "Probation Officer"
+        ]
+      },
+      "JESHI LA POLISI TANZANIA": {
+        "Operesheni": [
+          "Polisi",
+          "Police Officer",
+          "Inspector",
+          "Assistant Superintendent",
+          "Superintendent"
+        ],
+        "Upelelezi": [
+          "Detective",
+          "Detective Officer",
+          "Criminal Investigator"
+        ],
+        "Usalama Barabarani": [
+          "Traffic Police",
+          "Traffic Officer"
+        ],
+        "Forensics": [
+          "Forensic Officer",
+          "Forensic Scientist"
+        ],
+        "TEHAMA": [
+          "ICT Officer",
+          "Cybercrime Officer"
+        ],
+        "Utawala": [
+          "Administrative Officer",
+          "HR Officer"
+        ]
+      },
+      "JESHI LA MAGEREZA": {
+        "Ulinzi wa Magereza": [
+          "Askari Magereza",
+          "Prison Officer",
+          "Inspector",
+          "Superintendent"
+        ],
+        "Urekebishaji": [
+          "Rehabilitation Officer",
+          "Welfare Officer"
+        ],
+        "Afya": [
+          "Daktari",
+          "Muuguzi",
+          "Clinical Officer"
+        ],
+        "Sheria": [
+          "Legal Officer"
+        ],
+        "Kilimo/Uzalishaji": [
+          "Agricultural Officer",
+          "Livestock Officer",
+          "Technician"
+        ]
+      },
+      "JESHI LA ZIMAMOTO NA UOKOAJI": {
+        "Operesheni": [
+          "Firefighter",
+          "Fire Officer",
+          "Rescue Officer"
+        ],
+        "Uokoaji": [
+          "Rescue Officer",
+          "Emergency Response Officer"
+        ],
+        "Usalama wa Umma": [
+          "Fire Safety Officer",
+          "Inspector"
+        ],
+        "TEHAMA": [
+          "ICT Officer"
+        ],
+        "Utawala": [
+          "Administrative Officer",
+          "HR Officer"
+        ]
+      },
+      "IDARA YA UHAMIAJI": {
+        "Udhibiti wa Mipaka": [
+          "Immigration Officer",
+          "Immigration Inspector"
+        ],
+        "Pasipoti": [
+          "Passport Officer"
+        ],
+        "Uhamiaji": [
+          "Immigration Officer",
+          "Immigration Assistant"
+        ],
+        "Uchunguzi": [
+          "Immigration Investigator"
+        ],
+        "TEHAMA": [
+          "ICT Officer"
+        ]
+      },
+      "JWTZ - JESHI LA ULINZI LA WANANCHI WA TANZANIA": {
+        "Jeshi la Nchi Kavu": [
+          "Askari",
+          "Koplo",
+          "Sajenti",
+          "Luteni",
+          "Kapteni",
+          "Meja",
+          "Luteni Kanali",
+          "Kanali",
+          "Brigedia Jenerali",
+          "Meja Jenerali",
+          "Luteni Jenerali",
+          "Jenerali"
+        ],
+        "Jeshi la Anga": [
+          "Air Force Officer",
+          "Pilot",
+          "Air Technician",
+          "Air Defence Personnel"
+        ],
+        "Jeshi la Wanamaji": [
+          "Naval Officer",
+          "Marine Engineer",
+          "Sailor",
+          "Naval Technician"
+        ],
+        "Afya": [
+          "Daktari",
+          "Muuguzi",
+          "Medical Officer"
+        ],
+        "Uhandisi": [
+          "Engineer",
+          "Technician"
+        ]
+      },
+      "JESHI LA KUJENGA TAIFA - JKT": {
+        "Mafunzo": [
+          "Mkufunzi",
+          "Afisa JKT",
+          "Askari/JKT Personnel"
+        ],
+        "Uzalishaji": [
+          "Agricultural Officer",
+          "Engineer",
+          "Technician"
+        ],
+        "Afya": [
+          "Daktari",
+          "Muuguzi",
+          "Afisa Afya"
+        ],
+        "Utawala": [
+          "Afisa Utawala",
+          "Afisa Utumishi"
+        ],
+        "SUMA/JKT": [
+          "Engineer",
+          "Technician",
+          "Driver",
+          "Artisan"
+        ]
+      },
+      "OFISI YA RAIS - UTUMISHI NA UTAWALA BORA": {
+        "Utumishi": [
+          "Human Resource Officer",
+          "Personnel Officer",
+          "HR Specialist"
+        ],
+        "Utawala": [
+          "Administrative Officer"
+        ],
+        "TEHAMA": [
+          "ICT Officer",
+          "Systems Administrator"
+        ],
+        "Ajira": [
+          "Recruitment Officer",
+          "Employment Officer"
+        ]
+      },
+      "OFISI YA TAIFA YA TAKWIMU - NBS": {
+        "Takwimu": [
+          "Statistician",
+          "Statistical Officer",
+          "Data Analyst"
+        ],
+        "Sensa": [
+          "Census Officer",
+          "Field Officer",
+          "Enumerator"
+        ],
+        "TEHAMA": [
+          "Data Engineer",
+          "Systems Administrator"
+        ]
+      },
+      "TAKUKURU - PCCB": {
+        "Uchunguzi": [
+          "Investigation Officer",
+          "Investigator"
+        ],
+        "Kuzuia Rushwa": [
+          "Prevention Officer"
+        ],
+        "Upelelezi": [
+          "Anti-Corruption Officer"
+        ],
+        "Sheria": [
+          "Legal Officer",
+          "Prosecutor"
+        ],
+        "TEHAMA": [
+          "ICT Officer",
+          "Cybercrime Specialist"
+        ]
+      },
+      "MAHAKAMA": {
+        "Majaji": [
+          "Jaji",
+          "Jaji Kiongozi"
+        ],
+        "Mahakimu": [
+          "Hakimu",
+          "Hakimu Mkazi"
+        ],
+        "Utawala": [
+          "Court Administrator",
+          "Registrar"
+        ],
+        "Sheria": [
+          "Legal Officer"
+        ],
+        "TEHAMA": [
+          "ICT Officer"
+        ]
+      },
+      "BUNGE": {
+        "Wabunge": [
+          "Mbunge",
+          "Spika",
+          "Naibu Spika"
+        ],
+        "Utawala": [
+          "Parliamentary Officer",
+          "Administrative Officer"
+        ],
+        "Sheria": [
+          "Legal Officer"
+        ],
+        "Utafiti": [
+          "Researcher",
+          "Research Officer"
+        ],
+        "TEHAMA": [
+          "ICT Officer"
+        ]
+      },
+      "OFISI YA TAIFA YA UKAGUZI - CAG": {
+        "Ukaguzi": [
+          "Auditor",
+          "Senior Auditor",
+          "Principal Auditor",
+          "Audit Manager"
+        ],
+        "TEHAMA": [
+          "IT Auditor",
+          "ICT Officer"
+        ],
+        "Fedha": [
+          "Accountant",
+          "Financial Analyst"
+        ]
+      },
+      "BENKI KUU YA TANZANIA - BOT": {
+        "Fedha": [
+          "Economist",
+          "Financial Analyst"
+        ],
+        "Benki": [
+          "Bank Examiner",
+          "Banking Officer"
+        ],
+        "Currency": [
+          "Currency Officer"
+        ],
+        "Supervision": [
+          "Bank Supervisor",
+          "Financial Sector Specialist"
+        ],
+        "TEHAMA": [
+          "ICT Officer",
+          "Cybersecurity Specialist"
+        ]
+      }
+    },
+    "SEKTA": {
+      "Chakula na Vyakula vya Kupika": [
+        "Mama Ntilie",
+        "Mpishi wa chakula",
+        "Muuzaji wa chakula",
+        "Muuzaji wa chipsi",
+        "Muuzaji wa chipsi mayai",
+        "Muuzaji wa mishikaki",
+        "Muuzaji wa nyama choma",
+        "Muuzaji wa kuku choma",
+        "Muuzaji wa samaki choma",
+        "Muuzaji wa mayai",
+        "Muuzaji wa mayai ya kuchemsha",
+        "Muuzaji wa mihogo",
+        "Muuzaji wa viazi vya kukaanga",
+        "Muuzaji wa ndizi za kukaanga",
+        "Muuzaji wa mahindi ya kuchoma",
+        "Muuzaji wa mahindi ya kuchemsha",
+        "Muuzaji wa karanga",
+        "Muuzaji wa njugu",
+        "Muuzaji wa popcorn",
+        "Muuzaji wa maandazi",
+        "Muuzaji wa chapati",
+        "Muuzaji wa vitumbua",
+        "Muuzaji wa maandazi ya biashara",
+        "Muuzaji wa sambusa",
+        "Muuzaji wa bagia",
+        "Muuzaji wa mikate",
+        "Muuzaji wa keki",
+        "Muuzaji wa biskuti",
+        "Muuzaji wa ice cream",
+        "Muuzaji wa yoghurt",
+        "Muuzaji wa juisi",
+        "Muuzaji wa matunda",
+        "Muuzaji wa saladi",
+        "Caterer",
+        "Mpishi wa sherehe",
+        "Food vendor",
+        "Mgahawa mdogo",
+        "Mgahawa",
+        "Restaurant",
+        "Fast food",
+        "Cafe",
+        "Takeaway"
+      ],
+      "Maduka ya Vyakula": [
+        "Duka la vyakula",
+        "Grocery",
+        "Duka la jumla",
+        "Duka la rejareja",
+        "Mini supermarket",
+        "Supermarket",
+        "Duka la nafaka",
+        "Duka la mchele",
+        "Duka la unga",
+        "Duka la sukari",
+        "Duka la mafuta ya kupikia",
+        "Duka la vinywaji",
+        "Duka la maji",
+        "Duka la bidhaa za nyumbani",
+        "Duka la bidhaa za matumizi ya kila siku",
+        "Duka la nyama",
+        "Butcher",
+        "Duka la samaki",
+        "Duka la kuku",
+        "Duka la mayai",
+        "Duka la matunda na mboga"
+      ],
+      "Kilimo": [
+        "Mkulima wa mahindi",
+        "Mkulima wa mpunga",
+        "Mkulima wa ngano",
+        "Mkulima wa maharage",
+        "Mkulima wa choroko",
+        "Mkulima wa mbaazi",
+        "Mkulima wa karanga",
+        "Mkulima wa alizeti",
+        "Mkulima wa ufuta",
+        "Mkulima wa pamba",
+        "Mkulima wa kahawa",
+        "Mkulima wa chai",
+        "Mkulima wa korosho",
+        "Mkulima wa tumbaku",
+        "Mkulima wa miwa",
+        "Mkulima wa viazi",
+        "Mkulima wa mihogo",
+        "Mkulima wa ndizi",
+        "Mkulima wa nyanya",
+        "Mkulima wa vitunguu",
+        "Mkulima wa pilipili",
+        "Mkulima wa kabichi",
+        "Mkulima wa mchicha",
+        "Mkulima wa spinachi",
+        "Mkulima wa matango",
+        "Mkulima wa karoti",
+        "Mkulima wa bilinganya",
+        "Mkulima wa matikiti",
+        "Mkulima wa papai",
+        "Mkulima wa embe",
+        "Mkulima wa parachichi",
+        "Mkulima wa machungwa",
+        "Mkulima wa zabibu",
+        "Mkulima wa maua",
+        "Mkulima wa viungo",
+        "Mkulima wa uyoga",
+        "Mkulima wa mbegu",
+        "Mzalishaji wa miche"
+      ],
+      "Mifugo": [
+        "Mfugaji wa ng'ombe",
+        "Mfugaji wa mbuzi",
+        "Mfugaji wa kondoo",
+        "Mfugaji wa nguruwe",
+        "Mfugaji wa kuku",
+        "Mfugaji wa bata",
+        "Mfugaji wa bata mzinga",
+        "Mfugaji wa sungura",
+        "Mfugaji wa nyuki",
+        "Mfugaji wa samaki",
+        "Mfugaji wa kware",
+        "Mfugaji wa njiwa",
+        "Muuzaji wa mifugo",
+        "Muuzaji wa kuku",
+        "Muuzaji wa mayai",
+        "Muuzaji wa asali",
+        "Muuzaji wa maziwa",
+        "Mzalishaji wa chakula cha mifugo",
+        "Mzalishaji wa vifaranga"
+      ],
+      "Ufugaji Nyuki": [
+        "Mfugaji wa nyuki",
+        "Mzalishaji wa asali",
+        "Mzalishaji wa nta",
+        "Mzalishaji wa royal jelly",
+        "Muuzaji wa asali",
+        "Mtengenezaji wa mizinga",
+        "Muuzaji wa mizinga",
+        "Mzalishaji wa bidhaa za asali"
+      ],
+      "Urembo": [
+        "Kinyozi",
+        "Barber",
+        "Salon",
+        "Hair stylist",
+        "Msusi",
+        "Mtaalamu wa kusuka",
+        "Mtaalamu wa dreadlocks",
+        "Mtaalamu wa nywele",
+        "Mtaalamu wa kucha",
+        "Nail technician",
+        "Makeup artist",
+        "Mtaalamu wa makeup",
+        "Henna artist",
+        "Mtaalamu wa pedicure",
+        "Mtaalamu wa manicure",
+        "Spa",
+        "Massage",
+        "Beauty therapist",
+        "Muuzaji wa vipodozi",
+        "Muuzaji wa bidhaa za nywele",
+        "Muuzaji wa perfume",
+        "Muuzaji wa skincare"
+      ],
+      "Nguo na Mitindo": [
+        "Fundi cherehani",
+        "Fundi nguo",
+        "Tailor",
+        "Designer",
+        "Fashion designer",
+        "Fundi wa magauni",
+        "Fundi wa suti",
+        "Fundi wa mashati",
+        "Fundi wa suruali",
+        "Fundi wa sare",
+        "Fundi wa nguo za watoto",
+        "Fundi wa mapazia",
+        "Fundi wa mashuka",
+        "Fundi wa vitambaa",
+        "Muuzaji wa nguo",
+        "Boutique",
+        "Muuzaji wa mitumba",
+        "Muuzaji wa viatu",
+        "Muuzaji wa mikoba",
+        "Muuzaji wa mikanda",
+        "Muuzaji wa kofia",
+        "Muuzaji wa hijabu",
+        "Muuzaji wa vitambaa",
+        "Muuzaji wa vitenge",
+        "Muuzaji wa kanga",
+        "Muuzaji wa nguo za watoto"
+      ],
+      "Viatu": [
+        "Fundi viatu",
+        "Mtengenezaji wa viatu",
+        "Muuzaji wa viatu",
+        "Muuzaji wa sandals",
+        "Muuzaji wa slippers",
+        "Muuzaji wa sneakers",
+        "Muuzaji wa viatu vya shule",
+        "Fundi wa mikoba ya ngozi",
+        "Fundi wa mikanda",
+        "Fundi wa bidhaa za ngozi"
+      ],
+      "Simu na Teknolojia": [
+        "Duka la simu",
+        "Muuzaji wa simu",
+        "Fundi simu",
+        "Phone technician",
+        "Muuzaji wa accessories",
+        "Muuzaji wa charger",
+        "Muuzaji wa earphones",
+        "Muuzaji wa headphones",
+        "Muuzaji wa power bank",
+        "Muuzaji wa memory card",
+        "Muuzaji wa flash disk",
+        "Muuzaji wa computer",
+        "Fundi computer",
+        "Computer technician",
+        "Muuzaji wa printer",
+        "Fundi printer",
+        "Muuzaji wa vifaa vya CCTV",
+        "Fundi CCTV",
+        "Network technician",
+        "Software developer",
+        "Web developer",
+        "Graphic designer",
+        "Digital marketer",
+        "Social media manager",
+        "Cyber café",
+        "Printing & internet services"
+      ],
+      "Mawasiliano": [
+        "Wakala wa M-Pesa",
+        "Wakala wa Airtel Money",
+        "Wakala wa Tigo Pesa",
+        "Wakala wa HaloPesa",
+        "Wakala wa benki",
+        "Muuzaji wa muda wa maongezi",
+        "Muuzaji wa vocha",
+        "Muuzaji wa laini za simu",
+        "Agent wa huduma za simu",
+        "Mobile money agent"
+      ],
+      "Ujenzi": [
+        "Fundi ujenzi",
+        "Fundi tofali",
+        "Fundi zege",
+        "Fundi kokoto",
+        "Fundi tiles",
+        "Fundi gypsum",
+        "Fundi ceiling",
+        "Fundi aluminium",
+        "Fundi madirisha",
+        "Fundi milango",
+        "Fundi welding",
+        "Fundi bomba",
+        "Fundi umeme",
+        "Fundi rangi",
+        "Painter",
+        "Fundi seremala",
+        "Fundi roofing",
+        "Fundi mabati",
+        "Fundi drainage",
+        "Mason",
+        "Carpenter",
+        "Plumber",
+        "Electrician",
+        "Contractor mdogo",
+        "Supplier wa vifaa vya ujenzi",
+        "Muuzaji wa cement",
+        "Muuzaji wa nondo",
+        "Muuzaji wa mabati",
+        "Muuzaji wa tiles",
+        "Hardware"
+      ],
+      "Useremala": [
+        "Fundi samani",
+        "Fundi viti",
+        "Fundi meza",
+        "Fundi vitanda",
+        "Fundi makabati",
+        "Fundi sofa",
+        "Fundi milango",
+        "Fundi madirisha",
+        "Fundi kitchen cabinets",
+        "Fundi furniture",
+        "Muuzaji wa furniture",
+        "Furniture workshop"
+      ],
+      "Metali na Welding": [
+        "Fundi welding",
+        "Fundi chuma",
+        "Fundi mageti",
+        "Fundi grills",
+        "Fundi madirisha ya chuma",
+        "Fundi vitanda vya chuma",
+        "Fundi meza za chuma",
+        "Fundi mashine",
+        "Metal fabricator",
+        "Aluminium fabricator"
+      ],
+      "Magari": [
+        "Garage",
+        "Fundi magari",
+        "Auto mechanic",
+        "Fundi engine",
+        "Fundi gearbox",
+        "Fundi brakes",
+        "Fundi suspension",
+        "Fundi electrical",
+        "Auto electrician",
+        "Fundi AC",
+        "Fundi tyre",
+        "Vulcanizer",
+        "Car wash",
+        "Car detailing",
+        "Body repair",
+        "Spray painter",
+        "Fundi body",
+        "Muuzaji wa vipuri",
+        "Spare parts dealer",
+        "Muuzaji wa mafuta",
+        "Muuzaji wa tyres",
+        "Muuzaji wa batteries",
+        "Car accessories"
+      ],
+      "Usafiri": [
+        "Bodaboda",
+        "Bajaji",
+        "Taxi",
+        "Dereva wa taxi",
+        "Dereva wa bajaji",
+        "Dereva wa bodaboda",
+        "Daladala",
+        "Transporter",
+        "Dereva wa lori",
+        "Dereva wa pickup",
+        "Dereva wa delivery",
+        "Courier",
+        "Delivery rider",
+        "Moving services",
+        "Car rental",
+        "Motorcycle rental",
+        "Logistics",
+        "Freight services",
+        "Travel agent"
+      ],
+      "Uchukuzi wa Mizigo": [
+        "Mtoa huduma wa delivery",
+        "Courier",
+        "Transporter",
+        "Mtoa huduma wa logistics",
+        "Mtoa huduma wa clearing",
+        "Mtoa huduma wa forwarding",
+        "Warehouse operator",
+        "Storekeeper",
+        "Packaging service",
+        "Movers"
+      ],
+      "Hoteli na Malazi": [
+        "Guest house",
+        "Hostel",
+        "Lodge",
+        "Hotel",
+        "Airbnb host",
+        "Camp site",
+        "Backpackers hostel",
+        "Homestay",
+        "Room rental",
+        "Short-stay accommodation",
+        "Restaurant & hotel",
+        "Bar & hotel"
+      ],
+      "Burudani": [
+        "DJ",
+        "MC",
+        "Mpiga picha",
+        "Videographer",
+        "Event planner",
+        "Wedding planner",
+        "Decorator",
+        "Sound system provider",
+        "Lighting technician",
+        "Music band",
+        "Artist",
+        "Dancer",
+        "Comedian",
+        "Content creator",
+        "YouTuber",
+        "Event equipment rental",
+        "Tent rental",
+        "Chair rental",
+        "Stage rental"
+      ],
+      "Upigaji Picha na Video": [
+        "Photographer",
+        "Videographer",
+        "Wedding photographer",
+        "Studio photographer",
+        "Video editor",
+        "Photo editor",
+        "Drone operator",
+        "Film producer",
+        "Content creator",
+        "Social media content producer",
+        "Printing photographer",
+        "Passport photo service"
+      ],
+      "Uchapishaji": [
+        "Printing",
+        "Photocopy",
+        "Binding",
+        "Lamination",
+        "Graphic design",
+        "Sign writing",
+        "Branding",
+        "T-shirt printing",
+        "Banner printing",
+        "Sticker printing",
+        "Business card printing",
+        "Invitation card printing",
+        "Book printing",
+        "Newspaper printing"
+      ],
+      "Elimu": [
+        "Private tutor",
+        "Tuition teacher",
+        "Home tutor",
+        "Day care",
+        "Nursery school",
+        "Private school",
+        "Computer training",
+        "Driving school",
+        "Vocational trainer",
+        "Language teacher",
+        "Music teacher",
+        "Examination preparation centre",
+        "Online tutor",
+        "Training consultant"
+      ],
+      "Afya": [
+        "Pharmacy",
+        "Drug shop",
+        "Private clinic",
+        "Dental clinic",
+        "Laboratory",
+        "Physiotherapy",
+        "Optical shop",
+        "Medical equipment dealer",
+        "Medical supplies dealer",
+        "Health products seller",
+        "Home care services"
+      ],
+      "Fedha": [
+        "Microfinance",
+        "SACCOS",
+        "Financial agent",
+        "Insurance agent",
+        "Insurance broker",
+        "Accounting services",
+        "Bookkeeping",
+        "Tax consultant",
+        "Financial consultant",
+        "Loan consultant",
+        "Investment consultant"
+      ],
+      "Biashara za Kawaida": [
+        "Duka la jumla",
+        "Duka la rejareja",
+        "Mini supermarket",
+        "Supermarket",
+        "Department store",
+        "Hardware",
+        "Bookshop",
+        "Stationery",
+        "Duka la vifaa vya shule",
+        "Duka la vifaa vya ofisi",
+        "Duka la plastiki",
+        "Duka la vyombo",
+        "Duka la furniture",
+        "Duka la vifaa vya umeme",
+        "Duka la vifaa vya jikoni",
+        "Duka la vifaa vya ujenzi",
+        "Duka la vipuri",
+        "Duka la bidhaa za watoto",
+        "Duka la zawadi",
+        "Gift shop",
+        "Online shop"
+      ],
+      "Vifaa vya Nyumbani": [
+        "Muuzaji wa vyombo",
+        "Muuzaji wa sufuria",
+        "Muuzaji wa sahani",
+        "Muuzaji wa vikombe",
+        "Muuzaji wa glassware",
+        "Muuzaji wa furniture",
+        "Muuzaji wa mattresses",
+        "Muuzaji wa mapazia",
+        "Muuzaji wa mazulia",
+        "Muuzaji wa decor",
+        "Muuzaji wa vifaa vya jikoni",
+        "Muuzaji wa vifaa vya usafi"
+      ],
+      "Viwanda Vidogo": [
+        "Kutengeneza sabuni",
+        "Kutengeneza mafuta ya kupaka",
+        "Kutengeneza mishumaa",
+        "Kutengeneza dawa za usafi",
+        "Kutengeneza juice",
+        "Kutengeneza yoghurt",
+        "Kutengeneza ice cream",
+        "Kutengeneza mikate",
+        "Kutengeneza maandazi",
+        "Kutengeneza biscuits",
+        "Kusaga nafaka",
+        "Kusindika nafaka",
+        "Kusindika matunda",
+        "Kusindika maziwa",
+        "Kusindika nyama",
+        "Kusindika samaki",
+        "Kusindika asali",
+        "Kutengeneza furniture",
+        "Kutengeneza viatu",
+        "Kutengeneza nguo",
+        "Kutengeneza bidhaa za ngozi",
+        "Kutengeneza bidhaa za chuma",
+        "Kutengeneza bidhaa za plastiki",
+        "Kutengeneza packaging"
+      ],
+      "Uchakataji na Uzalishaji wa Mazao": [
+        "Kinu cha kusaga",
+        "Mashine ya kukoboa",
+        "Kusindika mafuta ya alizeti",
+        "Kusindika mafuta ya karanga",
+        "Kusindika mafuta ya ufuta",
+        "Kusindika korosho",
+        "Kusindika kahawa",
+        "Kusindika chai",
+        "Kusindika mihogo",
+        "Kusindika viazi",
+        "Kusindika ndizi",
+        "Kusindika matunda",
+        "Kukausha matunda",
+        "Packaging ya chakula",
+        "Grain processing",
+        "Food processing"
+      ],
+      "Uchimbaji na Madini": [
+        "Mchimbaji mdogo",
+        "Gold miner",
+        "Gemstone miner",
+        "Sand miner",
+        "Gravel supplier",
+        "Stone quarry",
+        "Muuza madini",
+        "Gold dealer",
+        "Gemstone dealer",
+        "Lapidary",
+        "Fundi kusafisha madini",
+        "Jewelry maker"
+      ],
+      "Vito na Sanaa": [
+        "Jewelry maker",
+        "Goldsmith",
+        "Silversmith",
+        "Fundi pete",
+        "Fundi mikufu",
+        "Fundi bangili",
+        "Fundi hereni",
+        "Mchoraji",
+        "Mchongaji",
+        "Msanii",
+        "Painter",
+        "Artist",
+        "Handmade crafts",
+        "Basket maker",
+        "Mat maker",
+        "Pottery maker",
+        "Ceramic maker"
+      ],
+      "Ufundi na Kazi za Mikono": [
+        "Fundi baiskeli",
+        "Fundi pikipiki",
+        "Fundi saa",
+        "Fundi miwani",
+        "Fundi viatu",
+        "Fundi radio",
+        "Fundi TV",
+        "Fundi friji",
+        "Fundi AC",
+        "Fundi washing machine",
+        "Fundi mashine",
+        "Fundi generator",
+        "Fundi solar",
+        "Fundi inverter",
+        "Fundi pampu za maji"
+      ],
+      "Umeme na Solar": [
+        "Solar installer",
+        "Solar technician",
+        "Electrician",
+        "Electrical contractor",
+        "Solar products dealer",
+        "Battery dealer",
+        "Inverter dealer",
+        "Generator technician",
+        "Generator dealer",
+        "Electrical appliances dealer",
+        "Electrical wiring services"
+      ],
+      "Maji na Usafi": [
+        "Water vendor",
+        "Water delivery",
+        "Water treatment",
+        "Water purification",
+        "Borehole services",
+        "Pump installer",
+        "Plumbing",
+        "Septic tank services",
+        "Waste collection",
+        "Waste recycling",
+        "Scrap dealer",
+        "Cleaning services",
+        "Office cleaning",
+        "Home cleaning",
+        "Laundry",
+        "Dry cleaning",
+        "Car wash"
+      ],
+      "Biashara za Mazingira": [
+        "Waste collector",
+        "Recycler",
+        "Plastic collector",
+        "Scrap metal dealer",
+        "Compost producer",
+        "Organic fertilizer producer",
+        "Waste transport",
+        "Environmental cleaning",
+        "Tree nursery",
+        "Tree planting services"
+      ],
+      "Biashara za Mawasiliano na Digital": [
+        "Digital marketing",
+        "Social media management",
+        "Website development",
+        "App development",
+        "Graphic design",
+        "SEO services",
+        "Online advertising",
+        "Content creation",
+        "Blogging",
+        "YouTube",
+        "Podcasting",
+        "Online selling",
+        "E-commerce",
+        "Freelancing",
+        "Data entry",
+        "Virtual assistant",
+        "Online training"
+      ],
+      "Huduma za Kitaalamu": [
+        "Accountant",
+        "Bookkeeper",
+        "Lawyer",
+        "Consultant",
+        "Business consultant",
+        "Marketing consultant",
+        "HR consultant",
+        "IT consultant",
+        "Engineer consultant",
+        "Architect",
+        "Quantity surveyor",
+        "Surveyor",
+        "Valuer",
+        "Translator",
+        "Interpreter",
+        "Writer",
+        "Editor",
+        "Research consultant"
+      ],
+      "Huduma za Nyumbani": [
+        "House maid services",
+        "Domestic worker agency",
+        "Gardener",
+        "Landscaping",
+        "Pest control",
+        "Fumigation",
+        "Laundry",
+        "Cleaning",
+        "Plumbing",
+        "Electrical services",
+        "Painting",
+        "Interior decoration",
+        "Moving services",
+        "Security services"
+      ],
+      "Biashara za Wanyama": [
+        "Pet shop",
+        "Pet grooming",
+        "Dog breeder",
+        "Cat breeder",
+        "Pet food seller",
+        "Veterinary services",
+        "Animal feed seller",
+        "Livestock trader",
+        "Poultry trader",
+        "Poultry feed dealer"
+      ],
+      "Biashara za Pwani/Uvuvi": [
+        "Mvuvi",
+        "Muuzaji wa samaki",
+        "Muuzaji wa dagaa",
+        "Muuzaji wa kaa",
+        "Muuzaji wa kamba",
+        "Fish processor",
+        "Fish dryer",
+        "Fish smoker",
+        "Fish trader",
+        "Boat operator",
+        "Boat repair",
+        "Fishing equipment dealer",
+        "Ice supplier"
+      ],
+      "Biashara za Utalii": [
+        "Tour guide",
+        "Tour operator",
+        "Travel agent",
+        "Car rental",
+        "Tourist photographer",
+        "Souvenir seller",
+        "Curio shop",
+        "Safari planner",
+        "Accommodation provider",
+        "Camping services",
+        "Tour transport",
+        "Cultural tourism operator"
+      ],
+      "Biashara za Mtandaoni": [
+        "Online shop",
+        "Instagram seller",
+        "Facebook seller",
+        "WhatsApp seller",
+        "E-commerce seller",
+        "Online food seller",
+        "Online clothing seller",
+        "Online electronics seller",
+        "Online cosmetics seller",
+        "Online service provider",
+        "Dropshipping",
+        "Digital products seller",
+        "Online tutor",
+        "Content creator"
+      ]
+    },
+    "SEKTA_BINAFSI": {
+      "Viwanda na Uzalishaji": {
+        "taasisi": [
+          "Kagera Sugar",
+          "Bakhresa Group",
+          "Azam",
+          "Coca-Cola Kwanza",
+          "SBC Tanzania",
+          "Tanga Cement",
+          "Twiga Cement",
+          "Dangote Cement",
+          "Tanzania Breweries",
+          "Serengeti Breweries",
+          "Tanzania Cigarette PLC",
+          "Kilombero Sugar",
+          "Mtibwa Sugar",
+          "Nyanza Road Works",
+          "Tanzania Portland Cement",
+          "ALAF",
+          "Kioo Limited",
+          "TOL Gases"
+        ],
+        "idara": {
+          "Uzalishaji (Production)": [
+            "Production Manager",
+            "Production Officer",
+            "Production Supervisor",
+            "Machine Operator",
+            "Technician",
+            "Factory Worker"
+          ],
+          "Uhandisi na Matengenezo": [
+            "Mechanical Engineer",
+            "Electrical Engineer",
+            "Mechanical Technician",
+            "Electrical Technician",
+            "Maintenance Technician"
+          ],
+          "Udhibiti wa Ubora": [
+            "Quality Control Officer",
+            "Laboratory Technician",
+            "Quality Assurance Officer"
+          ],
+          "Kilimo": [
+            "Agronomist",
+            "Agricultural Officer",
+            "Farm Manager",
+            "Irrigation Technician"
+          ],
+          "Fedha": [
+            "Accountant",
+            "Finance Officer",
+            "Payroll Officer"
+          ],
+          "Utumishi na Utawala": [
+            "HR Manager",
+            "HR Officer",
+            "Administrative Officer"
+          ],
+          "Manunuzi na Ghala": [
+            "Procurement Officer",
+            "Purchasing Officer",
+            "Storekeeper",
+            "Warehouse Officer"
+          ]
+        }
+      },
+      "Benki": {
+        "taasisi": [
+          "CRDB Bank",
+          "NMB Bank",
+          "NBC Bank",
+          "Stanbic Bank",
+          "Absa Bank",
+          "Standard Chartered",
+          "Exim Bank",
+          "Equity Bank",
+          "I&M Bank",
+          "DTB",
+          "KCB Bank",
+          "NCBA",
+          "Bank of Africa",
+          "Amana Bank",
+          "Azania Bank",
+          "DCB Bank"
+        ],
+        "idara": {
+          "Uendeshaji wa Tawi": [
+            "Branch Manager",
+            "Operations Manager",
+            "Bank Officer",
+            "Customer Service Officer",
+            "Teller"
+          ],
+          "Mikopo (Loans/Credit)": [
+            "Credit Officer",
+            "Loan Officer",
+            "Credit Analyst",
+            "Relationship Manager"
+          ],
+          "Huduma za Makampuni (Corporate Banking)": [
+            "Relationship Manager",
+            "Corporate Banking Officer"
+          ],
+          "Hatari (Risk)": [
+            "Risk Officer",
+            "Risk Manager"
+          ],
+          "Uzingatiaji (Compliance)": [
+            "Compliance Officer",
+            "AML Officer"
+          ],
+          "TEHAMA": [
+            "Software Developer",
+            "Systems Administrator",
+            "Network Engineer",
+            "Cybersecurity Officer"
+          ],
+          "Fedha": [
+            "Accountant",
+            "Finance Officer",
+            "Auditor"
+          ],
+          "Utumishi": [
+            "HR Manager",
+            "HR Officer",
+            "Recruitment Officer"
+          ]
+        }
+      },
+      "Bima": {
+        "taasisi": [
+          "Jubilee Insurance",
+          "NIC",
+          "Sanlam",
+          "Britam",
+          "Alliance Life",
+          "Metropolitan",
+          "Strategis",
+          "Heritage Insurance",
+          "Mgen",
+          "APA Insurance"
+        ],
+        "idara": {
+          "Underwriting": [
+            "Underwriter"
+          ],
+          "Claims": [
+            "Claims Officer"
+          ],
+          "Actuarial": [
+            "Actuary"
+          ],
+          "Mauzo (Sales)": [
+            "Insurance Sales Officer",
+            "Broker"
+          ],
+          "Risk": [
+            "Risk Officer"
+          ],
+          "Huduma kwa Wateja": [
+            "Customer Service Officer"
+          ],
+          "Marketing": [
+            "Marketing Officer"
+          ],
+          "Fedha": [
+            "Accountant",
+            "Finance Officer"
+          ],
+          "ICT": [
+            "ICT Officer"
+          ],
+          "Utumishi": [
+            "HR Officer"
+          ],
+          "Legal": [
+            "Legal Officer"
+          ],
+          "Compliance": [
+            "Compliance Officer"
+          ]
+        }
+      },
+      "Simu na Mawasiliano (Telecom)": {
+        "taasisi": [
+          "Vodacom Tanzania",
+          "Airtel Tanzania",
+          "Yas Tanzania",
+          "Halotel"
+        ],
+        "idara": {
+          "Network Operations": [
+            "Network Engineer",
+            "Technician",
+            "Network Operations Officer"
+          ],
+          "Engineering": [
+            "Telecom Engineer"
+          ],
+          "Sales": [
+            "Sales Officer"
+          ],
+          "Marketing": [
+            "Marketing Officer"
+          ],
+          "Customer Care": [
+            "Customer Care Officer"
+          ],
+          "Enterprise": [
+            "Enterprise Account Manager"
+          ],
+          "Finance": [
+            "Accountant",
+            "Finance Officer"
+          ],
+          "ICT": [
+            "IT Specialist"
+          ],
+          "Cybersecurity": [
+            "Cybersecurity Specialist"
+          ],
+          "Utumishi": [
+            "HR Officer"
+          ]
+        }
+      },
+      "Teknolojia": {
+        "taasisi": [
+          "Software Company",
+          "ICT Company",
+          "Internet Service Provider",
+          "Fintech Company",
+          "Digital Agency",
+          "Data Company",
+          "Cybersecurity Company"
+        ],
+        "idara": {
+          "Software Development": [
+            "Software Engineer",
+            "Developer",
+            "DevOps Engineer"
+          ],
+          "IT Support": [
+            "IT Support Officer"
+          ],
+          "Network": [
+            "Network Engineer"
+          ],
+          "Cybersecurity": [
+            "Cybersecurity Analyst"
+          ],
+          "Data": [
+            "Data Analyst",
+            "Data Scientist"
+          ],
+          "Product": [
+            "Product Manager"
+          ],
+          "Design": [
+            "UI/UX Designer"
+          ],
+          "Sales": [
+            "Sales Officer"
+          ],
+          "Marketing": [
+            "Marketing Officer"
+          ],
+          "Customer Success": [
+            "Customer Success Officer"
+          ]
+        }
+      },
+      "Shule Binafsi": {
+        "taasisi": [
+          "Feza Schools",
+          "Aga Khan Schools",
+          "Braeburn",
+          "Haven of Peace Academy",
+          "St. Constantine's",
+          "International School of Tanganyika",
+          "Shule za Montessori",
+          "Shule Binafsi za Kawaida"
+        ],
+        "idara": {
+          "Academic Department": [
+            "Mwalimu wa Darasa",
+            "Mwalimu wa Somo",
+            "Head of Department",
+            "Academic Coordinator",
+            "Academic Director",
+            "Mkuu wa Shule",
+            "Deputy Head"
+          ],
+          "Administration": [
+            "School Administrator",
+            "Secretary",
+            "Receptionist",
+            "HR Officer"
+          ],
+          "Finance": [
+            "Accountant",
+            "Cashier",
+            "Finance Officer"
+          ],
+          "ICT": [
+            "ICT Teacher",
+            "ICT Technician",
+            "IT Officer"
+          ],
+          "Support": [
+            "Librarian",
+            "Laboratory Technician",
+            "School Nurse",
+            "Driver",
+            "Cook",
+            "Cleaner",
+            "Security Guard"
+          ]
+        }
+      },
+      "Vyuo na Training Centres": {
+        "taasisi": [
+          "Private University",
+          "College",
+          "Vocational Training Centre",
+          "Computer College",
+          "Business College",
+          "Language School",
+          "Driving School"
+        ],
+        "idara": {
+          "Taaluma": [
+            "Lecturer",
+            "Assistant Lecturer",
+            "Tutorial Assistant",
+            "Instructor",
+            "Trainer",
+            "Head of Department",
+            "Dean"
+          ],
+          "Utawala wa Taaluma": [
+            "Registrar",
+            "Academic Officer",
+            "Examination Officer",
+            "Librarian"
+          ],
+          "ICT na Fedha": [
+            "ICT Officer",
+            "Accountant"
+          ]
+        }
+      },
+      "Hospitali": {
+        "taasisi": [
+          "Aga Khan Hospital",
+          "Hindu Mandal Hospital",
+          "Regency Medical Centre",
+          "TMJ Hospital",
+          "AAR Hospital",
+          "Hospitali Binafsi za Mikoa"
+        ],
+        "idara": {
+          "Medical": [
+            "Medical Doctor",
+            "Specialist",
+            "Surgeon",
+            "Medical Officer",
+            "Clinical Officer"
+          ],
+          "Nursing": [
+            "Nurse",
+            "Midwife",
+            "Nurse Officer",
+            "Nursing Manager"
+          ],
+          "Laboratory": [
+            "Laboratory Scientist",
+            "Laboratory Technician"
+          ],
+          "Pharmacy": [
+            "Pharmacist",
+            "Pharmaceutical Technician"
+          ],
+          "Radiology": [
+            "Radiologist",
+            "Radiographer"
+          ],
+          "Administration": [
+            "Hospital Administrator",
+            "HR Officer",
+            "Accountant",
+            "Receptionist"
+          ],
+          "ICT": [
+            "ICT Officer",
+            "Health Information Officer",
+            "Systems Administrator"
+          ]
+        }
+      },
+      "Clinics": {
+        "taasisi": [
+          "Private Clinic",
+          "Dental Clinic",
+          "Eye Clinic",
+          "Maternity Clinic",
+          "Physiotherapy Centre",
+          "Diagnostic Centre",
+          "Medical Laboratory"
+        ],
+        "idara": {
+          "Huduma za Afya": [
+            "Doctor",
+            "Clinical Officer",
+            "Nurse",
+            "Dentist",
+            "Optometrist",
+            "Physiotherapist",
+            "Laboratory Scientist",
+            "Pharmacist",
+            "Receptionist",
+            "Accountant"
+          ]
+        }
+      },
+      "Taasisi za Dini": {
+        "taasisi": [
+          "Catholic Church",
+          "Anglican Church",
+          "Lutheran Church",
+          "Moravian Church",
+          "Baptist Church",
+          "Pentecostal Church",
+          "Seventh-day Adventist",
+          "Full Gospel",
+          "Assemblies of God",
+          "KKKT",
+          "TEC",
+          "CCT",
+          "EAGT",
+          "TAG",
+          "PCT",
+          "BAKWATA",
+          "Islamic Foundation",
+          "Islamic School",
+          "Mosque",
+          "Islamic University",
+          "Islamic NGO"
+        ],
+        "idara": {
+          "Uongozi": [
+            "Askofu",
+            "Askofu Mkuu",
+            "Askofu Msaidizi",
+            "Padre",
+            "Mchungaji",
+            "Pastor",
+            "Reverend",
+            "Evangelist",
+            "Imam",
+            "Sheikh",
+            "Ustadh",
+            "Khadhi"
+          ],
+          "Utawala": [
+            "Church Administrator",
+            "Administrator",
+            "Secretary",
+            "Accountant",
+            "Treasurer"
+          ],
+          "Idara za Huduma": [
+            "Youth Officer",
+            "Women Ministry Officer",
+            "Men Ministry Officer",
+            "Children Ministry Officer",
+            "Education Officer",
+            "Evangelism Officer",
+            "Choir Leader",
+            "Media/ICT Officer",
+            "Social Services Officer",
+            "Charity Officer"
+          ]
+        }
+      },
+      "Makampuni ya Ulinzi": {
+        "taasisi": [
+          "Suma JKT",
+          "G4S",
+          "KK Security",
+          "Ultimate Security",
+          "Guardsman",
+          "Security Group"
+        ],
+        "idara": {
+          "Operations": [
+            "Operations Manager",
+            "Operations Officer",
+            "Security Supervisor",
+            "Security Guard"
+          ],
+          "Control Room": [
+            "Control Room Operator",
+            "CCTV Operator"
+          ],
+          "Technical": [
+            "CCTV Technician",
+            "Alarm Technician",
+            "Access Control Technician"
+          ],
+          "Administration": [
+            "HR Officer",
+            "Administrator"
+          ],
+          "Finance": [
+            "Accountant",
+            "Cashier"
+          ],
+          "Training": [
+            "Security Trainer",
+            "Training Officer"
+          ]
+        }
+      },
+      "Hoteli": {
+        "taasisi": [
+          "Hyatt",
+          "Serena",
+          "Marriott",
+          "Golden Tulip",
+          "Four Points",
+          "Ramada",
+          "Meliá",
+          "Protea",
+          "Sea Cliff",
+          "Hotel Slipway",
+          "Hoteli za Ndani"
+        ],
+        "idara": {
+          "Uongozi": [
+            "General Manager"
+          ],
+          "Front Office": [
+            "Receptionist"
+          ],
+          "Housekeeping": [
+            "Housekeeper"
+          ],
+          "Food & Beverage": [
+            "Waiter"
+          ],
+          "Kitchen": [
+            "Chef"
+          ],
+          "Sales na Marketing": [
+            "Sales Officer",
+            "Marketing Officer"
+          ],
+          "Events": [
+            "Events Officer"
+          ],
+          "Finance": [
+            "Accountant"
+          ],
+          "HR": [
+            "HR Officer"
+          ],
+          "Security": [
+            "Security Officer"
+          ],
+          "Engineering": [
+            "Maintenance Technician"
+          ],
+          "ICT": [
+            "ICT Officer"
+          ]
+        }
+      },
+      "Supermarket na Retail": {
+        "taasisi": [
+          "Shoppers Plaza",
+          "Village Supermarket",
+          "Mlimani City Stores",
+          "Game",
+          "Supermarket",
+          "Wholesaler",
+          "Retail Chain"
+        ],
+        "idara": {
+          "Uendeshaji wa Duka": [
+            "Store Manager",
+            "Branch Manager",
+            "Cashier",
+            "Salesperson",
+            "Storekeeper",
+            "Merchandiser",
+            "Procurement Officer",
+            "Accountant",
+            "Security Officer"
+          ]
+        }
+      },
+      "Vituo vya Mafuta": {
+        "taasisi": [
+          "Puma",
+          "TotalEnergies",
+          "Oryx",
+          "Engen",
+          "Vivo Energy",
+          "Lake Oil",
+          "GBP",
+          "Oilcom"
+        ],
+        "idara": {
+          "Uendeshaji wa Kituo": [
+            "Station Manager",
+            "Supervisor",
+            "Pump Attendant",
+            "Cashier",
+            "Accountant",
+            "Mechanic",
+            "Security Guard"
+          ]
+        }
+      },
+      "Ujenzi (Construction)": {
+        "taasisi": [
+          "Construction Company",
+          "Civil Engineering Company",
+          "Building Contractor",
+          "Road Contractor",
+          "Real Estate Developer"
+        ],
+        "idara": {
+          "Engineering": [
+            "Civil Engineer",
+            "Site Engineer",
+            "Surveyor"
+          ],
+          "Ujenzi (Site)": [
+            "Site Supervisor",
+            "Foreman",
+            "Mason",
+            "Technician"
+          ],
+          "Quantity Surveying": [
+            "Quantity Surveyor"
+          ],
+          "Architecture": [
+            "Architect"
+          ],
+          "Procurement na Stores": [
+            "Procurement Officer",
+            "Storekeeper"
+          ],
+          "Finance": [
+            "Accountant"
+          ],
+          "HR": [
+            "HR Officer"
+          ],
+          "Safety": [
+            "Safety Officer"
+          ]
+        }
+      },
+      "Real Estate": {
+        "taasisi": [
+          "Property Developer",
+          "Estate Agent Company",
+          "Property Management Company",
+          "Apartment Company",
+          "Commercial Buildings"
+        ],
+        "idara": {
+          "Usimamizi wa Mali": [
+            "Property Manager",
+            "Estate Agent",
+            "Property Officer",
+            "Valuer",
+            "Accountant",
+            "Facility Manager",
+            "Maintenance Officer"
+          ]
+        }
+      },
+      "Logistics": {
+        "taasisi": [
+          "DHL",
+          "FedEx",
+          "Freight Forwarder",
+          "Clearing & Forwarding Company",
+          "Courier Company",
+          "Warehousing Company"
+        ],
+        "idara": {
+          "Uendeshaji wa Logistics": [
+            "Logistics Manager",
+            "Transport Manager",
+            "Clearing Agent",
+            "Customs Agent",
+            "Warehouse Manager",
+            "Storekeeper",
+            "Driver",
+            "Courier",
+            "Operations Officer"
+          ]
+        }
+      },
+      "Utalii na Usafiri (Travel & Tourism)": {
+        "taasisi": [
+          "Tour Operator",
+          "Travel Agency",
+          "Safari Company",
+          "Car Rental Company",
+          "Tourist Camp",
+          "Lodge"
+        ],
+        "idara": {
+          "Huduma za Utalii": [
+            "Tour Guide",
+            "Tour Operator",
+            "Travel Consultant",
+            "Reservation Officer",
+            "Driver Guide",
+            "Safari Manager",
+            "Sales Manager",
+            "Marketing Officer"
+          ]
+        }
+      },
+      "Agribusiness": {
+        "taasisi": [
+          "Sugar Company",
+          "Coffee Company",
+          "Tea Company",
+          "Tobacco Company",
+          "Cashew Company",
+          "Seed Company",
+          "Fertilizer Company",
+          "Agro-dealer",
+          "Farm Company"
+        ],
+        "idara": {
+          "Uendeshaji wa Kilimo Biashara": [
+            "Agronomist",
+            "Farm Manager",
+            "Agricultural Officer",
+            "Farm Supervisor",
+            "Extension Officer",
+            "Machine Operator",
+            "Warehouse Officer",
+            "Procurement Officer"
+          ]
+        }
+      },
+      "Uchimbaji Madini (Mining)": {
+        "taasisi": [
+          "Gold Mining Company",
+          "Gemstone Company",
+          "Quarry Company",
+          "Mineral Processing Company",
+          "Mining Contractor"
+        ],
+        "idara": {
+          "Uchimbaji": [
+            "Mining Engineer",
+            "Geologist",
+            "Surveyor",
+            "Mining Technician",
+            "Laboratory Technician",
+            "Safety Officer",
+            "Environmental Officer",
+            "Machine Operator",
+            "Security Officer"
+          ]
+        }
+      },
+      "Media": {
+        "taasisi": [
+          "TV Station",
+          "Radio Station",
+          "Newspaper",
+          "Magazine",
+          "Online Media",
+          "Production Company"
+        ],
+        "idara": {
+          "Uzalishaji wa Habari": [
+            "Journalist",
+            "Reporter",
+            "Editor",
+            "Producer",
+            "Presenter",
+            "Camera Operator",
+            "Video Editor",
+            "Graphic Designer",
+            "Photographer",
+            "Sound Engineer",
+            "Social Media Manager"
+          ]
+        }
+      },
+      "Advertising na Marketing": {
+        "taasisi": [
+          "Advertising Agency",
+          "Branding Company",
+          "PR Company",
+          "Digital Marketing Agency",
+          "Event Company"
+        ],
+        "idara": {
+          "Masoko na Utangazaji": [
+            "Marketing Manager",
+            "Sales Manager",
+            "Account Manager",
+            "Graphic Designer",
+            "Copywriter",
+            "Digital Marketer",
+            "Social Media Manager",
+            "PR Officer",
+            "Event Manager"
+          ]
+        }
+      },
+      "NGO / CSO / Development Organizations": {
+        "taasisi": [
+          "International NGO",
+          "Local NGO",
+          "Community Based Organization",
+          "Foundation",
+          "Humanitarian Organization",
+          "Development Organization",
+          "Faith-Based NGO"
+        ],
+        "idara": {
+          "Programs": [
+            "Program Manager",
+            "Project Officer",
+            "Field Officer",
+            "Community Officer"
+          ],
+          "M&E": [
+            "M&E Officer",
+            "Data Officer"
+          ],
+          "Finance": [
+            "Finance Officer"
+          ],
+          "Procurement": [
+            "Procurement Officer"
+          ],
+          "Utumishi": [
+            "HR Officer"
+          ],
+          "Administration": [
+            "Administration Officer"
+          ],
+          "Logistics": [
+            "Logistics Officer",
+            "Driver"
+          ],
+          "Communications": [
+            "Communications Officer"
+          ],
+          "ICT": [
+            "ICT Officer"
+          ],
+          "Grants": [
+            "Grants Officer"
+          ]
+        }
+      },
+      "Microfinance / SACCOS": {
+        "taasisi": [
+          "Microfinance Company",
+          "SACCOS",
+          "Savings Group",
+          "Lending Company",
+          "Digital Lending Company"
+        ],
+        "idara": {
+          "Uendeshaji wa Mikopo": [
+            "Loan Officer",
+            "Credit Officer",
+            "Branch Manager",
+            "Cashier",
+            "Accountant",
+            "Collection Officer",
+            "Risk Officer",
+            "Customer Service Officer"
+          ]
+        }
+      },
+      "Pharmaceuticals": {
+        "taasisi": [
+          "Pharmaceutical Company",
+          "Pharmacy",
+          "Medical Supplier",
+          "Medical Equipment Company",
+          "Drug Distributor"
+        ],
+        "idara": {
+          "Huduma za Dawa": [
+            "Pharmacist",
+            "Pharmaceutical Technician",
+            "Medical Representative",
+            "Sales Representative",
+            "Warehouse Officer",
+            "Regulatory Officer",
+            "Quality Assurance Officer"
+          ]
+        }
+      },
+      "Manufacturing ya Bidhaa": {
+        "taasisi": [
+          "Food Manufacturing",
+          "Beverage Manufacturing",
+          "Textile Company",
+          "Shoe Company",
+          "Furniture Company",
+          "Plastics Company",
+          "Packaging Company",
+          "Chemicals Company",
+          "Cosmetics Company",
+          "Soap Company",
+          "Construction Materials Company",
+          "Paper Company",
+          "Metal Products Company"
+        ],
+        "idara": {
+          "Production": [
+            "Production Officer",
+            "Machine Operator"
+          ],
+          "Engineering": [
+            "Maintenance Technician"
+          ],
+          "Quality": [
+            "Quality Control Officer"
+          ],
+          "Warehouse": [
+            "Storekeeper"
+          ],
+          "Procurement": [
+            "Procurement Officer"
+          ],
+          "Sales": [
+            "Sales Officer"
+          ],
+          "Finance": [
+            "Accountant"
+          ],
+          "HR": [
+            "HR Officer"
+          ],
+          "ICT": [
+            "ICT Officer"
+          ]
+        }
+      },
+      "Consultancy na Professional Services": {
+        "taasisi": [
+          "Law Firm",
+          "Accounting Firm",
+          "Audit Firm",
+          "Engineering Firm",
+          "Architectural Firm",
+          "Survey Company",
+          "HR Consultancy",
+          "Business Consultancy",
+          "Tax Consultancy",
+          "IT Consultancy"
+        ],
+        "idara": {
+          "Huduma za Kitaalamu": [
+            "Lawyer",
+            "Advocate",
+            "Accountant",
+            "Auditor",
+            "Engineer",
+            "Architect",
+            "Surveyor",
+            "Consultant",
+            "Tax Consultant",
+            "HR Consultant",
+            "IT Consultant"
+          ]
+        }
+      },
+      "Legal Services": {
+        "taasisi": [
+          "Law Firm",
+          "Advocates",
+          "Legal Consultancy",
+          "Arbitration Services",
+          "Notary Services"
+        ],
+        "idara": {
+          "Huduma za Kisheria": [
+            "Advocate",
+            "Lawyer",
+            "Legal Officer",
+            "Paralegal",
+            "Legal Secretary",
+            "Notary"
+          ]
+        }
+      },
+      "Professional Associations": {
+        "taasisi": [
+          "Chamber of Commerce",
+          "Employers Association",
+          "Professional Association",
+          "Industry Association",
+          "Business Association"
+        ],
+        "idara": {
+          "Uendeshaji wa Chama": [
+            "Executive Director",
+            "Secretary General",
+            "Program Officer",
+            "Membership Officer",
+            "Finance Officer",
+            "Administration Officer"
+          ]
+        }
+      },
+      "Michezo (Sports)": {
+        "taasisi": [
+          "Football Club",
+          "Basketball Club",
+          "Gym",
+          "Fitness Centre",
+          "Swimming Centre",
+          "Sports Academy"
+        ],
+        "idara": {
+          "Michezo": [
+            "Coach",
+            "Fitness Trainer",
+            "Sports Manager",
+            "Physiotherapist",
+            "Sports Administrator",
+            "Referee",
+            "Sports Analyst",
+            "Gym Instructor"
+          ]
+        }
+      },
+      "Burudani (Entertainment)": {
+        "taasisi": [
+          "Music Company",
+          "Recording Studio",
+          "Film Company",
+          "Event Company",
+          "Entertainment Company"
+        ],
+        "idara": {
+          "Burudani": [
+            "Artist",
+            "Producer",
+            "Manager",
+            "Sound Engineer",
+            "Video Director",
+            "Photographer",
+            "DJ",
+            "MC",
+            "Event Manager"
+          ]
+        }
+      },
+      "Usafiri wa Anga (Air Transport)": {
+        "taasisi": [
+          "Private Airline",
+          "Charter Company",
+          "Aviation Company",
+          "Ground Handling Company",
+          "Travel Company"
+        ],
+        "idara": {
+          "Usafiri wa Anga": [
+            "Pilot",
+            "Cabin Crew",
+            "Aircraft Engineer",
+            "Aircraft Technician",
+            "Ground Handling Officer",
+            "Flight Dispatcher",
+            "Customer Service Officer"
+          ]
+        }
+      },
+      "Usafiri wa Baharini (Maritime)": {
+        "taasisi": [
+          "Shipping Company",
+          "Marine Transport",
+          "Port Service Company",
+          "Fishing Company",
+          "Boat Operator"
+        ],
+        "idara": {
+          "Usafiri wa Baharini": [
+            "Marine Engineer",
+            "Captain",
+            "Deck Officer",
+            "Sailor",
+            "Marine Technician",
+            "Cargo Officer",
+            "Logistics Officer"
+          ]
+        }
+      },
+      "Uvuvi (Fisheries)": {
+        "taasisi": [
+          "Fishing Company",
+          "Fish Processing Company",
+          "Fish Trading Company",
+          "Cold Storage Company",
+          "Seafood Company"
+        ],
+        "idara": {
+          "Uvuvi": [
+            "Fisherman",
+            "Fisheries Officer",
+            "Fish Processor",
+            "Quality Officer",
+            "Cold Storage Technician",
+            "Boat Captain"
+          ]
+        }
+      },
+      "Mazingira na Usimamizi wa Taka": {
+        "taasisi": [
+          "Waste Management Company",
+          "Recycling Company",
+          "Environmental Consultancy",
+          "Cleaning Company",
+          "Fumigation Company"
+        ],
+        "idara": {
+          "Mazingira": [
+            "Environmental Officer",
+            "Waste Management Officer",
+            "Recycling Technician",
+            "Cleaner",
+            "Fumigation Technician",
+            "Environmental Consultant"
+          ]
+        }
+      },
+      "Facility Management": {
+        "taasisi": [
+          "Building Management Company",
+          "Office Management Company",
+          "Property Management Company",
+          "Cleaning Company",
+          "Security Company",
+          "Maintenance Company"
+        ],
+        "idara": {
+          "Usimamizi wa Majengo": [
+            "Facility Manager",
+            "Maintenance Manager",
+            "Technician",
+            "Cleaner",
+            "Security Officer",
+            "Building Supervisor"
+          ]
+        }
+      },
+      "Magari (Automotive)": {
+        "taasisi": [
+          "Car Dealer",
+          "Spare Parts Company",
+          "Garage",
+          "Tyre Company",
+          "Car Rental Company",
+          "Vehicle Importer"
+        ],
+        "idara": {
+          "Magari": [
+            "Sales Consultant",
+            "Mechanic",
+            "Auto Electrician",
+            "Parts Officer",
+            "Service Advisor",
+            "Workshop Manager",
+            "Driver"
+          ]
+        }
+      },
+      "Suppliers / Distributors": {
+        "taasisi": [
+          "FMCG Distributor",
+          "Pharmaceutical Distributor",
+          "Electronics Distributor",
+          "Food Distributor",
+          "Beverage Distributor",
+          "Construction Supplier",
+          "Office Supplier",
+          "School Supplier"
+        ],
+        "idara": {
+          "Usambazaji": [
+            "Sales Representative",
+            "Sales Manager",
+            "Distributor",
+            "Warehouse Manager",
+            "Storekeeper",
+            "Driver",
+            "Procurement Officer",
+            "Logistics Officer"
+          ]
+        }
+      },
+      "Telecom / Internet Service Providers": {
+        "taasisi": [
+          "ISP",
+          "Fibre Company",
+          "Internet Company",
+          "Data Centre Company",
+          "Network Company"
+        ],
+        "idara": {
+          "Mtandao": [
+            "Network Engineer",
+            "Fibre Technician",
+            "Field Technician",
+            "NOC Engineer",
+            "Customer Support",
+            "Sales Officer",
+            "Systems Administrator"
+          ]
+        }
+      },
+      "Data Centres / Cloud": {
+        "taasisi": [
+          "Data Centre",
+          "Cloud Service Provider",
+          "Hosting Company",
+          "Server Management Company"
+        ],
+        "idara": {
+          "Data na Wingu": [
+            "Data Centre Engineer",
+            "Systems Administrator",
+            "Cloud Engineer",
+            "Network Engineer",
+            "Cybersecurity Engineer",
+            "IT Support"
+          ]
+        }
+      }
+    },
+    "VYUO": {
+      "University of Dar es Salaam (UDSM)": [
+        "Sheria",
+        "Uhandisi wa Ujenzi",
+        "Udaktari wa Binadamu",
+        "Sayansi ya Kompyuta",
+        "Uchumi",
+        "Elimu",
+        "Sanaa za Maonesho",
+        "Jiolojia"
+      ],
+      "Sokoine University of Agriculture (SUA)": [
+        "Kilimo",
+        "Sayansi ya Mifugo",
+        "Misitu na Ikolojia",
+        "Uhandisi wa Kilimo",
+        "Sayansi ya Chakula"
+      ],
+      "Muhimbili University of Health and Allied Sciences (MUHAS)": [
+        "Udaktari (MD)",
+        "Uuguzi",
+        "Famasi",
+        "Meno",
+        "Afya ya Jamii"
+      ],
+      "Ardhi University (ARU)": [
+        "Upimaji Ardhi",
+        "Mipango Miji",
+        "Usanifu Majengo",
+        "Uthamini wa Mali"
+      ],
+      "University of Dodoma (UDOM)": [
+        "Elimu",
+        "Sheria",
+        "Sayansi ya Kompyuta",
+        "Uhasibu",
+        "Uuguzi"
+      ],
+      "Mzumbe University": [
+        "Utawala wa Umma",
+        "Uhasibu",
+        "Menejimenti ya Biashara",
+        "Sheria"
+      ],
+      "Nelson Mandela African Institution of Science and Technology": [
+        "Sayansi ya Data",
+        "Uhandisi wa Maji",
+        "Bioteknolojia"
+      ],
+      "St. Augustine University of Tanzania (SAUT)": [
+        "Uandishi wa Habari",
+        "Sheria",
+        "Uhasibu",
+        "TEHAMA"
+      ],
+      "Institute of Finance Management (IFM)": [
+        "Uhasibu",
+        "Fedha",
+        "Takwimu",
+        "Bima",
+        "TEHAMA"
+      ],
+      "Tumaini University Makumira": [
+        "Theolojia",
+        "Elimu",
+        "Uhasibu"
+      ],
+      "Kampala International University in Tanzania (KIUT)": [
+        "Uuguzi",
+        "Sheria",
+        "Utawala wa Biashara"
+      ],
+      "Dar es Salaam Institute of Technology (DIT)": [
+        "Uhandisi wa Umeme",
+        "Uhandisi wa Mitambo",
+        "TEHAMA",
+        "Uhandisi wa Ujenzi"
+      ],
+      "College of Business Education (CBE)": [
+        "Uhasibu",
+        "Masoko",
+        "Manunuzi na Ugavi",
+        "Fedha"
+      ],
+      "National Institute of Transport (NIT)": [
+        "Usimamizi wa Usafirishaji",
+        "Uhandisi wa Magari",
+        "Logistiki"
+      ],
+      "Moshi Co-operative University (MoCU)": [
+        "Ushirika",
+        "Uhasibu",
+        "Kilimo Biashara"
+      ],
+      "Open University of Tanzania (OUT)": [
+        "Elimu",
+        "Sheria",
+        "Uhasibu",
+        "Sayansi ya Jamii"
+      ],
+      "Mbeya University of Science and Technology (MUST)": [
+        "Uhandisi wa Mgodi",
+        "Uhandisi wa Umeme",
+        "TEHAMA"
+      ],
+      "Ruaha Catholic University (RUCU)": [
+        "Uhasibu",
+        "Elimu",
+        "Sheria"
+      ],
+      "Water Institute (WI)": [
+        "Uhandisi wa Maji",
+        "Usimamizi wa Rasilimali za Maji"
+      ],
+      "Vyuo vya Ufundi Stadi (VETA)": [
+        "Useremala",
+        "Ufundi Umeme",
+        "Ushonaji",
+        "Upishi na Ukarimu",
+        "Ufundi Magari"
+      ]
+    },
+    "BANKS": [
+      "CRDB Bank",
+      "NMB Bank",
+      "NBC Bank",
+      "Stanbic Bank",
+      "Absa Bank",
+      "Standard Chartered",
+      "Exim Bank",
+      "Equity Bank",
+      "I&M Bank",
+      "DTB",
+      "KCB Bank",
+      "NCBA Bank",
+      "Bank of Africa",
+      "Amana Bank",
+      "Azania Bank",
+      "DCB Bank",
+      "Akiba Commercial Bank",
+      "Mkombozi Commercial Bank",
+      "Mwanga Hakika Bank",
+      "TPB Bank",
+      "Postal Bank (PBZ)"
+    ],
+    "MFUKO_HIFADHI": [
+      "PSSSF",
+      "NSSF",
+      "ZSSF (Zanzibar)",
+      "WCF"
+    ]
+  }
+}

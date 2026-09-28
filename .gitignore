@@ -26,3 +26,13 @@ Thumbs.db
 # Database dumps. These contain real records and password hashes; they are an
 # operational artefact of a machine, never something a repository should carry.
 /storage/backups
+
+# Local environment backups (hold credentials)
+.env.*
+!.env.example
+
+# Old-system reports: real customer names and phone numbers — never in the (public) repository
+/database/data/historical/
+
+# Deployment packages and backups built in the project root
+/*.zip

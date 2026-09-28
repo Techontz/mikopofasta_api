@@ -1,63 +1,47 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use App\Domain\Auth\Enums\RoleName;
+use App\Models\Concerns\Auditable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Spatie\Permission\Models\Role as SpatieRole;
 
-/**
- * Backend spec §2.1 — `roles`.
- *
- * Extends Spatie's model so the permission engine keeps working, while adding
- * the `users` relation implied by the spec's `users.role_id` column and the
- * enum-backed helpers the rest of the app uses.
- *
- * Roles are a fixed, seeded set (§14) — there is no create/delete endpoint for
- * them. Only the permission grants attached to a role are editable.
- *
- * @property string $name
- */
-class Role extends SpatieRole
+class Role extends Model
 {
+    use Auditable;
+
+    protected $guarded = ['id'];
+
     /**
-     * Users whose authoritative `role_id` points here.
-     *
-     * Deliberately NOT Spatie's inherited `users()` relation, which reads the
-     * `model_has_roles` pivot. That pivot is derived state kept in sync by
-     * User::booted(); `users.role_id` is the source of truth (spec §2.1).
-     * The name differs because Spatie's `users()` is a BelongsToMany and
-     * cannot be overridden with a HasMany.
-     *
-     * @return HasMany<User, $this>
+     * @return array<string, string>
      */
-    public function assignedUsers(): HasMany
+    protected function casts(): array
     {
-        return $this->hasMany(User::class);
+        return ['is_system' => 'boolean'];
     }
 
-    public function toRoleName(): RoleName
+    public function company(): BelongsTo
     {
-        return RoleName::from($this->name);
+        return $this->belongsTo(Company::class);
     }
 
-    public function label(): string
+    public function permissions(): HasMany
     {
-        return $this->toRoleName()->label();
+        return $this->hasMany(RolePermission::class);
     }
 
-    public function description(): string
+    public function employees(): HasMany
     {
-        return $this->toRoleName()->description();
+        return $this->hasMany(Employee::class);
     }
 
     /**
-     * Super Admin's grants are fixed — see RoleName::isEditable().
+     * Data scope of the role: company (all branches), zone, or branch.
      */
-    public function isEditable(): bool
+    protected function scope(): Attribute
     {
-        return $this->toRoleName()->isEditable();
+        return Attribute::get(fn (): string => config("permissions.roles.{$this->key}.scope", 'branch'));
     }
 }

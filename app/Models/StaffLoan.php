@@ -1,100 +1,14 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use App\Domain\Hr\Enums\StaffLoanStatus;
-use App\Domain\Hr\Services\StaffLoanReferenceGenerator;
-use App\Support\Money;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * Backend spec §2.9 — `staff_loans`. §11's "internal mirror of the customer
- * loan engine", recovered automatically by payroll deduction.
- *
- * `amount_recovered` and `recovery_periods` were added in Module 7. Without
- * them nothing knew how much of a loan had been repaid, so nothing could tell
- * when it was finished — and payroll went on deducting a flat figure from
- * employees who had already cleared their debt.
- *
- * @property int $id
- * @property string $reference
- * @property int $staff_profile_id
- * @property string $amount
- * @property string $amount_recovered
- * @property int $recovery_periods
- * @property StaffLoanStatus $status
- * @property CarbonImmutable|null $requested_at
- * @property int|null $requested_by
- * @property int|null $approved_by
- * @property CarbonImmutable|null $approved_at
- * @property string|null $rejection_reason
- * @property CarbonImmutable|null $disbursed_at
- * @property int|null $disbursed_by
- * @property CarbonImmutable|null $closed_at
- * @property int|null $journal_entry_id
- */
 class StaffLoan extends Model
 {
-    /** @var list<string> */
-    protected $fillable = [
-        'reference', 'staff_profile_id', 'amount', 'amount_recovered', 'recovery_periods',
-        'status', 'requested_at', 'requested_by', 'approved_by', 'approved_at',
-        'rejection_reason', 'disbursed_at', 'disbursed_by', 'closed_at', 'journal_entry_id',
-    ];
-
-    /**
-     * @return BelongsTo<StaffProfile, $this>
-     */
-    public function staffProfile(): BelongsTo
-    {
-        return $this->belongsTo(StaffProfile::class);
-    }
-
-    /**
-     * @return BelongsTo<JournalEntry, $this>
-     */
-    public function journalEntry(): BelongsTo
-    {
-        return $this->belongsTo(JournalEntry::class);
-    }
-
-    /** @return BelongsTo<User, $this> */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    public function amountMoney(): Money
-    {
-        return Money::of($this->amount);
-    }
-
-    /** What payroll has taken so far. */
-    public function recoveredMoney(): Money
-    {
-        return Money::of($this->amount_recovered ?? '0.00');
-    }
-
-    /**
-     * Assigns a reference to any loan created without one.
-     *
-     * The same hook `StaffAdvance` carries, for the same reason: `reference` is
-     * NOT NULL and unique, the action supplies it, and a test fixture building
-     * a loan directly would otherwise fail on a constraint that has nothing to
-     * do with what it is testing.
-     */
-    protected static function booted(): void
-    {
-        static::creating(function (self $loan): void {
-            if (($loan->reference ?? '') === '') {
-                $loan->reference = app(StaffLoanReferenceGenerator::class)->next();
-            }
-        });
-    }
+    protected $guarded = ['id'];
 
     /**
      * @return array<string, string>
@@ -102,12 +16,77 @@ class StaffLoan extends Model
     protected function casts(): array
     {
         return [
-            'status' => StaffLoanStatus::class,
-            'requested_at' => 'immutable_datetime',
-            'approved_at' => 'immutable_datetime',
-            'disbursed_at' => 'immutable_date',
-            'closed_at' => 'immutable_datetime',
-            'recovery_periods' => 'integer',
+            'amount_applied' => 'decimal:2',
+            'amount_approved' => 'decimal:2',
+            'total_payable' => 'decimal:2',
+            'restoration' => 'decimal:2',
+            'fee' => 'decimal:2',
+            'approved_at' => 'datetime',
+            'finance_approved_at' => 'datetime',
+            'disbursed_at' => 'datetime',
+            'rejected_at' => 'datetime',
+            'completed_at' => 'datetime',
         ];
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'requested_by');
+    }
+
+    /**
+     * Review stage approver (HR, or Admin for an HR user's own request).
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'approved_by');
+    }
+
+    public function financeApprover(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'finance_approved_by');
+    }
+
+    public function disburser(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'disbursed_by');
+    }
+
+    public function rejecter(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'rejected_by');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(StaffLoanCategory::class, 'staff_loan_category_id');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(StaffLoanPayment::class);
+    }
+
+    /**
+     * Amount repaid so far (uses a loaded `payments_sum_amount` when available).
+     */
+    public function paidAmount(): float
+    {
+        return (float) ($this->payments_sum_amount ?? $this->payments()->sum('amount'));
+    }
+
+    public function remainingAmount(): float
+    {
+        return max(0, round((float) $this->total_payable - $this->paidAmount(), 2));
     }
 }

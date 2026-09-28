@@ -1,352 +1,205 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use App\Domain\Loans\Enums\ChargeValueType;
-use App\Domain\Loans\Enums\LoanStatus;
-use App\Support\Money;
-use App\Support\Percentage;
+use App\Enums\Duration;
+use App\Enums\LoanStatus;
+use App\Models\Concerns\Auditable;
+use App\Services\LoanService;
 use Carbon\CarbonImmutable;
+use Database\Factories\LoanFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-/**
- * Backend spec §2.5 — `loans`.
- *
- * The three `_snapshot` columns are the point of the design (§6): a loan's
- * commercial terms are frozen at application time, so an administrator
- * editing a product never silently rewrites an agreement already made with a
- * customer.
- *
- * @property int $id
- * @property string $loan_number
- * @property int $customer_id
- * @property int $loan_product_id
- * @property int $repayment_schedule_id
- * @property int|null $group_id
- * @property int $branch_id
- * @property int $officer_id
- * @property string $principal_amount
- * @property string $interest_rate_snapshot
- * @property string $penalty_rate_snapshot
- * @property int $tenure_days
- * @property bool $requires_mandate_snapshot
- * @property LoanStatus $status
- * @property int|null $approval_stage_id
- * @property LoanStatus|null $hold_resume_status
- * @property CarbonImmutable|null $disbursement_date
- * @property CarbonImmutable|null $expected_completion_date
- * @property int|null $approved_by
- * @property CarbonImmutable|null $approved_at
- * @property string|null $rejected_reason
- * @property string $interest_waived
- * @property string|null $payment_reference
- * @property CarbonImmutable|null $payment_reference_issued_at
- * @property CarbonImmutable|null $early_settled_at
- * @property int|null $early_settled_by
- * @property int|null $early_settlement_payment_id
- * @property CarbonImmutable|null $closed_at
- * @property CarbonImmutable|null $frozen_until
- * @property int|null $created_by
- * @property CarbonImmutable|null $created_at
- * @property CarbonImmutable|null $deleted_at
- */
 class Loan extends Model
 {
-    use SoftDeletes;
+    /** @use HasFactory<LoanFactory> */
+    use Auditable, HasFactory;
 
-    /** @var list<string> */
-    protected $fillable = [
-        'loan_number', 'payment_reference', 'payment_reference_issued_at',
-        'customer_id', 'loan_product_id', 'repayment_schedule_id', 'group_id',
-        'branch_id', 'officer_id', 'principal_amount',
-        'interest_rate_snapshot', 'penalty_rate_snapshot', 'tenure_days', 'requires_mandate_snapshot',
-        'fee_type_snapshot', 'fee_amount_snapshot', 'insurance_amount_snapshot', 'fee_charged',
-        'status', 'approval_stage_id', 'hold_resume_status',
-        'disbursement_date', 'expected_completion_date',
-        'approved_by', 'approved_at', 'rejected_reason',
-        'interest_waived', 'early_settled_at', 'early_settled_by', 'early_settlement_payment_id',
-        'closed_at', 'frozen_until', 'created_by',
-    ];
+    protected $guarded = ['id'];
 
     /**
-     * @return BelongsTo<Customer, $this>
+     * @return array<string, string|class-string>
      */
-    public function customer(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(Customer::class);
+        return [
+            'amount_applied' => 'decimal:2',
+            'amount_approved' => 'decimal:2',
+            'instalment' => 'decimal:2',
+            'interest_rate' => 'decimal:2',
+            'interest_amount' => 'decimal:2',
+            'total_payable' => 'decimal:2',
+            'loan_fee' => 'decimal:2',
+            'insurance' => 'decimal:2',
+            'restoration' => 'decimal:2',
+            'fee_deduct' => 'boolean',
+            'is_special' => 'boolean',
+            'is_legacy_opening' => 'boolean',
+            'opening_paid_principal' => 'decimal:2',
+            'approved_at' => 'datetime',
+            'agreement_uploaded_at' => 'datetime',
+            'withdrawn_at' => 'date',
+            'end_date' => 'date',
+            'expected_completion_date' => 'date',
+            'telco_matched' => 'boolean',
+            'telco_verified_at' => 'datetime',
+            'disbursed_at' => 'datetime',
+            'closed_at' => 'datetime',
+            'early_settlement' => 'boolean',
+            'freeze_started_at' => 'datetime',
+            'freeze_days' => 'integer',
+            'frozen_until' => 'datetime',
+            'status' => LoanStatus::class,
+            'duration' => Duration::class,
+        ];
     }
 
-    /**
-     * @return BelongsTo<LoanProduct, $this>
-     */
-    public function product(): BelongsTo
+    public function company(): BelongsTo
     {
-        return $this->belongsTo(LoanProduct::class, 'loan_product_id');
+        return $this->belongsTo(Company::class);
     }
 
-    /**
-     * @return BelongsTo<RepaymentSchedule, $this>
-     */
-    public function repaymentSchedule(): BelongsTo
-    {
-        return $this->belongsTo(RepaymentSchedule::class);
-    }
-
-    /**
-     * @return BelongsTo<Branch, $this>
-     */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
-    /**
-     * @return BelongsTo<Group, $this>
-     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(LoanCategory::class, 'loan_category_id');
+    }
+
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class);
     }
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
-    public function officer(): BelongsTo
+    public function employee(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'officer_id');
+        return $this->belongsTo(Employee::class);
     }
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
-    public function approver(): BelongsTo
+    public function agreementUploader(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->belongsTo(Employee::class, 'agreement_uploaded_by');
     }
 
-    /**
-     * The officer who chose to close the loan early.
-     *
-     * Separate from the settlement payment rather than read off it, because a
-     * loan whose whole remaining balance was unearned interest is settled by
-     * the waiver alone and has no payment — but it always had somebody decide.
-     *
-     * @return BelongsTo<User, $this>
-     */
-    public function earlySettledBy(): BelongsTo
+    public function guarantors(): HasMany
     {
-        return $this->belongsTo(User::class, 'early_settled_by');
+        return $this->hasMany(Guarantor::class);
     }
 
-    /**
-     * The payment that settled the loan, if any money changed hands.
-     *
-     * Linked rather than copied: the reference and the amount live on the
-     * payment, and duplicating them here would give them a second place to be
-     * wrong.
-     *
-     * @return BelongsTo<Payment, $this>
-     */
-    public function earlySettlementPayment(): BelongsTo
+    public function collaterals(): HasMany
     {
-        return $this->belongsTo(Payment::class, 'early_settlement_payment_id');
+        return $this->hasMany(Collateral::class);
     }
 
-    /**
-     * @return HasMany<LoanSchedule, $this>
-     */
     public function schedules(): HasMany
     {
-        return $this->hasMany(LoanSchedule::class)->orderBy('installment_number');
+        return $this->hasMany(LoanSchedule::class)->orderBy('due_date');
     }
 
-    /**
-     * @return HasMany<LoanStatusHistory, $this>
-     */
-    public function statusHistory(): HasMany
+    public function transactions(): HasMany
     {
-        return $this->hasMany(LoanStatusHistory::class);
+        return $this->hasMany(LoanTransaction::class);
     }
 
-    /**
-     * @return HasMany<EMandate, $this>
-     */
-    public function mandates(): HasMany
+    public function penalties(): HasMany
     {
-        return $this->hasMany(EMandate::class);
+        return $this->hasMany(Penalty::class);
+    }
+
+    public function writeOff(): HasOne
+    {
+        return $this->hasOne(WriteOff::class);
+    }
+
+    public function recoveries(): HasMany
+    {
+        return $this->hasMany(LoanRecovery::class);
+    }
+
+    public function mandate(): HasOne
+    {
+        return $this->hasOne(LoanMandate::class)->latestOfMany();
+    }
+
+    public function disbursements(): HasMany
+    {
+        return $this->hasMany(LoanDisbursement::class)->orderBy('attempt');
+    }
+
+    public function latestDisbursement(): HasOne
+    {
+        return $this->hasOne(LoanDisbursement::class)->latestOfMany();
     }
 
     /**
-     * Which tier of the approval chain this loan is waiting on.
+     * The row of the old-system Loan File this loan was imported from (legacy opening balance), with the printed figures
+     * and the January–September payment history.
      *
-     * Null once it has left the chain — approved through, rejected, returned to
-     * the officer, or already disbursing. A HELD loan keeps its stage, because
-     * that is where releasing puts it back.
-     *
-     * @return BelongsTo<LoanApprovalStage, $this>
+     * @return BelongsTo<LegacyImportRow, $this>
      */
-    public function approvalStage(): BelongsTo
+    public function legacyImportRow(): BelongsTo
     {
-        return $this->belongsTo(LoanApprovalStage::class, 'approval_stage_id');
+        return $this->belongsTo(LegacyImportRow::class);
+    }
+
+    public function topupOf(): BelongsTo
+    {
+        return $this->belongsTo(Loan::class, 'topup_of_loan_id');
+    }
+
+    public function auditLogs(): MorphMany
+    {
+        return $this->morphMany(AuditLog::class, 'auditable');
     }
 
     /**
-     * Every decision taken on this loan, newest last.
-     *
-     * The chain's own record, distinct from `statusHistory`: a status change
-     * says where the loan went, a decision says who decided it, at which stage,
-     * and why.
-     *
-     * @return HasMany<LoanApprovalDecision, $this>
+     * @param  Builder<Loan>  $query
      */
-    public function approvalDecisions(): HasMany
+    public function scopeStatus(Builder $query, LoanStatus ...$statuses): void
     {
-        return $this->hasMany(LoanApprovalDecision::class)->orderBy('created_at')->orderBy('id');
+        $query->whereIn('status', array_map(fn (LoanStatus $status): string => $status->value, $statuses));
     }
 
     /**
-     * @return HasMany<TelcoVerification, $this>
-     */
-    public function telcoVerifications(): HasMany
-    {
-        return $this->hasMany(TelcoVerification::class);
-    }
-
-    /**
-     * @return HasMany<DisbursementBatch, $this>
-     */
-    public function disbursementBatches(): HasMany
-    {
-        return $this->hasMany(DisbursementBatch::class);
-    }
-
-    /**
-     * What was withheld from the payout as fee income.
+     * Re-borrowing freeze of this loan: "frozen" while now < frozen_until, "expired" once it passed, "none" when the loan
+     * was not settled early (or its category had no Freeze Time).
      *
-     * Zero rather than null for a loan that has not disbursed or whose product
-     * charges nothing — callers are summing money, and the distinction between
-     * "no fee agreed" and "no fee yet" is on the snapshot columns, not here.
+     * @return 'frozen'|'expired'|'none'
      */
-    public function feeCharged(): Money
+    public function freezeStatus(?CarbonImmutable $now = null): string
     {
-        return $this->fee_charged === null ? Money::zero() : Money::of((string) $this->fee_charged);
+        if ($this->early_settlement !== true || $this->frozen_until === null) {
+            return 'none';
+        }
+
+        return $this->frozen_until->gt($now ?? CarbonImmutable::now()) ? 'frozen' : 'expired';
     }
 
-    public function principal(): Money
+    protected function paidAmount(): Attribute
     {
-        return Money::of($this->principal_amount);
-    }
-
-    public function interestRate(): Percentage
-    {
-        return Percentage::of($this->interest_rate_snapshot);
+        return Attribute::get(fn (): float => (float) $this->transactions()->where('type', 'deposit')->whereNull('reversed_at')->sum('amount'));
     }
 
     /**
-     * Still counts against the customer's "one open loan at a time" rule —
-     * mirrors the frontend's `isLoanOpen`.
+     * Outstanding principal + penalty + interest + insurance (see LoanService::outstanding()).
      */
-    public function isOpen(): bool
+    protected function remainingAmount(): Attribute
     {
-        return ! $this->status->isTerminal() && $this->deleted_at === null;
-    }
-
-    /**
-     * Total still owed across every installment. Zero before approval, since
-     * no schedule exists yet.
-     */
-    public function outstandingTotal(): Money
-    {
-        return Money::sum($this->schedules->map(fn (LoanSchedule $s): Money => $s->outstandingTotal()));
-    }
-
-    public function totalPayable(): Money
-    {
-        return Money::sum($this->schedules->map(fn (LoanSchedule $s): Money => $s->totalDue()));
-    }
-
-    /**
-     * The same two totals as `totalPayable()` and `outstandingTotal()`, summed
-     * in SQL instead of in PHP.
-     *
-     * Listing loans cannot afford the object versions: they walk `$this->schedules`,
-     * so a page of 25 loans is 25 schedule loads, and a caller that wanted a
-     * portfolio total had to ask per loan. The frontend was doing exactly that —
-     * one `/loans/{id}/schedule` request per row — and tripped the rate limiter
-     * under a burst.
-     *
-     * Two `SUM`s rather than one `SUM(due - paid)` because the resource emits
-     * both figures, and because a single subquery per column keeps each one a
-     * plain aggregate the planner can satisfy from the `loan_id` index.
-     *
-     * The arithmetic is identical. Both sides sum the same six DECIMAL(18,2)
-     * columns, and MySQL's DECIMAL addition is exact, so the driver hands back
-     * a decimal string that `Money::of()` parses without rounding — the same
-     * value the PHP path produces, not an approximation of it.
-     *
-     * Loans with no schedule yet (nothing is owed before approval) aggregate to
-     * NULL, which `COALESCE` renders as the zero those loans genuinely owe.
-     *
-     * @param Builder<Loan> $query
-     * @return Builder<Loan>
-     */
-    public function scopeWithScheduleTotals(Builder $query): Builder
-    {
-        return $query
-            ->withSum('schedules as schedule_due_total', DB::raw('principal_due + interest_due + penalty_due'))
-            ->withSum('schedules as schedule_paid_total', DB::raw('principal_paid + interest_paid + penalty_paid'));
-    }
-
-    /**
-     * @param Builder<Loan> $query
-     * @return Builder<Loan>
-     */
-    public function scopeSearch(Builder $query, string $term): Builder
-    {
-        $like = '%'.$term.'%';
-
-        return $query->where(function (Builder $q) use ($like): void {
-            // Both identifiers: staff quote the application number, customers
-            // quote the payment reference, and a teller taking a call should
-            // find the loan from whichever they are read.
-            $q->where('loan_number', 'like', $like)
-                ->orWhere('payment_reference', 'like', $like)
-                ->orWhereHas('customer', function (Builder $c) use ($like): void {
-                    $c->where('customer_number', 'like', $like)
-                        ->orWhere('phone', 'like', $like)
-                        ->orWhereRaw("CONCAT_WS(' ', first_name, middle_name, last_name) LIKE ?", [$like]);
-                });
-        });
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'status' => LoanStatus::class,
-            'hold_resume_status' => LoanStatus::class,
-            'requires_mandate_snapshot' => 'boolean',
-            'fee_type_snapshot' => ChargeValueType::class,
-            'fee_amount_snapshot' => 'decimal:3',
-            'insurance_amount_snapshot' => 'decimal:2',
-            'fee_charged' => 'decimal:2',
-            'tenure_days' => 'integer',
-            'disbursement_date' => 'date',
-            'expected_completion_date' => 'date',
-            'frozen_until' => 'date',
-            'approved_at' => 'datetime',
-            'payment_reference_issued_at' => 'datetime',
-            'early_settled_at' => 'datetime',
-            'closed_at' => 'datetime',
-        ];
+        return Attribute::get(fn (): float => app(LoanService::class)->outstanding($this)['total']);
     }
 }
