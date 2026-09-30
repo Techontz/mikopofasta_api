@@ -108,6 +108,40 @@ final class LegacyCustomerMatcher
         return $this->unmatched("No customer \"{$name}\" was found in this branch. Map it to an existing customer or create a new customer.");
     }
 
+    /**
+     * The existing customers a row could belong to, most likely first (Map All suggestions): the phone holders with the same
+     * name, the same name in the branch, the same person written with initials in the branch, the other holders of the
+     * phone, then the same name in another branch.
+     *
+     * @return Collection<int, Customer>
+     */
+    public function candidates(string $name, ?string $phone, int $branchId, int $limit = 5): Collection
+    {
+        $key = LegacyRowReader::nameKey($name);
+        $phone = LegacyRowReader::phone($phone);
+        $holders = $phone !== null ? $this->customers->only(array_unique($this->byPhone[$phone] ?? [])) : collect();
+        $named = $this->customers->only(array_unique($this->byName[$key] ?? []));
+        $inBranch = $this->customers->filter(fn (Customer $customer): bool => (int) $customer->branch_id === $branchId);
+
+        return collect()
+            ->merge($holders->filter(fn (Customer $customer): bool => $this->sameName($name, $customer)))
+            ->merge($named->filter(fn (Customer $customer): bool => (int) $customer->branch_id === $branchId))
+            ->merge($inBranch->filter(fn (Customer $customer): bool => $this->sameName($name, $customer)))
+            ->merge($holders)
+            ->merge($named)
+            ->unique(fn (Customer $customer): int => (int) $customer->id)
+            ->take($limit)
+            ->values();
+    }
+
+    /**
+     * How a customer is shown when choosing one: name / customer number / phone / branch.
+     */
+    public static function label(Customer $customer): string
+    {
+        return trim("{$customer->full_name} / {$customer->customer_number} / ".($customer->phone ?? 'no phone').' / '.($customer->branch?->name ?? ''));
+    }
+
     private function sameName(string $name, Customer $customer): bool
     {
         return $this->exact($name, $customer) || HistoricalNameMatcher::same($name, $customer->full_name);

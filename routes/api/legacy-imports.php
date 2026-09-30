@@ -18,4 +18,6 @@ Route::controller(LegacyImportController::class)->prefix('legacy-imports')->name
     Route::post('{legacyImport}/reject', 'reject')->whereNumber('legacyImport')->name('reject');
     Route::post('{legacyImport}/rollback', 'rollback')->whereNumber('legacyImport')->name('rollback');
     Route::post('{legacyImport}/rows/{row}/map', 'mapRow')->whereNumber(['legacyImport', 'row'])->name('rows.map');
+    Route::get('{legacyImport}/map-suggestions', 'mapSuggestions')->whereNumber('legacyImport')->name('map-suggestions');
+    Route::post('{legacyImport}/map-all', 'mapAll')->whereNumber('legacyImport')->name('map-all');
 });

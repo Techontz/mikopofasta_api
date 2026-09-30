@@ -348,27 +348,89 @@ final class LegacyImportService
      */
     public function mapRow(LegacyImportRow $row, Employee $employee, ?Customer $customer, bool $create = false): LegacyImportRow
     {
-        return DB::transaction(function () use ($row, $employee, $customer, $create): LegacyImportRow {
-            $import = LegacyImport::lockForUpdate()->findOrFail($row->legacy_import_id);
+        $this->mapRows(LegacyImport::findOrFail($row->legacy_import_id), $employee, [['row' => $row, 'customer' => $customer, 'create' => $create]]);
+
+        return $row->refresh();
+    }
+
+    /**
+     * Map All: resolve several rows of one import at once, each to an existing customer or to a new customer created from it.
+     * All of it is one transaction — a row that cannot be mapped stops the whole batch — and the import is checked again
+     * once at the end.
+     *
+     * @param  list<array{row: LegacyImportRow, customer: Customer|null, create: bool}>  $mappings
+     * @return array{mapped: int, created: int}
+     */
+    public function mapRows(LegacyImport $import, Employee $employee, array $mappings): array
+    {
+        return DB::transaction(function () use ($import, $employee, $mappings): array {
+            $import = LegacyImport::lockForUpdate()->findOrFail($import->id);
             if (! in_array($import->status, [LegacyImport::STATUS_DRAFT, LegacyImport::STATUS_PENDING, LegacyImport::STATUS_REJECTED], true)) {
                 throw ValidationException::withMessages(['customer_id' => 'Rows of an approved or rolled back import can no longer be mapped.']);
             }
-            if ($customer !== null && (int) $customer->company_id !== $import->company_id) {
-                throw ValidationException::withMessages(['customer_id' => 'The customer belongs to another company.']);
-            }
-            if ($customer === null && ! $create) {
-                throw ValidationException::withMessages(['customer_id' => 'Choose a customer, or create a new customer from this row.']);
-            }
-            if ($create && blank($row->customer_name)) {
-                throw ValidationException::withMessages(['customer_id' => 'This row has no customer name to create a customer from.']);
+
+            $created = 0;
+            foreach ($mappings as ['row' => $row, 'customer' => $customer, 'create' => $create]) {
+                $label = "Row {$row->row_number}";
+                if ($row->legacy_import_id !== $import->id) {
+                    throw ValidationException::withMessages(['customer_id' => "{$label} does not belong to this import."]);
+                }
+                if ($customer !== null && (int) $customer->company_id !== $import->company_id) {
+                    throw ValidationException::withMessages(['customer_id' => 'The customer belongs to another company.']);
+                }
+                if ($customer === null && ! $create) {
+                    throw ValidationException::withMessages(['customer_id' => 'Choose a customer, or create a new customer from this row.']);
+                }
+                if ($create && blank($row->customer_name)) {
+                    throw ValidationException::withMessages(['customer_id' => "{$label} has no customer name to create a customer from."]);
+                }
+
+                if ($customer === null) {
+                    $customer = $this->createCustomer($import, $row);
+                    $created++;
+                }
+                $row->forceFill(['customer_id' => $customer->id, 'match_method' => LegacyImportRow::MATCH_MANUAL, 'mapped_by' => $employee->id])->save();
             }
 
-            $customer ??= $this->createCustomer($import, $row);
-            $row->forceFill(['customer_id' => $customer->id, 'match_method' => LegacyImportRow::MATCH_MANUAL, 'mapped_by' => $employee->id])->save();
             $this->evaluate($import);
 
-            return $row->refresh();
+            return ['mapped' => count($mappings), 'created' => $created];
         });
+    }
+
+    /**
+     * Map All suggestions: every unmatched row with the customers it could belong to and a proposed choice — the customer
+     * when exactly one is likely, a new customer when none is, and nothing (the user chooses) when several are.
+     *
+     * @return list<array{row_id: int, row_number: int, customer_name: string, phone: string|null, messages: list<string>, candidates: list<array{id: int, label: string}>, suggestion: int|string|null}>
+     */
+    public function mapSuggestions(LegacyImport $import): array
+    {
+        $matcher = new LegacyCustomerMatcher($import->company_id);
+
+        return $import->rows()
+            ->where('status', LegacyImportRow::STATUS_UNMATCHED)
+            ->whereNotNull('customer_name')
+            ->orderBy('row_number')
+            ->get()
+            ->map(function (LegacyImportRow $row) use ($matcher, $import): array {
+                $candidates = $matcher->candidates((string) $row->customer_name, $row->phone, $import->branch_id);
+
+                return [
+                    'row_id' => $row->id,
+                    'row_number' => $row->row_number,
+                    'customer_name' => (string) $row->customer_name,
+                    'phone' => $row->phone,
+                    'messages' => $row->messages ?? [],
+                    'candidates' => $candidates->map(fn (Customer $customer): array => ['id' => (int) $customer->id, 'label' => LegacyCustomerMatcher::label($customer)])->all(),
+                    'suggestion' => match ($candidates->count()) {
+                        0 => 'create',
+                        1 => (int) $candidates->first()->id,
+                        default => null,
+                    },
+                ];
+            })
+            ->all();
     }
 
     /**
