@@ -233,6 +233,51 @@ class LegacyImportController extends ApiController
     }
 
     /**
+     * Map All, step 1: every unmatched row with the customers it could belong to and the proposed choice.
+     */
+    public function mapSuggestions(LegacyImport $legacyImport): JsonResponse
+    {
+        $this->authorizeAny('legacy_imports.approve');
+        $this->assertBranchAccessible($legacyImport->branch_id);
+
+        return response()->json(['data' => $this->imports->mapSuggestions($legacyImport)]);
+    }
+
+    /**
+     * Map All, step 2: map several rows at once — each to an existing customer (customer_id) or to a new customer
+     * (create = true). One transaction: if one row cannot be mapped, none is.
+     */
+    public function mapAll(Request $request, LegacyImport $legacyImport): JsonResponse
+    {
+        $this->authorizeAny('legacy_imports.approve');
+        $this->assertBranchAccessible($legacyImport->branch_id);
+        $data = $request->validate([
+            'mappings' => ['required', 'array', 'min:1', 'max:1000'],
+            'mappings.*.row_id' => ['required', 'integer', 'distinct'],
+            'mappings.*.customer_id' => ['nullable', 'integer', 'required_without:mappings.*.create'],
+            'mappings.*.create' => ['sometimes', 'boolean'],
+        ], ['mappings.required' => 'Choose a customer, or Create New Customer, for at least one row.']);
+
+        $rows = LegacyImportRow::query()->where('legacy_import_id', $legacyImport->id)->whereKey(array_column($data['mappings'], 'row_id'))->get()->keyBy('id');
+        $customers = Customer::query()->where('company_id', $legacyImport->company_id)->whereKey(array_filter(array_column($data['mappings'], 'customer_id')))->get()->keyBy('id');
+
+        $mappings = [];
+        foreach ($data['mappings'] as $index => $mapping) {
+            $row = $rows->get((int) $mapping['row_id']);
+            abort_if($row === null, 422, 'A row of this list does not belong to this import. Reload the page and try again.');
+            $create = (bool) ($mapping['create'] ?? false);
+            $customer = ! $create && isset($mapping['customer_id']) ? $customers->get((int) $mapping['customer_id']) : null;
+            abort_if(! $create && $customer === null, 422, "Row {$row->row_number}: customer not found.");
+            $mappings[] = ['row' => $row, 'customer' => $customer, 'create' => $create];
+        }
+
+        $result = $this->imports->mapRows($legacyImport, $this->currentEmployee(), $mappings);
+        $message = "{$result['mapped']} ".($result['mapped'] === 1 ? 'row' : 'rows').' mapped'.($result['created'] > 0 ? ", {$result['created']} new ".($result['created'] === 1 ? 'customer' : 'customers').' created' : '').'.';
+
+        return $this->message($message, 200, ['data' => $this->detail($legacyImport->refresh())]);
+    }
+
+    /**
      * Customers to map a row to: name, phone or customer number (company-wide, so a person registered in another branch
      * can be chosen).
      */
