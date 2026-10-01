@@ -162,6 +162,36 @@ class LegacyImportTest extends TestCase
         $this->assertIntegrityPasses();
     }
 
+    public function test_the_super_admin_sets_the_share_of_an_old_system_loan_paid_before_a_top_up(): void
+    {
+        $this->importAndApprove('loan', $this->loanFile(), 2026);
+        $loan = Loan::where('customer_id', $this->john->id)->firstOrFail();
+        $workflow = app(LoanWorkflow::class);
+
+        // Default 100 %: the old-system loan (58.33 % paid) must be cleared first.
+        $topup = $workflow->topupEligibility($loan);
+        $this->assertFalse($topup['eligible']);
+        $this->assertSame(100.0, $topup['required_percent']);
+        $this->assertStringContainsString('must be cleared first', $topup['reasons'][0]);
+
+        $this->actingAs($this->finance)->putJson('/api/v1/settings/legacy-topup', ['legacy_topup_percent' => 50])->assertForbidden();
+        $this->actingAs($this->superAdmin)->putJson('/api/v1/settings/legacy-topup', ['legacy_topup_percent' => 0])
+            ->assertUnprocessable()->assertJsonValidationErrors('legacy_topup_percent');
+        $this->putJson('/api/v1/settings/legacy-topup', ['legacy_topup_percent' => 50])->assertOk();
+        $this->getJson('/api/v1/settings/legacy-topup')->assertOk()
+            ->assertJsonPath('data.legacy_topup_percent', 50)
+            ->assertJsonPath('data.can_update', true);
+
+        $topup = $workflow->topupEligibility($loan->fresh());
+        $this->assertTrue($topup['eligible']);
+        $this->assertSame(50.0, $topup['required_percent']);
+
+        $this->putJson('/api/v1/settings/legacy-topup', ['legacy_topup_percent' => 90])->assertOk();
+        $topup = $workflow->topupEligibility($loan->fresh());
+        $this->assertFalse($topup['eligible']);
+        $this->assertSame(['paid 58.33% of required 90%'], $topup['reasons']);
+    }
+
     public function test_a_file_with_the_wrong_columns_is_refused(): void
     {
         $this->upload($this->finance, 'salary_advance', self::PENALTY_HEADER."\n1,JOHN SMITH,Kariakoo,1200000,50000,2026-08-20,Recorded,\n")

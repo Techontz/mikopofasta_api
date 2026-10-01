@@ -26,6 +26,7 @@ class Company extends Model
             'dividend_shareholder_percent' => 'decimal:2',
             'dividend_reinvest_percent' => 'decimal:2',
             'expense_approval_limit' => 'decimal:2',
+            'legacy_topup_percent' => 'decimal:2',
         ];
     }
 
