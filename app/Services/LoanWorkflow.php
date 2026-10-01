@@ -133,9 +133,12 @@ class LoanWorkflow
         $required = (float) ($loan->category?->topup_percent ?? 0);
         $reasons = [];
 
-        // A loan carried over from the old system cannot be topped up (it has none of this system's terms): it must be
-        // cleared first.
+        // A loan carried over from the old system has none of this system's terms, so its required share is the company's
+        // old-system top-up percent (Super Admin setting). At 100 % it must be cleared first.
         if ($loan->is_legacy_opening) {
+            $required = (float) ($loan->company?->legacy_topup_percent ?? 100);
+        }
+        if ($loan->is_legacy_opening && $required >= 100) {
             return [
                 'loan_id' => $loan->id,
                 'loan_number' => $loan->loan_number,

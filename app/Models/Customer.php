@@ -109,9 +109,17 @@ class Customer extends Model
         return Attribute::get(fn (): string => self::STATUSES[$this->status] ?? strtoupper((string) $this->status));
     }
 
+    /**
+     * Profile photo: the KYC face-scan capture (streamed through the authorised API route, so relative to the API base),
+     * else the legacy public passport photo, else the default image.
+     */
     protected function photoUrl(): Attribute
     {
-        return Attribute::get(fn (): string => $this->passport_photo ? asset('storage/'.$this->passport_photo) : '/assets/img/default.jpeg');
+        return Attribute::get(fn (): string => match (true) {
+            (bool) $this->photo_path => "customers/{$this->id}/photo",
+            (bool) $this->passport_photo => asset('storage/'.$this->passport_photo),
+            default => '/assets/img/default.jpeg',
+        });
     }
 
     public function company(): BelongsTo

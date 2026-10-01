@@ -46,6 +46,8 @@ Route::prefix('settings')->name('settings.')->group(function (): void {
         Route::put('dividend', 'updateDividend')->name('dividend.update');
         Route::get('loan-freeze', 'loanFreeze')->name('loan-freeze.show');
         Route::put('loan-freeze', 'updateLoanFreeze')->name('loan-freeze.update');
+        Route::get('legacy-topup', 'legacyTopup')->name('legacy-topup.show');
+        Route::put('legacy-topup', 'updateLegacyTopup')->name('legacy-topup.update');
     });
 
     Route::controller(RoleController::class)->group(function (): void {

@@ -199,6 +199,30 @@ class CompanySettingController extends ApiController
         return $this->message('Loan Freeze Period Updated successfully');
     }
 
+    public function legacyTopup(): JsonResponse
+    {
+        $this->authorizeAny('settings.manage');
+
+        return response()->json(['data' => [
+            'legacy_topup_percent' => (float) $this->currentCompany()->legacy_topup_percent,
+            'can_update' => $this->currentEmployee()->role?->key === 'super_admin',
+        ]]);
+    }
+
+    /**
+     * Share of an old-system loan the customer must have repaid before a top-up (100 = clear it first). Super Admin only.
+     */
+    public function updateLegacyTopup(Request $request): JsonResponse
+    {
+        abort_unless($this->currentEmployee()->role?->key === 'super_admin', 403, 'Only the Super Administrator can change the old-system loan top-up percentage.');
+
+        $validated = $request->validate(['legacy_topup_percent' => ['required', 'numeric', 'min:1', 'max:100']]);
+
+        $this->audited($this->currentCompany(), 'Company.legacy_topup_updated', ['legacy_topup_percent' => $validated['legacy_topup_percent']], $request);
+
+        return $this->message('Old-System Loan Top-up Percentage Updated successfully');
+    }
+
     /**
      * @param  array<string, mixed>  $values
      */
