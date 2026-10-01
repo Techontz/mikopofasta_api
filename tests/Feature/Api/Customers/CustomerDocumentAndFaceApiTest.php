@@ -119,6 +119,22 @@ class CustomerDocumentAndFaceApiTest extends TestCase
         $this->get("/api/v1/customers/{$customerId}/photo")->assertOk();
     }
 
+    public function test_the_profile_photo_is_the_kyc_capture_then_the_passport_photo_then_the_default(): void
+    {
+        Storage::fake('local');
+        $admin = $this->signInAdmin();
+        $this->seedCustomerModule($admin);
+        $customerId = $this->postJson('/api/v1/customers', $this->registrationPayload($admin))->json('data.id');
+        $customer = Customer::findOrFail($customerId);
+
+        $this->assertSame('/assets/img/default.jpeg', $customer->photo_url);
+        $customer->forceFill(['passport_photo' => 'customers/old.jpg'])->save();
+        $this->assertSame(asset('storage/customers/old.jpg'), $customer->fresh()->photo_url);
+
+        $this->post("/api/v1/customers/{$customerId}/face-verify", ['capture' => UploadedFile::fake()->image('capture.jpg', 1280, 720)] + $this->faceReport(), ['Accept' => 'application/json'])->assertOk();
+        $this->assertSame("customers/{$customerId}/photo", $customer->fresh()->photo_url);
+    }
+
     public function test_a_failed_scan_is_recorded_without_verifying_and_a_failed_rescan_unverifies(): void
     {
         Storage::fake('local');

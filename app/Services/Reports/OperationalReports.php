@@ -710,7 +710,7 @@ class OperationalReports
                 'name' => $customer->full_name,
                 'customer_code' => $customer->customer_code,
                 'phone' => $customer->phone,
-                'photo_url' => $customer->passport_photo ? $customer->photo_url : null,
+                'photo_url' => $customer->photo_path || $customer->passport_photo ? $customer->photo_url : null,
                 'is_marked' => (bool) $customer->is_marked,
             ],
             'summary' => [
