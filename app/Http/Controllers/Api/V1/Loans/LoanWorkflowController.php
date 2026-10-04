@@ -22,6 +22,8 @@ use App\Services\ReversalRequests;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Loan lifecycle actions (Documents: LOAN PROCESS OVERVIEW): manager approval, e-mandate + OTP, credit officer
@@ -360,6 +362,19 @@ class LoanWorkflowController extends LoanApiController
         $this->ensureVisible($loan);
 
         return response()->json(['data' => $agreement->for($loan)]);
+    }
+
+    /**
+     * GET /loans/{id}/agreement/file: the uploaded signed agreement, streamed inline so it opens in a viewer.
+     */
+    public function agreementFile(Loan $loan): StreamedResponse
+    {
+        $this->authorizeAny('loans.view');
+        $this->ensureVisible($loan);
+
+        abort_unless($loan->agreement_file && Storage::disk('public')->exists($loan->agreement_file), 404, 'The signed agreement file was not found.');
+
+        return Storage::disk('public')->response($loan->agreement_file, "loan-{$loan->id}-signed-agreement.pdf", ['Cache-Control' => 'private, max-age=300'], 'inline');
     }
 
     /**

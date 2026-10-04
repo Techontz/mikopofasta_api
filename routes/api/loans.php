@@ -13,6 +13,7 @@ Route::prefix('loans')->name('loans.')->group(function (): void {
         Route::post('/', 'store')->name('store');
         Route::post('preview', 'preview')->name('preview');
         Route::get('withdrawals', 'withdrawals')->name('withdrawals');
+        Route::get('disbursement-file', 'disbursementFile')->name('disbursement-file');
         Route::get('customers/{customer}/categories', 'categories')->whereNumber('customer')->name('categories');
         Route::get('customers/{customer}/guarantor-candidates', 'guarantorCandidates')->whereNumber('customer')->name('customer-guarantor-candidates');
         Route::get('{loan}', 'show')->whereNumber('loan')->name('show');
@@ -63,6 +64,7 @@ Route::prefix('loans')->name('loans.')->group(function (): void {
         Route::post('{loan}/reverse-disbursement', 'reverseDisbursement')->whereNumber('loan')->name('reverse-disbursement');
         Route::post('{loan}/comments', 'comment')->name('comments');
         Route::get('{loan}/agreement', 'agreement')->whereNumber('loan')->name('agreement.show');
+        Route::get('{loan}/agreement/file', 'agreementFile')->whereNumber('loan')->name('agreement.file');
         Route::post('{loan}/agreement', 'uploadAgreement')->name('agreement');
     });
 

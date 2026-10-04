@@ -76,6 +76,9 @@ class FinanceDashboardApiTest extends TestCase
         $cashFlow = app(CashFlowReport::class)->build(new FinancialScope($this->admin->company_id, null, true, $today->startOfMonth(), $today->endOfMonth()));
         $this->assertEquals(['opening' => $cashFlow['opening'], 'cash_in' => $cashFlow['total_inflow'], 'cash_out' => $cashFlow['total_outflow'], 'closing' => $cashFlow['closing']], $data['cash_flow']);
         $this->assertEquals($cashFlow['closing'], $data['cards']['cash_balance'], 'The Total Cash card is the cash flow closing balance.');
+        $accounts = collect($data['cards']['cash_accounts']);
+        $this->assertEquals($data['cards']['cash_balance'], round($accounts->sum('amount'), 2), 'The accounts behind the Total Cash card add up to it.');
+        $this->assertContains('OPERATION PRINCIPAL', $accounts->pluck('label'), 'Loans are funded from, and repaid to, OPERATION PRINCIPAL.');
 
         $income = collect($data['income_expenses']['income'])->keyBy('key');
         $this->assertGreaterThan(0, $data['income_expenses']['total_income']);
@@ -124,6 +127,9 @@ class FinanceDashboardApiTest extends TestCase
         $data = $this->actingAs($this->finance)->getJson("/api/v1/dashboard/finance?branch_id={$other->id}")->assertOk()->json('data');
 
         $this->assertEquals($otherDisbursed, $data['cards']['disbursed_today']);
+        // The Branch List popup always lists every branch, whatever branch the dashboard is filtered to.
+        $this->assertContains($other->name, array_column($data['branch_accounts']['rows'], 'name'));
+        $this->assertGreaterThan(1, count($data['branch_accounts']['rows']));
     }
 
     public function test_only_company_wide_staff_who_may_view_the_accounts_see_it(): void
@@ -136,11 +142,31 @@ class FinanceDashboardApiTest extends TestCase
         $this->actingAs($this->finance)->getJson("/api/v1/dashboard/finance?branch_id={$foreign->id}")->assertForbidden();
     }
 
-    private function paidThroughBank(Loan $loan, LoanTransaction $repayment, string $bank): void
+    public function test_mobile_money_is_shown_per_network_like_banks(): void
+    {
+        $today = CarbonImmutable::today();
+        $loan = $this->serviceLoan($this->admin, amount: 100000, legacyInsurance: 0);
+        $loan->schedules()->update(['due_date' => $today->toDateString()]);
+
+        $loans = app(LoanService::class);
+        $mpesa = $loans->deposit($loan->fresh(), 5000, $today, 'MNO', $this->admin);
+        $this->paidThroughBank($loan, $mpesa, 'M-Pesa', 'MNO');
+        $loans->deposit($loan->fresh(), 3000, $today, 'AIRTEL', $this->admin);
+
+        $data = $this->actingAs($this->finance)->getJson('/api/v1/dashboard/finance?month='.$today->format('Y-m'))->assertOk()->json('data');
+
+        $channels = collect($data['channels'])->keyBy('label');
+        $this->assertEquals(5000, $channels['M-PESA']['collected'], 'Mobile money is shown under the network that received it.');
+        $this->assertSame('mobile', $channels['M-PESA']['channel']);
+        $this->assertEquals(3000, $channels['AIRTEL MONEY']['collected'], 'A repayment recorded by network method is shown under that network.');
+        $this->assertArrayNotHasKey('Mobile Money', $channels->all());
+    }
+
+    private function paidThroughBank(Loan $loan, LoanTransaction $repayment, string $bank, string $channel = 'BANK'): void
     {
         $payment = Payment::create([
             'company_id' => $loan->company_id, 'branch_id' => $loan->branch_id, 'customer_id' => $loan->customer_id, 'loan_id' => $loan->id,
-            'source' => Payment::SOURCE_MANUAL, 'channel' => 'BANK', 'provider' => $bank, 'reference' => 'REF-'.$repayment->id,
+            'source' => Payment::SOURCE_MANUAL, 'channel' => $channel, 'provider' => $bank, 'reference' => 'REF-'.$repayment->id,
             'amount' => $repayment->amount, 'allocated_amount' => $repayment->amount, 'status' => 'allocated', 'paid_on' => $repayment->transaction_date,
         ]);
         PaymentAllocation::create(['payment_id' => $payment->id, 'loan_id' => $loan->id, 'loan_transaction_id' => $repayment->id, 'amount' => $repayment->amount]);

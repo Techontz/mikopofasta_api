@@ -23,11 +23,15 @@ class FaceScan extends Model
     protected $guarded = ['id'];
 
     /**
+     * Production MySQL returns integer columns as strings; FaceScanController::image compares customer_id strictly.
+     *
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
+            'customer_id' => 'integer',
+            'scanned_by' => 'integer',
             'checks' => 'array',
             'liveness_passed' => 'boolean',
             'pose_sequence_completed' => 'boolean',

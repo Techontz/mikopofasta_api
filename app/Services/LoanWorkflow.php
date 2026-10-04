@@ -84,15 +84,14 @@ class LoanWorkflow
             $reasons[] = 'NOT ELIGIBLE for top-up: '.implode(', ', $topup['reasons']);
         }
 
-        // Debts carried over from the old system are the customer's debts like any other: a customer is never treated as
-        // debt-free because the debt was imported. Its loan is held by the top-up rule above; its penalties and salary
-        // advances must be cleared too before a new loan.
+        // The specification's only conditions for a new loan or top-up are the share paid and no overdue (§12 TOP-UP LOGIC).
+        // A penalty on the running loan is part of what a top-up settles (LoanService::outstanding()) and repayments clear
+        // it first, and a salary advance is a separate product repaid on its own, so neither holds the customer back.
+        // A penalty with no loan behind it (carried over from the old system) is collected by nothing else, so it must be
+        // cleared first: a customer is never treated as debt-free because the debt was imported.
         $debt = app(CustomerDebt::class)->summary($customer);
-        if ($debt['old_system']['penalty'] > 0.004) {
-            $reasons[] = 'Old-system penalty outstanding: '.money($debt['old_system']['penalty']).' — clear it before a new loan';
-        }
-        if ($debt['old_system']['salary_advance'] > 0.004) {
-            $reasons[] = 'Old-system salary advance outstanding: '.money($debt['old_system']['salary_advance']).' — clear it before a new loan';
+        if ($debt['penalty_without_loan'] > 0.004) {
+            $reasons[] = 'Penalty outstanding without a loan: '.money($debt['penalty_without_loan']).' — clear it before a new loan';
         }
 
         $eligibilityReasons = array_values(array_unique($reasons));

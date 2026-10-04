@@ -41,6 +41,7 @@ class StaffResource extends JsonResource
             'salary_info' => $this->whenLoaded('salaryInfo', fn () => $this->salaryInfo ? [
                 'salary' => (float) $this->salaryInfo->salary,
                 'account_name' => $this->salaryInfo->account_name,
+                'bank_name' => $this->salaryInfo->bank_name,
                 'account_number' => $this->salaryInfo->account_number,
                 'fee' => (float) $this->salaryInfo->fee,
                 'salary_type' => $this->salaryInfo->salary_type,

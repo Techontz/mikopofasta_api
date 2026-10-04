@@ -218,9 +218,9 @@ class StaffController extends HrmController
             return $this->message('Salary change submitted for approval', 202, ['data' => ['salary_change_id' => $change->id, 'approval_stage' => $change->approval_stage]]);
         }
 
-        $before = $employee->salaryInfo?->only(['salary', 'salary_type', 'commission_eligible', 'payment_method', 'account_number']);
+        $before = $employee->salaryInfo?->only(['salary', 'salary_type', 'commission_eligible', 'payment_method', 'bank_name', 'account_number']);
         $salary = $employee->salaryInfo()->updateOrCreate(['employee_id' => $employee->id], $values);
-        $this->audit('EmployeeSalary.saved', $employee, $before, $salary->only(['salary', 'salary_type', 'commission_eligible', 'payment_method', 'account_number']));
+        $this->audit('EmployeeSalary.saved', $employee, $before, $salary->only(['salary', 'salary_type', 'commission_eligible', 'payment_method', 'bank_name', 'account_number']));
 
         return $this->message('Salary Information Saved successfully');
     }

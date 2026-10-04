@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\Hrm;
 
 use App\Enums\SalaryType;
+use App\Services\Hrm\BankDisbursementFile;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -33,6 +34,7 @@ class StaffSalaryRequest extends FormRequest
         return [
             'salary' => ['required', 'numeric', 'min:0'],
             'account_name' => ['required', 'string', 'max:100'],
+            'bank_name' => ['nullable', Rule::in(BankDisbursementFile::BANKS)],
             'account_number' => ['required', 'string', 'max:50'],
             'fee_salary' => ['required', 'numeric', 'min:0'],
             'salary_type' => ['required', Rule::enum(SalaryType::class)],
@@ -52,6 +54,7 @@ class StaffSalaryRequest extends FormRequest
         return [
             'salary' => (float) $this->input('salary'),
             'account_name' => $this->string('account_name')->trim()->toString(),
+            'bank_name' => $this->filled('bank_name') ? $this->string('bank_name')->toString() : null,
             'account_number' => $this->string('account_number')->trim()->toString(),
             'fee' => (float) $this->input('fee_salary'),
             'salary_type' => $type,

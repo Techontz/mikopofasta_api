@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Employee;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class VisaApiTest extends TestCase
@@ -60,5 +61,43 @@ class VisaApiTest extends TestCase
         ]);
         $this->actingAs($finance);
         $this->getJson('/api/v1/visa/customers')->assertForbidden();
+    }
+
+    public function test_list_can_be_exported_and_imported(): void
+    {
+        $admin = $this->signInAdmin();
+        $changed = Customer::factory()->create(['branch_id' => $admin->branch_id, 'work_status' => 'ent', 'bank_account_name' => 'CRDB', 'bank_password' => '1111']);
+        $byPhone = Customer::factory()->create(['branch_id' => $admin->branch_id, 'work_status' => 'ent', 'phone' => '255700000001']);
+        $same = Customer::factory()->create(['branch_id' => $admin->branch_id, 'work_status' => 'ent', 'bank_account_name' => 'NMB', 'bank_password' => '2222']);
+        $foreign = Customer::factory()->create(['work_status' => 'ent']);
+
+        $export = $this->get('/api/v1/visa/customers/export');
+        $export->assertOk();
+        $this->assertStringContainsString('spreadsheetml', (string) $export->headers->get('Content-Type'));
+
+        $csv = implode("\n", [
+            'Customer ID,Branch,Customer Name,Phone Number,Account Name,VISA',
+            "{$changed->id},,,,NBC,",
+            ',,,255700000001,CRDB,4321',
+            "{$same->id},,,,NMB,2222",
+            "{$foreign->id},,,,NBC,9999",
+            '999999,,,,NBC,9999',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('visa.csv', $csv);
+
+        $this->post('/api/v1/visa/customers/import', ['file' => $file], ['Accept' => 'application/json'])->assertOk()
+            ->assertJsonPath('data.updated', 2)
+            ->assertJsonPath('data.unchanged', 1)
+            ->assertJsonCount(2, 'data.failed')
+            ->assertJsonPath('data.failed.0.row', 5);
+
+        $this->assertSame('NBC', $changed->fresh()->bank_account_name);
+        $this->assertSame('1111', $changed->fresh()->bank_password, 'a blank cell keeps the current value');
+        $this->assertSame('4321', $byPhone->fresh()->bank_password);
+        $this->assertNull($foreign->fresh()->bank_account_name);
+        $this->assertSame(2, AuditLog::where('action', 'Customer.visa_updated')->count());
+
+        $bad = UploadedFile::fake()->createWithContent('visa.csv', "Name,Other\nx,y");
+        $this->post('/api/v1/visa/customers/import', ['file' => $bad], ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('file');
     }
 }

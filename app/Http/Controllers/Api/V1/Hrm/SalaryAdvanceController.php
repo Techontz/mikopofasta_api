@@ -8,10 +8,12 @@ use App\Http\Requests\Api\Hrm\StaffSalaryAdvanceRequest;
 use App\Http\Resources\Api\V1\Hrm\StaffSalaryAdvanceResource;
 use App\Models\Employee;
 use App\Models\StaffSalaryAdvance;
+use App\Services\Hrm\BankDisbursementFile;
 use App\Services\Hrm\StaffCredit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * HRM → Salary Advance (live admin/sallry_advance). Spec §30/§49: Submitted → HR Approved (Admin Approved for an HR user's own
@@ -104,6 +106,32 @@ class SalaryAdvanceController extends HrmController
     /**
      * HR, Finance, and Admin (who approves §32 self-requests of HR users).
      */
+    /**
+     * Bank disbursement file of the salary advances Finance has approved and not yet disbursed (or the selected `ids` among them): the
+     * amount paid out (approved amount less the fee the fund keeps) to each employee's salary account. Finance uploads it to the
+     * bank, then records "Disburse".
+     */
+    public function bankFile(Request $request): StreamedResponse
+    {
+        $this->authorizeAny('payroll.pay');
+        $validated = $request->validate(['ids' => ['nullable', 'array'], 'ids.*' => ['integer']]);
+
+        $rows = $this->scoped(StaffSalaryAdvance::query())
+            ->where('company_id', $this->companyId())
+            ->where('status', StaffCreditStatus::FinanceApproved->value)
+            ->when(! empty($validated['ids']), fn ($query) => $query->whereIn('id', $validated['ids']))
+            ->with('employee.salaryInfo')
+            ->orderBy('id')
+            ->get();
+
+        $file = new BankDisbursementFile;
+        foreach ($rows as $row) {
+            $file->add($row->employee, (float) $row->amount - min((float) $row->fee, (float) $row->amount), 'Salary Advance #'.$row->id);
+        }
+
+        return $file->download('salary-advances-bank-file');
+    }
+
     private function authorizeViewer(): void
     {
         if (! $this->credit->isAdmin($this->currentEmployee())) {

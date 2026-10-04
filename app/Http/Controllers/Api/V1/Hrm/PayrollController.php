@@ -9,6 +9,7 @@ use App\Models\PayrollRun;
 use App\Models\SalaryPayment;
 use App\Services\AccessControl;
 use App\Services\Approvals\SegregationOfDuties;
+use App\Services\Hrm\BankDisbursementFile;
 use App\Services\Hrm\CommissionEngine;
 use App\Services\Hrm\PayrollEngine;
 use Carbon\CarbonImmutable;
@@ -17,6 +18,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * HRM → Salary Sheet (live admin/salary_sheet) with the Documents' payroll workflow:
@@ -51,7 +54,7 @@ class PayrollController extends HrmController
             ? $this->payroll->preview($this->companyId(), $month)
             : $run->items()->with('employee', 'branch')->orderBy('id')->get()->map(fn ($item): array => $item->only([
                 'employee_id', 'branch_id', 'salary_type', 'base_salary', 'commission', 'allowance', 'gross', 'staff_fund', 'salary_advance',
-                'deduction', 'negligence', 'loan_restoration', 'total_deductions', 'take_home', 'phone', 'account_name', 'account_number', 'payment_method', 'salary_payment_id',
+                'deduction', 'negligence', 'loan_restoration', 'total_deductions', 'take_home', 'phone', 'account_name', 'bank_name', 'account_number', 'payment_method', 'salary_payment_id',
             ]) + ['employee' => $item->employee?->full_name, 'branch' => $item->branch?->name]);
 
         $rows = collect($rows)
@@ -131,6 +134,34 @@ class PayrollController extends HrmController
         $this->payroll->pay($run, $this->currentEmployee());
 
         return $this->message('Salary Paid successfully');
+    }
+
+    /**
+     * Bank disbursement file of an approved or paid payroll: each employee's take home with the salary account on their line
+     * (after payment, the take home actually paid). Finance uploads it to the bank, then records "Pay Salary".
+     */
+    public function bankFile(PayrollRun $run): StreamedResponse
+    {
+        $this->authorizeAny('payroll.pay');
+        abort_unless($run->company_id === $this->companyId(), 404);
+        if (! in_array($run->status, [PayrollRun::STATUS_APPROVED, PayrollRun::STATUS_PAID], true)) {
+            throw ValidationException::withMessages(['payroll' => 'The bank file is available once the payroll is approved.']);
+        }
+
+        $branchIds = app(AccessControl::class)->branchIds($this->currentEmployee());
+        $file = new BankDisbursementFile;
+        $run->items()->with('employee.salaryInfo', 'salaryPayment')->orderBy('id')->get()
+            ->filter(fn ($item): bool => $branchIds === null || in_array((int) $item->branch_id, $branchIds, true))
+            ->each(fn ($item) => $file->add(
+                $item->employee,
+                (float) ($item->salaryPayment?->take_home ?? $item->take_home),
+                'Salary '.$run->period->format('F Y'),
+                $item->bank_name,
+                $item->account_number,
+                $item->phone,
+            ));
+
+        return $file->download('salary-bank-file-'.$run->period->format('Y-m'));
     }
 
     /**
