@@ -15,12 +15,14 @@ use App\Models\SalaryAdvance;
 use App\Models\SalaryAdvanceCategory;
 use App\Models\SalaryAdvancePayment;
 use App\Services\Approvals\SegregationOfDuties;
+use App\Services\MobileDisbursementFile;
 use App\Services\ReversalRequests;
 use App\Services\SalaryAdvanceService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Customer salary advance workflow (live admin/perifelar_debit_*, get_perfelar_loan_done, deposit_history_per_all).
@@ -115,6 +117,27 @@ class SalaryAdvanceController extends ApiController
         return SalaryAdvanceResource::collection(
             $this->query($request)->whereIn('status', ['active', 'done'])->whereDate('approved_at', today())->get()
         );
+    }
+
+    /**
+     * GET /salary-advance/approved/disbursement-file?branch_id=: the advances approved today (same list as
+     * {@see approved()}) as the mobile money disbursement file, each for the advance amount.
+     */
+    public function approvedDisbursementFile(Request $request, MobileDisbursementFile $file): StreamedResponse
+    {
+        $this->authorizeAny('salary_advance.manage');
+
+        $advances = $this->applyFilters($this->scoped(SalaryAdvance::query()), $request)
+            ->whereIn('status', ['active', 'done'])
+            ->whereDate('approved_at', today())
+            ->with('customer')
+            ->latest('id')
+            ->get();
+        foreach ($advances as $advance) {
+            $file->add($advance->customer, (float) $advance->amount, "Salary Advance #{$advance->id}");
+        }
+
+        return $file->download('salary-advance-disbursement-file');
     }
 
     /**

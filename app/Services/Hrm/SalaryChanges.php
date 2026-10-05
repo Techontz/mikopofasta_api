@@ -80,7 +80,7 @@ class SalaryChanges
         $change = SalaryChangeRequest::create([
             'company_id' => $employee->company_id,
             'employee_id' => $employee->id,
-            'current_values' => $employee->salaryInfo?->only(['salary', 'account_name', 'account_number', 'fee', 'salary_type', 'commission_eligible', 'payment_method']),
+            'current_values' => $employee->salaryInfo?->only(['salary', 'account_name', 'bank_name', 'account_number', 'fee', 'salary_type', 'commission_eligible', 'payment_method']),
             'proposed_values' => $values,
             'status' => SalaryChangeRequest::STATUS_SUBMITTED,
             'approval_stage' => $employee->is($proposer) || $this->access->can($employee, 'hrm.manage') ? SalaryChangeRequest::STAGE_ADMIN : SalaryChangeRequest::STAGE_FINANCE,
@@ -105,11 +105,11 @@ class SalaryChanges
         }
 
         DB::transaction(function () use ($change, $approver, $employee): void {
-            $before = $employee->salaryInfo?->only(['salary', 'salary_type', 'commission_eligible', 'payment_method', 'account_number']);
+            $before = $employee->salaryInfo?->only(['salary', 'salary_type', 'commission_eligible', 'payment_method', 'bank_name', 'account_number']);
             $salary = $employee->salaryInfo()->updateOrCreate(['employee_id' => $employee->id], $change->proposed_values);
             $change->update(['status' => SalaryChangeRequest::STATUS_APPROVED, 'approved_by' => $approver->id, 'approved_at' => now()]);
 
-            $this->audit('EmployeeSalary.change_approved', $change, $approver, $before, $salary->only(['salary', 'salary_type', 'commission_eligible', 'payment_method', 'account_number']));
+            $this->audit('EmployeeSalary.change_approved', $change, $approver, $before, $salary->only(['salary', 'salary_type', 'commission_eligible', 'payment_method', 'bank_name', 'account_number']));
         });
     }
 

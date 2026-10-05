@@ -117,6 +117,21 @@ class LegacyImportTest extends TestCase
         $this->assertIntegrityPasses();
     }
 
+    public function test_only_a_penalty_without_a_loan_holds_back_a_new_loan(): void
+    {
+        $this->importAndApprove('salary_advance', self::ADVANCE_HEADER."\n1,John Smith,Kariakoo,300000,30000,330000,230000,100000,Active,5000,2026-08-01,\n");
+
+        $status = app(LoanWorkflow::class)->borrowingStatus($this->john->fresh());
+        $this->assertStringNotContainsString('salary advance', implode(' ', $status['eligibility_reasons']), 'A salary advance is repaid on its own and never blocks a loan.');
+
+        $this->importAndApprove('penalty', self::PENALTY_HEADER."\n1,JOHN SMITH,Kariakoo,1200000,50000,2026-08-20,Recorded,\n");
+        $this->assertNull(Penalty::where('customer_id', $this->john->id)->firstOrFail()->loan_id);
+
+        $status = app(LoanWorkflow::class)->borrowingStatus($this->john->fresh());
+        $this->assertFalse($status['eligible']);
+        $this->assertContains('Penalty outstanding without a loan: '.money(50000).' — clear it before a new loan', $status['eligibility_reasons']);
+    }
+
     public function test_principal_penalty_and_salary_advance_stay_three_separate_debts(): void
     {
         $this->importAndApprove('loan', $this->loanFile(), 2026);
@@ -146,7 +161,8 @@ class LegacyImportTest extends TestCase
         $status = app(LoanWorkflow::class)->borrowingStatus($this->john->fresh());
         $this->assertFalse($status['allowed']);
         $this->assertStringContainsString('old-system loan', implode(' ', $status['reasons']));
-        $this->assertStringContainsString('Old-system salary advance outstanding', implode(' ', $status['reasons']));
+        $this->assertStringNotContainsString('salary advance', implode(' ', $status['reasons']), 'A salary advance is repaid on its own and never blocks a loan.');
+        $this->assertStringNotContainsString('Penalty outstanding', implode(' ', $status['reasons']), 'The penalty is on the old loan, which a top-up settles.');
 
         // A normal loan payment covers principal and penalty only; the salary advance stays untouched.
         app(LoanService::class)->deposit($loan, 550000, CarbonImmutable::today());

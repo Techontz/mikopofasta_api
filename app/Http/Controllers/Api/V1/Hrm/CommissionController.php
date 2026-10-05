@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Hrm;
 
 use App\Models\CommissionAllocation;
 use App\Services\AccessControl;
+use App\Services\Hrm\BankDisbursementFile;
 use App\Services\Hrm\CommissionEngine;
 use App\Services\Hrm\CommissionPayments;
 use Carbon\CarbonImmutable;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * HRM → Commission: branch commission pools, distribution per staff and zone manager override
@@ -143,6 +145,29 @@ class CommissionController extends HrmController
         $count = $this->payments->pay($this->selection($request, [CommissionAllocation::STATUS_FINANCE_APPROVED]), $this->currentEmployee(), $paidOn, $validated['ac_id']);
 
         return $this->message("Commission Paid successfully ({$count})", 200, ['data' => ['count' => $count]]);
+    }
+
+    /**
+     * Bank disbursement file of commission: the Finance Approved commission of `period` (or `status=paid`: what was paid), or
+     * the selected `ids`, one row per employee with their net commission (after the expected negligence deduction).
+     */
+    public function bankFile(Request $request): StreamedResponse
+    {
+        $this->authorizeAny('payroll.pay');
+        $status = $request->validate(['status' => ['nullable', Rule::in([CommissionAllocation::STATUS_FINANCE_APPROVED, CommissionAllocation::STATUS_PAID])]])['status']
+            ?? CommissionAllocation::STATUS_FINANCE_APPROVED;
+
+        $allocations = $this->selection($request, [$status])->where('payment_status', $status)->values();
+        $rows = collect($this->present($allocations, false));
+
+        $file = new BankDisbursementFile;
+        foreach ($rows->groupBy('employee_id') as $employeeRows) {
+            $employee = $allocations->firstWhere('employee_id', $employeeRows->first()['employee_id'])->employee->loadMissing('salaryInfo');
+            $periods = $employeeRows->pluck('period_label')->unique()->implode(', ');
+            $file->add($employee, (float) $employeeRows->sum('net_commission'), 'Commission '.$periods);
+        }
+
+        return $file->download('commission-bank-file');
     }
 
     /**

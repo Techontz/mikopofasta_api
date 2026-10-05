@@ -7,9 +7,11 @@ use App\Http\Requests\Api\Hrm\StaffLoanRequest;
 use App\Http\Resources\Api\V1\Hrm\StaffLoanResource;
 use App\Models\Employee;
 use App\Models\StaffLoan;
+use App\Services\Hrm\BankDisbursementFile;
 use App\Services\Hrm\StaffCredit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * HRM → Staff Loan (live admin/staff_loan, staff_loan_active). Spec §29/§49: Submitted → HR Approved (Admin Approved for an HR
@@ -128,6 +130,32 @@ class StaffLoanController extends HrmController
     /**
      * HR, Finance, and Admin (who approves §32 self-requests of HR users).
      */
+    /**
+     * Bank disbursement file of the loans Finance has approved and not yet disbursed (or the selected `ids` among them): the
+     * amount paid out (approved amount less the fee the fund keeps) to each employee's salary account. Finance uploads it to the
+     * bank, then records "Disburse".
+     */
+    public function bankFile(Request $request): StreamedResponse
+    {
+        $this->authorizeAny('payroll.pay');
+        $validated = $request->validate(['ids' => ['nullable', 'array'], 'ids.*' => ['integer']]);
+
+        $rows = $this->scoped(StaffLoan::query())
+            ->where('company_id', $this->companyId())
+            ->where('status', StaffCreditStatus::FinanceApproved->value)
+            ->when(! empty($validated['ids']), fn ($query) => $query->whereIn('id', $validated['ids']))
+            ->with('employee.salaryInfo')
+            ->orderBy('id')
+            ->get();
+
+        $file = new BankDisbursementFile;
+        foreach ($rows as $row) {
+            $file->add($row->employee, (float) $row->amount_approved - min((float) $row->fee, (float) $row->amount_approved), 'Staff Loan #'.$row->id);
+        }
+
+        return $file->download('staff-loans-bank-file');
+    }
+
     private function authorizeViewer(): void
     {
         if (! $this->credit->isAdmin($this->currentEmployee())) {

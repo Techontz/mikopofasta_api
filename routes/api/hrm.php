@@ -81,6 +81,7 @@ Route::prefix('hrm')->name('hrm.')->group(function (): void {
     Route::controller(StaffLoanController::class)->group(function (): void {
         Route::get('staff-loans', 'index')->name('staff-loans.index');
         Route::get('staff-loans/active', 'active')->name('staff-loans.active');
+        Route::get('staff-loans/bank-file', 'bankFile')->name('staff-loans.bank-file');
         Route::post('staff-loans', 'store')->name('staff-loans.store');
         Route::post('staff-loans/{loan}/approve', 'approve')->name('staff-loans.approve');
         Route::post('staff-loans/{loan}/finance-approve', 'financeApprove')->name('staff-loans.finance-approve');
@@ -91,6 +92,7 @@ Route::prefix('hrm')->name('hrm.')->group(function (): void {
 
     Route::controller(SalaryAdvanceController::class)->group(function (): void {
         Route::get('salary-advances', 'index')->name('salary-advances.index');
+        Route::get('salary-advances/bank-file', 'bankFile')->name('salary-advances.bank-file');
         Route::post('salary-advances', 'store')->name('salary-advances.store');
         Route::post('salary-advances/{advance}/approve', 'approve')->name('salary-advances.approve');
         Route::post('salary-advances/{advance}/finance-approve', 'financeApprove')->name('salary-advances.finance-approve');
@@ -127,6 +129,7 @@ Route::prefix('hrm')->name('hrm.')->group(function (): void {
         Route::post('payroll/generate', 'generate')->name('payroll.generate');
         Route::post('payroll/{run}/approve', 'approve')->name('payroll.approve');
         Route::post('payroll/{run}/pay', 'pay')->name('payroll.pay');
+        Route::get('payroll/{run}/bank-file', 'bankFile')->name('payroll.bank-file');
         Route::get('salary-payments', 'payments')->name('salary-payments.index');
         Route::get('salary-payments/{payment}', 'payslip')->name('salary-payments.show');
     });
@@ -135,6 +138,7 @@ Route::prefix('hrm')->name('hrm.')->group(function (): void {
         Route::get('commission', 'show')->name('commission.show');
         Route::post('commission/calculate', 'calculate')->name('commission.calculate');
         Route::get('commission/payments', 'payments')->name('commission.payments.index');
+        Route::get('commission/payments/bank-file', 'bankFile')->name('commission.payments.bank-file');
         Route::get('commission/mine', 'mine')->name('commission.mine');
         Route::post('commission/payments/finalize', 'finalize')->name('commission.payments.finalize');
         Route::post('commission/payments/request', 'requestPayment')->name('commission.payments.request');

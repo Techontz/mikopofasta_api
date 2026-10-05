@@ -114,6 +114,8 @@ class PortfolioReports
                 'outstanding_total' => $loanTotal,
                 'active_outstanding_principal' => round((float) $repayable->whereIn('status', LoanStatus::values(LoanStatus::Active, LoanStatus::Overdue))->sum('out_principal'), 2),
                 'default_outstanding_principal' => round((float) $repayable->where('status', LoanStatus::Default->value)->sum('out_principal'), 2),
+                'default_outstanding' => round((float) $loans->where('status', LoanStatus::Default->value)->sum('out_total'), 2),
+                'default_customers' => $loans->where('status', LoanStatus::Default->value)->pluck('customer_id')->unique()->count(),
                 'salary_advance_outstanding' => $salaryAdvanceOutstanding,
                 'customer_outstanding' => round($loanTotal + $salaryAdvanceOutstanding, 2),
                 'old_system_loans' => $loans->where('is_legacy_opening', 1)->count(),

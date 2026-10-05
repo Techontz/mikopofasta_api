@@ -44,6 +44,7 @@ class SalaryPaymentResource extends JsonResource
             'take_home' => (float) $this->take_home,
             'phone' => $this->phone,
             'account_name' => $this->account_name,
+            'bank_name' => $this->bank_name,
             'account_number' => $this->account_number,
             'paid_from_account' => $this->paid_from_account,
             'paid_on' => $this->paid_on?->toDateString(),

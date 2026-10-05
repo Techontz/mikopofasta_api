@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\Hrm;
 use App\Enums\SalaryType;
 use App\Models\Employee;
 use App\Models\Role;
+use App\Services\Hrm\BankDisbursementFile;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -58,6 +59,7 @@ class StaffRequest extends FormRequest
             'commission_eligible' => ['nullable', 'boolean'],
             'payment_method' => ['nullable', Rule::in(['bank', 'mobile'])],
             'account_name' => ['nullable', 'required_with:salary', 'string', 'max:100'],
+            'bank_name' => ['nullable', Rule::in(BankDisbursementFile::BANKS)],
             'account_number' => ['nullable', 'required_with:salary', 'string', 'max:50'],
         ];
     }
@@ -128,6 +130,7 @@ class StaffRequest extends FormRequest
             'commission_eligible' => $this->has('commission_eligible') ? $this->boolean('commission_eligible') : SalaryType::forRole($this->role()) !== SalaryType::Hq,
             'payment_method' => $this->input('payment_method') ?: 'bank',
             'account_name' => $this->string('account_name')->trim()->toString(),
+            'bank_name' => $this->filled('bank_name') ? $this->string('bank_name')->toString() : null,
             'account_number' => $this->string('account_number')->trim()->toString(),
             'fee' => 0,
         ];

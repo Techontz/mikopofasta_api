@@ -27,6 +27,7 @@ use App\Services\LoanGuarantors;
 use App\Services\LoanRecoveryService;
 use App\Services\LoanService;
 use App\Services\LoanWorkflow;
+use App\Services\MobileDisbursementFile;
 use App\Services\ReversalRequests;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -35,6 +36,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Loan → Loan Application / Loan Pending / Loan Disbursed / Loan Withdrawal / Loan Rejected lists and the
@@ -97,6 +99,29 @@ class LoanController extends LoanApiController
                 ? $this->scoped(Loan::query())->status(...$this->stages()['pending'])->where('is_special', true)->count()
                 : null,
         ]);
+    }
+
+    /**
+     * GET /loans/disbursement-file?status=&branch_id=: the customer loans of Ready to Pay Out (one status, or every
+     * status of the stage) as the mobile money disbursement file, each for the amount to send.
+     */
+    public function disbursementFile(Request $request, MobileDisbursementFile $file): StreamedResponse
+    {
+        $this->authorizeAny('loans.prepare_disbursement', 'loans.disburse');
+        $statuses = $this->stages()['disbursement'];
+        $request->validate(['status' => ['nullable', Rule::in(array_map(fn (LoanStatus $status): string => $status->value, $statuses))]]);
+
+        $query = $this->scoped(Loan::query())
+            ->status(...($request->filled('status') ? [LoanStatus::from($request->string('status')->toString())] : $statuses))
+            ->with(['customer', 'latestDisbursement', 'topupOf'])
+            ->latest('id');
+        $this->applyFilters($query, $request, 'created_at');
+
+        foreach ($query->get() as $loan) {
+            $file->add($loan->customer, (float) ($loan->latestDisbursement?->amount ?? $this->workflow->netDisbursement($loan)), "Loan {$loan->loan_number}");
+        }
+
+        return $file->download('loan-disbursement-file');
     }
 
     /**

@@ -11,6 +11,18 @@ class CustomerNextOfKin extends Model
 
     protected $guarded = ['id'];
 
+    /**
+     * Production MySQL returns integer columns as strings; NextOfKinController compares customer_id strictly.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'customer_id' => 'integer',
+        ];
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);

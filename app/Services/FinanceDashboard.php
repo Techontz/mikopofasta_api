@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Account;
+use App\Enums\HqFund;
 use App\Enums\LoanStatus;
 use App\Models\Company;
 use App\Models\Employee;
@@ -23,7 +24,8 @@ use Illuminate\Support\Str;
  * Finance Dashboard: one month (and optionally one branch) of the company's finances, every figure from the records and
  * the existing reports so it matches them:
  *
- *  - cash: the Cash Flow report (opening, cash in, cash out, closing); the Total Cash card is the closing balance;
+ *  - cash: the Cash Flow report (opening, cash in, cash out, closing); the Total Cash card is the closing balance, and
+ *    clicking it lists the accounts that money sits in (OPERATION PRINCIPAL, OPERATION INCOME, banks …), adding up to it;
  *  - disbursed / collected today: loan disbursements and loan repayments of the day, reversals excluded, against yesterday;
  *  - loan outstanding: the Loan Portfolio report total; its change is the movement of the loan receivable accounts since
  *    the end of last month;
@@ -43,6 +45,13 @@ final class FinanceDashboard
      * @var list<string>
      */
     private const MOBILE_METHODS = ['MNO', 'MOBILE', 'VODACOM', 'AIRTEL', 'TIGO', 'HALOPESA', 'MPESA'];
+
+    /**
+     * Network named by a recovery's repayment method, for mobile repayments recorded without a payment provider.
+     *
+     * @var array<string, string>
+     */
+    private const METHOD_NETWORKS = ['VODACOM' => 'M-PESA', 'MPESA' => 'M-PESA', 'AIRTEL' => 'AIRTEL MONEY', 'TIGO' => 'TIGO PESA', 'HALOPESA' => 'HALOPESA'];
 
     /**
      * Payment method key => label, in display order.
@@ -78,7 +87,8 @@ final class FinanceDashboard
         $scope = new ReportScope((int) $company->id, $branchIds);
         $monthScope = $scope->withDates($from, $to);
 
-        $cashFlow = $this->cashFlow->build(new FinancialScope((int) $company->id, $branchIds, $branchIds === null, $from, $to));
+        $cashScope = new FinancialScope((int) $company->id, $branchIds, $branchIds === null, $from, $to);
+        $cashFlow = $this->cashFlow->build($cashScope);
         $collections = $this->portfolio->collections($monthScope, 'monthly')['summary'];
         $portfolio = $this->portfolio->portfolio($scope)['summary'];
         $arrears = $this->portfolio->arrears($scope, $today);
@@ -101,6 +111,7 @@ final class FinanceDashboard
             'cards' => [
                 'cash_balance' => $cashFlow['closing'],
                 'cash_balance_change' => $this->change($cashFlow['closing'], $cashFlow['opening']),
+                'cash_accounts' => $this->cashAccounts($cashScope),
                 'disbursed_today' => $this->disbursed($company, $branchIds, $today),
                 'disbursed_today_change' => $this->change($this->disbursed($company, $branchIds, $today), $this->disbursed($company, $branchIds, $today->subDay())),
                 'collected_today' => $this->collected($company, $branchIds, $today),
@@ -135,6 +146,62 @@ final class FinanceDashboard
             ],
             'approvals' => $this->approvals($viewer),
         ];
+    }
+
+    /**
+     * The Total Cash card's accounts: the money accounts of the Cash Flow report ({@see CashFlowReport::balance()}) at the end
+     * of the month, in the HQ Account List's terms — OPERATION PRINCIPAL, OPERATION INCOME, RESERVE and FUND are the pools of
+     * {@see HqFund}, every bank account is its own row and any other money account is shown under its ledger name. Received
+     * money not yet matched to a loan (SUSPENSE) is not available cash, so it is a negative UNMATCHED row, exactly as the
+     * report nets it. The rows therefore add up to the card; accounts with nothing in them are left out.
+     *
+     * @return list<array{label: string, amount: float}>
+     */
+    private function cashAccounts(FinancialScope $scope): array
+    {
+        $rows = [];
+        foreach ([HqFund::OperationPrincipal, HqFund::OperationIncome, HqFund::Reserve, HqFund::Fund] as $fund) {
+            foreach ($fund->accounts() as $account) {
+                $rows[$account->value] = $fund->label();
+            }
+        }
+
+        $balances = DB::table('journal_lines')
+            ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->leftJoin('bank_accounts', 'bank_accounts.id', '=', 'accounts.bank_account_id')
+            ->where('journal_entries.company_id', $scope->companyId)
+            ->whereDate('journal_entries.entry_date', '<=', $scope->to->toDateString())
+            ->where(function ($query) use ($scope): void {
+                $nonCash = array_map(fn (Account $account): string => $account->value, CashFlowReport::NON_CASH_ASSETS);
+                $query->where(fn ($cash) => $scope->apply($cash->where('accounts.type', 'asset')->whereNotIn('accounts.key', $nonCash), 'accounts.branch_id'));
+                if ($scope->includeHq) {
+                    $query->orWhere('accounts.key', Account::Suspense->value);
+                }
+            })
+            ->groupBy('accounts.key', 'bank_accounts.name')
+            ->selectRaw('accounts.key AS account_key, bank_accounts.name AS bank_name, SUM(journal_lines.debit - journal_lines.credit) AS amount')
+            ->get();
+
+        $amounts = [];
+        foreach ($balances as $balance) {
+            $account = Account::tryFrom($balance->account_key);
+            $label = match (true) {
+                $account === Account::Suspense => 'UNMATCHED (not yet matched to a loan)',
+                $account === Account::Bank => $balance->bank_name ?? $account->label(),
+                default => $rows[$balance->account_key] ?? $account?->label() ?? strtoupper($balance->account_key),
+            };
+            $amounts[$label] = ($amounts[$label] ?? 0) + (float) $balance->amount;
+        }
+
+        $order = array_flip(array_values(array_unique($rows)));
+
+        return collect($amounts)
+            ->map(fn (float $amount, string $label): array => ['label' => $label, 'amount' => round($amount, 2) + 0.0])
+            ->filter(fn (array $row): bool => abs($row['amount']) >= 0.005)
+            ->sortBy(fn (array $row): array => [$row['amount'] < 0 ? 1 : 0, $order[$row['label']] ?? count($order), -$row['amount']])
+            ->values()
+            ->all();
     }
 
     /**
@@ -217,7 +284,7 @@ final class FinanceDashboard
                     'customer_id' => (int) $row->customer_id,
                     'amount' => (float) $row->amount,
                     'channel' => $channel,
-                    'provider' => $this->providerOf($channel, (string) ($row->provider ?? '')),
+                    'provider' => $this->providerOf($channel, (string) ($row->provider ?? ''), (string) $row->method),
                 ];
             })
             ->values();
@@ -237,13 +304,16 @@ final class FinanceDashboard
     }
 
     /**
-     * The Collection by Bank / Channel row of a repayment: the bank's name for bank payments, otherwise the channel.
+     * The Collection by Bank / Channel row of a repayment: the bank's name for bank payments, the network's name (M-Pesa,
+     * Airtel Money…) for mobile money, otherwise the channel.
      */
-    private function providerOf(string $channel, string $provider): string
+    private function providerOf(string $channel, string $provider, string $method = ''): string
     {
+        $provider = strtoupper(trim($provider));
+
         return match ($channel) {
-            'bank' => trim($provider) !== '' ? strtoupper(trim($provider)) : 'BANK (NOT NAMED)',
-            'mobile' => 'Mobile Money',
+            'bank' => $provider !== '' ? $provider : 'BANK (NOT NAMED)',
+            'mobile' => $provider !== '' ? $provider : (self::METHOD_NETWORKS[strtoupper($method)] ?? 'MOBILE MONEY (NOT NAMED)'),
             'cash' => 'Cash Collection',
             default => 'Other',
         };
@@ -346,7 +416,7 @@ final class FinanceDashboard
         $result = [];
         foreach ($details as $row) {
             $channel = $this->channelOf($row->channel ?? $row->method, $offsets->has((int) $row->id));
-            $result[(int) $row->customer_id] = [$this->providerOf($channel, (string) ($row->provider ?? '')), $channel];
+            $result[(int) $row->customer_id] = [$this->providerOf($channel, (string) ($row->provider ?? ''), (string) $row->method), $channel];
         }
 
         return $result;
