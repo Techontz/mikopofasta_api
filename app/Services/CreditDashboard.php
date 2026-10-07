@@ -14,19 +14,20 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Credit Department dashboard (role Credit Officer): the loan applications of a month and a year, the approval pipeline,
- * today's collections and the quality of the portfolio per loan officer, branch and product — for the whole company or
+ * today's collections and the quality of the portfolio per loan officer, branch and customer type — for the whole company or
  * one branch. Every figure comes from the records:
  *
  *  - applications: loans applied for in the period (any status). Each application is counted by what happened to it:
  *    approved = passed the branch manager and not rejected or cancelled since; rejected = status REJECTED. The cards,
- *    the trend chart and the officer / product tables all count applications this way, so they agree with each other;
+ *    the trend chart and the officer / customer type tables all count applications this way, so they agree with each other;
  *  - active portfolio: repayable loans (active, overdue, default) now;
  *  - collection vs outstanding: per month of the year, the instalments due on disbursed loans, the repayments received
  *    (reversals excluded) and what is still unpaid on the instalments already due;
  *  - today: instalments due today, repayments received today and what is still unpaid on today's instalments;
  *  - payment mandate: the instalments due from 1 January to today, split into collected and unpaid;
  *  - pending approvals: applications in the pipeline grouped by the stage they wait at;
- *  - arrears % and default %: the Default & Arrears report (PAR 1 rate and default rate) per officer and branch.
+ *  - arrears % and default %: the Default & Arrears report (PAR 1 rate and default rate) per officer and branch, and the
+ *    same default rate per customer type.
  */
 final class CreditDashboard
 {
@@ -75,8 +76,46 @@ final class CreditDashboard
                 'arrears_percent' => $row['par1_rate'],
                 'default_percent' => $row['default_rate'],
             ])->values()->all(),
-            'products' => $this->performance($monthApplications, 'loan_category_id', 'product_name'),
+            'customer_types' => $this->customerTypes($company, $branchIds, $monthApplications),
         ];
+    }
+
+    /**
+     * Per customer type: the month's applications and approvals, and the default % of its disbursed loans (loans in
+     * DEFAULT or written off out of every disbursed loan of the type, as the branch default % of the Default & Arrears report).
+     *
+     * @param  list<int>|null  $branchIds
+     * @param  Collection<int, object>  $applications
+     * @return list<array{label: string, applications: int, approved: int, default_percent: float}>
+     */
+    private function customerTypes(Company $company, ?array $branchIds, Collection $applications): array
+    {
+        $disbursed = $this->scoped(DB::table('loans'), $company, $branchIds)
+            ->leftJoin('customers', 'customers.id', '=', 'loans.customer_id')
+            ->leftJoin('customer_categories as customer_type', 'customer_type.id', '=', 'customers.customer_category_id')
+            ->whereIn('loans.status', LoanStatus::values(...LoanStatus::disbursed()))
+            ->groupBy('customers.customer_category_id', 'customer_type.name')
+            ->selectRaw('customers.customer_category_id, customer_type.name as customer_type_name, COUNT(*) as loans')
+            ->selectRaw('SUM(CASE WHEN loans.status IN (?, ?) THEN 1 ELSE 0 END) as defaulted', LoanStatus::values(LoanStatus::Default, LoanStatus::WrittenOff))
+            ->get()
+            ->keyBy(fn (object $row): string => (string) ($row->customer_category_id ?? 0));
+        $byType = $applications->groupBy(fn (object $loan): string => (string) ($loan->customer_category_id ?? 0));
+
+        return $byType->keys()->merge($disbursed->keys())->unique()
+            ->map(function (string $key) use ($byType, $disbursed): array {
+                $items = $byType->get($key, collect());
+                $loans = $disbursed->get($key);
+
+                return [
+                    'label' => ($items->first()->customer_type_name ?? $loans->customer_type_name ?? null) ?: 'Not set',
+                    'applications' => $items->count(),
+                    'approved' => $items->filter(fn (object $loan): bool => $this->isApproved($loan))->count(),
+                    'default_percent' => $this->percent((float) ($loans->defaulted ?? 0), (float) ($loans->loans ?? 0)),
+                ];
+            })
+            ->sortBy([['applications', 'desc'], ['label', 'asc']])
+            ->values()
+            ->all();
     }
 
     /**
@@ -90,11 +129,15 @@ final class CreditDashboard
         return $this->scoped(DB::table('loans'), $company, $branchIds)
             ->leftJoin('loan_categories as product', 'product.id', '=', 'loans.loan_category_id')
             ->leftJoin('employees as officer', 'officer.id', '=', 'loans.employee_id')
+            ->leftJoin('customers', 'customers.id', '=', 'loans.customer_id')
+            ->leftJoin('customer_categories as customer_type', 'customer_type.id', '=', 'customers.customer_category_id')
             ->whereBetween('loans.created_at', [$from->startOfDay(), $to->endOfDay()])
             ->get([
                 'loans.id', 'loans.customer_id', 'loans.employee_id', 'loans.loan_category_id', 'loans.status', 'loans.approved_at',
                 DB::raw('DATE(loans.created_at) as applied_on'),
                 'product.name as product_name',
+                'customers.customer_category_id',
+                'customer_type.name as customer_type_name',
                 DB::raw("TRIM(CONCAT_WS(' ', officer.first_name, officer.middle_name, officer.last_name)) as officer_name"),
             ]);
     }

@@ -77,7 +77,13 @@ class FinanceDashboardApiTest extends TestCase
         $this->assertEquals(['opening' => $cashFlow['opening'], 'cash_in' => $cashFlow['total_inflow'], 'cash_out' => $cashFlow['total_outflow'], 'closing' => $cashFlow['closing']], $data['cash_flow']);
         $this->assertEquals($cashFlow['closing'], $data['cards']['cash_balance'], 'The Total Cash card is the cash flow closing balance.');
         $accounts = collect($data['cards']['cash_accounts']);
-        $this->assertEquals($data['cards']['cash_balance'], round($accounts->sum('amount'), 2), 'The accounts behind the Total Cash card add up to it.');
+        $this->assertEquals($data['cards']['cash_balance'], round($accounts->where('in_total', true)->sum('amount'), 2), 'The accounts behind the Total Cash card add up to it.');
+        $this->assertSame(
+            ['OPERATION PRINCIPAL', 'OPERATION INCOME', 'DIVIDEND (inside OPERATION INCOME)', 'RESERVE', 'FUND', 'SAVINGS'],
+            $accounts->pluck('label')->intersect(['OPERATION PRINCIPAL', 'OPERATION INCOME', 'DIVIDEND (inside OPERATION INCOME)', 'RESERVE', 'FUND', 'SAVINGS'])->values()->all(),
+            'The HQ pools are always listed, in order, even when empty.',
+        );
+        $this->assertFalse($accounts->firstWhere('label', 'DIVIDEND (inside OPERATION INCOME)')['in_total'], 'Declared dividends are still held in OPERATION INCOME.');
         $this->assertContains('OPERATION PRINCIPAL', $accounts->pluck('label'), 'Loans are funded from, and repaid to, OPERATION PRINCIPAL.');
 
         $income = collect($data['income_expenses']['income'])->keyBy('key');
