@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Account;
+use App\Enums\HqFund;
 use App\Models\ApprovalPolicy;
 use App\Models\AuditLog;
 use App\Models\BankAccount;
@@ -24,7 +25,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *  - COMPANY ACCOUNT ↔ company bank account (types company_to_bank / bank_to_company),
  *  - HQ reserve → Investment RESERVE A/C (reserve_to_investment): the one allowed movement out of the interest reserve,
  *  - Investment RESERVE A/C → OPERATION PRINCIPAL (reserve_to_principal): the owners' leg of that same chain,
- *  - HQ interest → branch PETTY CASH A/C (petty_cash_to_branch): the only money a branch holds, spent only on expenses HQ approves.
+ *  - OPERATION INCOME → branch PETTY CASH A/C (petty_cash_to_branch): the only money a branch holds, spent only on expenses HQ approves.
  *
  * Rule 6 (segregation of duties): every movement is created PENDING (no journal) with its initiator in employee_id and
  * posted by {@see approve()} — a different authorised user, company and transfer rows locked, balance re-checked — or
@@ -166,13 +167,14 @@ class CompanyFunds
     }
 
     /**
-     * Request HQ interest → a branch PETTY CASH A/C (pending approval). Petty cash is funded from interest income
-     * ({@see CashAccounts::hqInterest()}); the branch then spends it only on expenses HQ approves.
+     * Request OPERATION INCOME → a branch PETTY CASH A/C (pending approval). Petty cash is funded from the OPERATION INCOME
+     * pool — interest, loan fee and penalty, branch and HQ ({@see HqFund::OperationIncome}) — the same row Finance sees on
+     * the HQ Account List; the branch then spends it only on expenses HQ approves.
      */
     public function requestPettyCash(int $companyId, int $branchId, float $amount, Employee $employee): BankTransfer
     {
         $this->ensureAmounts($amount, 0);
-        $this->assertInterestCovers($companyId, round($amount, 2));
+        $this->assertOperationIncomeCovers($companyId, round($amount, 2));
 
         return BankTransfer::create([
             'company_id' => $companyId,
@@ -249,7 +251,7 @@ class CompanyFunds
             }
 
             if ($locked->type === self::PETTY_CASH_TO_BRANCH) {
-                return $this->postFromPool($locked, $approver, ['account' => Account::PettyCash, 'branch' => $locked->branch_id], $this->assertInterestCovers((int) $locked->company_id, (float) $locked->amount), 'HQ INTEREST TO BRANCH PETTY CASH A/C');
+                return $this->postFromPool($locked, $approver, ['account' => Account::PettyCash, 'branch' => $locked->branch_id], $this->assertOperationIncomeCovers((int) $locked->company_id, (float) $locked->amount), 'OPERATION INCOME TO BRANCH PETTY CASH A/C');
             }
 
             $bank = BankAccount::where('company_id', $locked->company_id)->whereKey($locked->bank_account_id)->lockForUpdate()->first();
@@ -392,11 +394,11 @@ class CompanyFunds
     /**
      * @return list<array{account: Account, branch: int|null, balance: float}>
      *
-     * @throws ValidationException when the HQ interest is smaller than the amount
+     * @throws ValidationException when OPERATION INCOME is smaller than the amount
      */
-    private function assertInterestCovers(int $companyId, float $amount): array
+    private function assertOperationIncomeCovers(int $companyId, float $amount): array
     {
-        return $this->assertPoolCovers($this->cash->hqInterestHoldings($companyId), $amount, 'HQ interest income');
+        return $this->assertPoolCovers($this->cash->fundHoldings($companyId, HqFund::OperationIncome), $amount, 'OPERATION INCOME');
     }
 
     /**

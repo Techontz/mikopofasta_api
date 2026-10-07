@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Bank;
 
 use App\Enums\Account;
+use App\Enums\HqFund;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Http\Requests\Api\Bank\CompanyFundTransferRequest;
 use App\Http\Resources\Api\V1\Bank\BankTransferResource;
@@ -115,7 +116,7 @@ class BankTransferController extends ApiController
     }
 
     /**
-     * Petty cash sent to branches, with the HQ interest income still available and each branch's PETTY CASH A/C balance.
+     * Petty cash sent to branches, with the OPERATION INCOME still available to send and each branch's PETTY CASH A/C balance.
      * Readable by Finance (the sender) and by bank.manage (the approver following the link from Pending Approvals).
      */
     public function pettyCashIndex(Request $request, CashAccounts $cash): JsonResponse
@@ -126,7 +127,7 @@ class BankTransferController extends ApiController
         return $this->collection(
             $this->applyFilters($this->transfers(CompanyFunds::PETTY_CASH_TO_BRANCH), $request, 'transfer_date'),
             [
-                'hq_interest_balance' => $cash->hqInterest($companyId),
+                'operation_income_balance' => round(array_sum(array_column($cash->fundHoldings($companyId, HqFund::OperationIncome), 'balance')), 2) + 0.0,
                 // HQ is not a branch — it is the sender of petty cash, never a recipient.
                 'branches' => $this->visibleBranches()->reject(fn ($branch): bool => (bool) $branch->is_head_office)->map(fn ($branch): array => [
                     'id' => (int) $branch->id,
@@ -138,7 +139,7 @@ class BankTransferController extends ApiController
     }
 
     /**
-     * Request HQ interest income → a branch PETTY CASH A/C (pending). The branch then spends it only on expenses HQ approves.
+     * Request OPERATION INCOME → a branch PETTY CASH A/C (pending). The branch then spends it only on expenses HQ approves.
      * Sending is Finance's own leg (funds.transfer): the owners approve the request, they never raise it, so bank.manage
      * alone (Super Admin, Admin) opens the list above but not this.
      */
