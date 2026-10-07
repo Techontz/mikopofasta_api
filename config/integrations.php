@@ -42,9 +42,18 @@ return [
         'webhook_secret' => env('PAYMENTS_WEBHOOK_SECRET'),
         'company_id' => env('PAYMENTS_COMPANY_ID'),
     ],
+    /*
+    | SMS: "log" (default) only writes to the application log; "messaging_service" sends through messaging-service.co.tz
+    | with the account username / password (Basic auth). SMS_SENDER_ID must be a sender ID registered on that account.
+    | SMS_TEST_MODE=true uses the provider's free test endpoint (no credits used, nothing delivered).
+    */
     'sms' => [
         'driver' => env('SMS_DRIVER', 'log'),
         'sender_id' => env('SMS_SENDER_ID', 'M-KOPA'),
+        'base_url' => env('SMS_BASE_URL', 'https://messaging-service.co.tz'),
+        'username' => env('SMS_USERNAME'),
+        'password' => env('SMS_PASSWORD'),
+        'test_mode' => (bool) env('SMS_TEST_MODE', false),
         'api_key' => env('SMS_API_KEY'),
     ],
 ];

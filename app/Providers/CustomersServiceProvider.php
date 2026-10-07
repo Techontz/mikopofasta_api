@@ -10,6 +10,7 @@ use App\Integrations\Nida\NidaConnector;
 use App\Integrations\Nida\TestNidaConnector;
 use App\Integrations\Sms\HttpSmsGateway;
 use App\Integrations\Sms\LogSmsGateway;
+use App\Integrations\Sms\MessagingServiceGateway;
 use App\Integrations\Sms\SmsGateway;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,6 +25,10 @@ class CustomersServiceProvider extends ServiceProvider
 
         $this->app->bindIf(FaceVerifier::class, fn (): FaceVerifier => config('integrations.face.driver') === 'test' ? new TestFaceVerifier : new HttpFaceVerifier);
 
-        $this->app->singletonIf(SmsGateway::class, fn (): SmsGateway => in_array(config('integrations.sms.driver'), ['log', 'test'], true) ? new LogSmsGateway : new HttpSmsGateway);
+        $this->app->singletonIf(SmsGateway::class, fn (): SmsGateway => match (config('integrations.sms.driver')) {
+            'log', 'test' => new LogSmsGateway,
+            'messaging_service' => new MessagingServiceGateway,
+            default => new HttpSmsGateway,
+        });
     }
 }

@@ -7,7 +7,6 @@ use App\Enums\LoanStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\TransactionType;
 use App\Integrations\Payments\PaymentNotification;
-use App\Integrations\Sms\SmsGateway;
 use App\Models\ApprovalPolicy;
 use App\Models\AuditLog;
 use App\Models\Company;
@@ -18,10 +17,11 @@ use App\Models\LoanRecovery;
 use App\Models\LoanTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
-use App\Models\SmsLog;
 use App\Models\TellerDeposit;
 use App\Services\Approvals\SegregationOfDuties;
 use App\Services\Reports\Financial\ControlReports;
+use App\Services\Sms\SmsSender;
+use App\Services\Sms\SmsTemplates;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -30,7 +30,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Throwable;
 
 /**
  * Repayment channels (Documents: 💰 REPAYMENT OVERVIEW; C6 maker/checker):
@@ -338,7 +337,7 @@ class PaymentService
                 if ($excess > 0) {
                     $this->holdExcess($payment, $excess, $date, alreadyInSuspense: true);
                 }
-                $this->notify($payment->customer, 'Malipo yako ya cash ya TSH '.money($payment->amount - $excess).' yamethibitishwa. Risiti: '.$payment->receipt_number);
+                $this->notifyPayment($payment, $payment->loan, (float) $payment->amount - $excess);
             }
 
             $deposit->update(['status' => TellerDeposit::STATUS_CONFIRMED, 'confirmed_by' => $finance->id, 'confirmed_at' => now()]);
@@ -438,7 +437,7 @@ class PaymentService
                 if ($excess > 0) {
                     $this->holdExcess($payment, $excess, $date, alreadyInSuspense: false);
                 }
-                $this->notify($loan->customer, 'Tumepokea malipo yako ya TSH '.money($notification->amount).'. Kumbukumbu: '.$notification->transactionId);
+                $this->notifyPayment($payment, $loan, $notification->amount);
 
                 return ['status' => 'PAYMENT_SUCCESS', 'payment' => $payment];
             });
@@ -530,7 +529,7 @@ class PaymentService
             'verified_by' => $finance->id,
             'verified_at' => now(),
         ]);
-        $this->notify($loan->customer, 'Tumepokea malipo yako ya TSH '.money($amount).'. Risiti: '.$payment->receipt_number);
+        $this->notifyPayment($payment, $loan, $amount);
 
         return $payment;
     }
@@ -607,7 +606,7 @@ class PaymentService
 
                 $payment->refresh();
                 $payment->update(['status' => $payment->unallocated_amount <= 0.001 ? PaymentStatus::Allocated : PaymentStatus::Unallocated]);
-                $this->notify($loan->customer, 'Tumepokea malipo yako ya TSH '.money($payment->allocated_amount).'. Risiti: '.$payment->receipt_number);
+                $this->notifyPayment($payment, $loan, (float) $payment->allocated_amount);
 
                 return $payment;
             });
@@ -709,7 +708,7 @@ class PaymentService
             $payment->refresh();
             $payment->update(['status' => $payment->unallocated_amount <= 0.001 ? PaymentStatus::Allocated : PaymentStatus::Unallocated]);
             if ((float) $payment->allocated_amount > 0) {
-                $this->notify($loan->customer, 'Tumepokea malipo yako ya TSH '.money($payment->allocated_amount).'. Kumbukumbu: '.($payment->transaction_id ?? $payment->receipt_number));
+                $this->notifyPayment($payment, $loan, (float) $payment->allocated_amount);
             }
 
             return $payment;
@@ -1166,20 +1165,27 @@ class PaymentService
     }
 
     /**
-     * SMS the customer; a gateway failure never undoes the money movement.
+     * Text the customer the "rejesho" receipt worded by the company's payment_received template (SMS Centre → Templates);
+     * nothing is sent when the template is switched off. A gateway failure never undoes the money movement ({@see SmsSender}).
      */
-    private function notify(?Customer $customer, string $message): void
+    private function notifyPayment(Payment $payment, Loan $loan, float $amount): void
     {
+        $customer = $loan->customer;
         if ($customer === null || ! $customer->phone) {
             return;
         }
 
-        SmsLog::create(['company_id' => $customer->company_id, 'customer_id' => $customer->id, 'phone' => $customer->phone, 'message' => $message]);
-
-        try {
-            app(SmsGateway::class)->send($customer->phone, $message);
-        } catch (Throwable $exception) {
-            report($exception);
+        $message = app(SmsTemplates::class)->render((int) $customer->company_id, SmsTemplates::PAYMENT_RECEIVED, [
+            'name' => $customer->first_name,
+            'amount' => money($amount),
+            'receipt' => $payment->receipt_number ?? $payment->transaction_id,
+            'balance' => money($this->loans->outstanding($loan->fresh())['total']),
+            'loan_number' => $loan->reference_number ?? $loan->loan_number,
+            'date' => now()->format('d/m/Y'),
+            'company' => $customer->company?->name,
+        ]);
+        if ($message !== null) {
+            app(SmsSender::class)->send((int) $customer->company_id, (string) $customer->phone, $message, 'payment', ['customer_id' => $customer->id, 'reference' => "payment:{$payment->id}"]);
         }
     }
 
