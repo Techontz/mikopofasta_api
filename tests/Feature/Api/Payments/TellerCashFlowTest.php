@@ -135,7 +135,7 @@ class TellerCashFlowTest extends TestCase
         $this->assertSame(0.0, $this->balance($admin, Account::Bank, bankAccountId: $bank->id));
         $this->assertSame(0.0, $this->balance($admin, Account::LoanReceivable, $admin->branch_id));
         $this->assertSame(5000.0, $this->balance($admin, Account::PenaltyIncome, $admin->branch_id));
-        $this->assertTrue(SmsLog::where('customer_id', $loan->customer_id)->where('message', 'like', '%yamethibitishwa%')->exists());
+        $this->assertTrue(SmsLog::where('customer_id', $loan->customer_id)->where('category', 'payment')->where('message', 'like', 'Tumepokea malipo yako%')->exists());
         $this->assertTrue(AuditLog::where('action', 'TellerDeposit.updated')->exists());
     }
 

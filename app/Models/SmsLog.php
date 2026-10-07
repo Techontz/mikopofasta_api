@@ -13,4 +13,9 @@ class SmsLog extends Model
     {
         return $this->belongsTo(Customer::class);
     }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
+    }
 }

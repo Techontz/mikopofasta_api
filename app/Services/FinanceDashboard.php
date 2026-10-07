@@ -149,29 +149,45 @@ final class FinanceDashboard
     }
 
     /**
+     * Rows of the Total Cash card always listed, even when empty, in this order (user request 2026-10-07: RESERVE, DIVIDEND,
+     * FUND and SAVINGS were missing whenever they held nothing).
+     *
+     * @var list<string>
+     */
+    private const CASH_ROWS = ['OPERATION PRINCIPAL', 'OPERATION INCOME', self::DIVIDEND_ROW, 'RESERVE', 'FUND', 'SAVINGS'];
+
+    private const DIVIDEND_ROW = 'DIVIDEND (inside OPERATION INCOME)';
+
+    /**
      * The Total Cash card's accounts: the money accounts of the Cash Flow report ({@see CashFlowReport::balance()}) at the end
      * of the month, in the HQ Account List's terms — OPERATION PRINCIPAL, OPERATION INCOME, RESERVE and FUND are the pools of
-     * {@see HqFund}, every bank account is its own row and any other money account is shown under its ledger name. Received
-     * money not yet matched to a loan (SUSPENSE) is not available cash, so it is a negative UNMATCHED row, exactly as the
-     * report nets it. The rows therefore add up to the card; accounts with nothing in them are left out.
+     * {@see HqFund}, SAVINGS is the SAVING ACCOUNT, every bank account is its own row and any other money account is shown under
+     * its ledger name. Received money not yet matched to a loan (SUSPENSE) is not available cash, so it is a negative UNMATCHED
+     * row, exactly as the report nets it. These rows add up to the card (`in_total`).
      *
-     * @return list<array{label: string, amount: float}>
+     * DIVIDEND is listed too but is not in the total: it is DIVIDEND PAYABLE — dividends declared and not yet paid — and that
+     * money is still held in OPERATION INCOME ({@see DashboardStatistics::hqFunds()}), so adding it would count it twice.
+     * The rows of {@see CASH_ROWS} are always listed; any other account with nothing in it is left out.
+     *
+     * @return list<array{label: string, amount: float, in_total: bool}>
      */
     private function cashAccounts(FinancialScope $scope): array
     {
-        $rows = [];
+        $rows = [Account::HqSaving->value => 'SAVINGS'];
         foreach ([HqFund::OperationPrincipal, HqFund::OperationIncome, HqFund::Reserve, HqFund::Fund] as $fund) {
             foreach ($fund->accounts() as $account) {
                 $rows[$account->value] = $fund->label();
             }
         }
 
-        $balances = DB::table('journal_lines')
+        $lines = fn () => DB::table('journal_lines')
             ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
-            ->leftJoin('bank_accounts', 'bank_accounts.id', '=', 'accounts.bank_account_id')
             ->where('journal_entries.company_id', $scope->companyId)
-            ->whereDate('journal_entries.entry_date', '<=', $scope->to->toDateString())
+            ->whereDate('journal_entries.entry_date', '<=', $scope->to->toDateString());
+
+        $balances = $lines()
+            ->leftJoin('bank_accounts', 'bank_accounts.id', '=', 'accounts.bank_account_id')
             ->where(function ($query) use ($scope): void {
                 $nonCash = array_map(fn (Account $account): string => $account->value, CashFlowReport::NON_CASH_ASSETS);
                 $query->where(fn ($cash) => $scope->apply($cash->where('accounts.type', 'asset')->whereNotIn('accounts.key', $nonCash), 'accounts.branch_id'));
@@ -183,7 +199,7 @@ final class FinanceDashboard
             ->selectRaw('accounts.key AS account_key, bank_accounts.name AS bank_name, SUM(journal_lines.debit - journal_lines.credit) AS amount')
             ->get();
 
-        $amounts = [];
+        $amounts = array_fill_keys(array_diff(self::CASH_ROWS, [self::DIVIDEND_ROW]), 0.0);
         foreach ($balances as $balance) {
             $account = Account::tryFrom($balance->account_key);
             $label = match (true) {
@@ -194,11 +210,17 @@ final class FinanceDashboard
             $amounts[$label] = ($amounts[$label] ?? 0) + (float) $balance->amount;
         }
 
-        $order = array_flip(array_values(array_unique($rows)));
+        // Dividends are declared for the whole company, so only a view that includes HQ shows them.
+        $dividend = $scope->includeHq
+            ? (float) $lines()->where('accounts.key', Account::DividendPayable->value)->sum(DB::raw('journal_lines.credit - journal_lines.debit'))
+            : 0.0;
+
+        $order = array_flip(self::CASH_ROWS);
 
         return collect($amounts)
-            ->map(fn (float $amount, string $label): array => ['label' => $label, 'amount' => round($amount, 2) + 0.0])
-            ->filter(fn (array $row): bool => abs($row['amount']) >= 0.005)
+            ->map(fn (float $amount, string $label): array => ['label' => $label, 'amount' => round($amount, 2) + 0.0, 'in_total' => true])
+            ->filter(fn (array $row): bool => isset($order[$row['label']]) || abs($row['amount']) >= 0.005)
+            ->push(['label' => self::DIVIDEND_ROW, 'amount' => round($dividend, 2) + 0.0, 'in_total' => false])
             ->sortBy(fn (array $row): array => [$row['amount'] < 0 ? 1 : 0, $order[$row['label']] ?? count($order), -$row['amount']])
             ->values()
             ->all();

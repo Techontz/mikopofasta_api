@@ -15,7 +15,8 @@ use Tests\Concerns\UsesSecondApprover;
 use Tests\TestCase;
 
 /**
- * Petty cash is the only money a branch holds: HQ sends it to one branch out of interest income, and the branch spends it
+ * Petty cash is the only money a branch holds: HQ sends it to one branch out of OPERATION INCOME (interest, loan fee and
+ * penalty), and the branch spends it
  * only on expenses HQ accepts (a water bill, stationery). Both steps are two-step (rule 6).
  */
 class BranchPettyCashApiTest extends TestCase
@@ -40,12 +41,13 @@ class BranchPettyCashApiTest extends TestCase
         $this->otherBranch = Branch::factory()->create(['company_id' => $this->admin->company_id]);
         $this->finance = $this->secondApprover($this->admin, 'finance');
 
-        // Interest income earned by the two branches — what petty cash is funded from.
-        $this->ledger->openingBalance($this->admin->company_id, Account::Interest, 300000, branch: $this->admin->branch_id);
-        $this->ledger->openingBalance($this->admin->company_id, Account::Interest, 100000, branch: $this->otherBranch);
+        // OPERATION INCOME earned by the two branches — what petty cash is funded from: interest, loan fee and penalty.
+        $this->ledger->openingBalance($this->admin->company_id, Account::Interest, 200000, branch: $this->admin->branch_id);
+        $this->ledger->openingBalance($this->admin->company_id, Account::LoanFee, 100000, branch: $this->admin->branch_id);
+        $this->ledger->openingBalance($this->admin->company_id, Account::Penalty, 100000, branch: $this->otherBranch);
     }
 
-    public function test_hq_sends_petty_cash_to_one_branch_out_of_interest_income_after_a_second_approval(): void
+    public function test_hq_sends_petty_cash_to_one_branch_out_of_operation_income_after_a_second_approval(): void
     {
         $companyId = $this->admin->company_id;
 
@@ -58,20 +60,26 @@ class BranchPettyCashApiTest extends TestCase
 
         $this->assertSame(200000.0, $this->ledger->balance($companyId, Account::PettyCash, $this->admin->branch_id));
         $this->assertSame(0.0, $this->ledger->balance($companyId, Account::PettyCash, $this->otherBranch->id), 'petty cash reaches the chosen branch only');
-        $this->assertSame(200000.0, $this->ledger->balance($companyId, Account::Interest, allBranches: true), 'taken from the interest income of both branches');
+        $pool = fn (): float => array_sum(array_map(fn (Account $account): float => $this->ledger->balance($companyId, $account, allBranches: true), [Account::Interest, Account::LoanFee, Account::Penalty]));
+        $this->assertSame(200000.0, $pool(), 'taken from OPERATION INCOME');
+        $this->assertSame([100000.0, 50000.0, 50000.0], [
+            $this->ledger->balance($companyId, Account::Interest, allBranches: true),
+            $this->ledger->balance($companyId, Account::LoanFee, allBranches: true),
+            $this->ledger->balance($companyId, Account::Penalty, allBranches: true),
+        ], 'in proportion to what interest, loan fee and penalty hold');
 
         $this->getJson('/api/v1/bank/petty-cash?branch_id=all')->assertOk()
-            ->assertJsonPath('hq_interest_balance', 200000)
+            ->assertJsonPath('operation_income_balance', 200000)
             ->assertJsonPath('total', 200000)
             ->assertJsonPath('data.0.branch_account_label', 'PETTY CASH A/C');
         $this->getJson('/api/v1/dashboard')->assertOk()->assertJsonPath('data.today.expenses', 0);
 
         $this->postJson("/api/v1/bank/transfers/{$id}/reverse", ['reason' => 'Sent to the wrong branch'])->assertOk();
         $this->assertSame(0.0, $this->ledger->balance($companyId, Account::PettyCash, $this->admin->branch_id));
-        $this->assertSame(400000.0, $this->ledger->balance($companyId, Account::Interest, allBranches: true));
+        $this->assertSame(400000.0, $pool());
     }
 
-    public function test_more_than_the_hq_interest_income_cannot_be_sent(): void
+    public function test_more_than_the_operation_income_cannot_be_sent(): void
     {
         $this->sendPettyCash($this->admin->branch_id, 400001)
             ->assertUnprocessable()->assertJsonValidationErrors('amount');

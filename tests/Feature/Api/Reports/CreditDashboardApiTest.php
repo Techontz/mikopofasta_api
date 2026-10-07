@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\Reports;
 use App\Enums\LoanStatus;
 use App\Models\Branch;
 use App\Models\Customer;
+use App\Models\CustomerCategory;
 use App\Models\Employee;
 use App\Models\Loan;
 use App\Models\LoanCategory;
@@ -71,8 +72,26 @@ class CreditDashboardApiTest extends TestCase
         $this->assertEquals($expectedToday, $data['payment_mandate']['total']);
         $this->assertEquals(30000, $data['payment_mandate']['collected']);
 
-        $rates = collect($data['products'])->pluck('rejection_percent')->sort()->values()->all();
-        $this->assertEquals([0.0, 0.0, 0.0, 100.0], $rates, 'Each application has its own product; only the rejected one has a rejection rate.');
+    }
+
+    public function test_customer_type_performance_counts_applications_approvals_and_default_rate(): void
+    {
+        $employed = CustomerCategory::factory()->create(['company_id' => $this->admin->company_id, 'name' => 'WATUMISHI']);
+        $business = CustomerCategory::factory()->create(['company_id' => $this->admin->company_id, 'name' => 'WAJASIRIAMALI']);
+        $this->application(customerType: $employed->id);
+        $this->application(customerType: $employed->id)->forceFill(['status' => LoanStatus::PendingCreditReview, 'approved_at' => now()])->save();
+        $this->application(customerType: $business->id)->forceFill(['status' => LoanStatus::Rejected])->save();
+        foreach ([LoanStatus::Default, LoanStatus::Active, LoanStatus::Closed, LoanStatus::Active] as $status) {
+            $customer = Customer::factory()->create(['company_id' => $this->admin->company_id, 'branch_id' => $this->admin->branch_id, 'customer_category_id' => $business->id]);
+            Loan::factory()->create(['customer_id' => $customer->id, 'status' => $status])->forceFill(['created_at' => now()->subYear()])->save();
+        }
+
+        $data = $this->actingAs($this->credit)->getJson('/api/v1/dashboard/credit')->assertOk()->json('data');
+
+        $this->assertEquals([
+            ['label' => 'WATUMISHI', 'applications' => 2, 'approved' => 1, 'default_percent' => 0.0],
+            ['label' => 'WAJASIRIAMALI', 'applications' => 1, 'approved' => 0, 'default_percent' => 25.0],
+        ], $data['customer_types'], 'One of the four disbursed WAJASIRIAMALI loans is in default; last year\'s loans are not this month\'s applications.');
     }
 
     public function test_one_branch_shows_only_that_branchs_applications(): void
@@ -94,10 +113,10 @@ class CreditDashboardApiTest extends TestCase
         $this->actingAs($this->credit)->getJson('/api/v1/dashboard/credit?month=2026-13')->assertUnprocessable()->assertJsonValidationErrors(['month']);
     }
 
-    private function application(?int $branchId = null): Loan
+    private function application(?int $branchId = null, ?int $customerType = null): Loan
     {
         $branchId ??= $this->admin->branch_id;
-        $customer = Customer::factory()->create(['company_id' => $this->admin->company_id, 'branch_id' => $branchId]);
+        $customer = Customer::factory()->create(['company_id' => $this->admin->company_id, 'branch_id' => $branchId, 'customer_category_id' => $customerType]);
         $category = LoanCategory::factory()->create(['company_id' => $this->admin->company_id]);
 
         return app(LoanService::class)->apply($customer, ['loan_category_id' => $category->id, 'amount_applied' => 50000, 'sessions' => 1, 'formula' => 'SIMPLE', 'fee_deduct' => true, 'reason' => 'BIASHARA']);
