@@ -112,6 +112,35 @@ class StaffApiTest extends TestCase
         $this->postJson("/api/v1/hrm/staff/{$admin->id}/block")->assertUnprocessable();
     }
 
+    public function test_nobody_moves_themselves_but_an_admin_moves_hr(): void
+    {
+        $superAdmin = $this->signInAdmin();
+        $staff = fn (string $role, array $attributes = []): Employee => Employee::factory()->create(['company_id' => $superAdmin->company_id, 'branch_id' => $superAdmin->branch_id, 'role_id' => $this->roleId($superAdmin, $role), 'position' => 'employee'] + $attributes);
+        $hr = $staff('hr', ['phone' => '0711000001']);
+        $admin = $staff('admin', ['phone' => '0711000002']);
+        $self = fn (array $overrides): array => $this->payload($superAdmin, $overrides + ['empl_no' => '0711000001', 'role_id' => $this->roleId($superAdmin, 'hr')]);
+
+        // HR can not make themselves Finance or Admin, nor move their branch or position — but may still edit their own details.
+        $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['role_id' => $this->roleId($superAdmin, 'finance')]))->assertForbidden();
+        $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['role_id' => $this->roleId($superAdmin, 'admin')]))->assertForbidden();
+        $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['position_id' => 'admin']))->assertForbidden();
+        $this->assertSame('hr', $hr->fresh()->role->key);
+        $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['emp_lname' => 'Mpya']))->assertOk();
+        $this->assertSame('Mpya', $hr->fresh()->last_name);
+
+        // Nor through a colleague: only a Super Admin grants Super Admin, and the Shareholder role comes with a shareholder login.
+        $other = $staff('loan_officer', ['phone' => '0711000003']);
+        $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$other->id}", $this->payload($superAdmin, ['empl_no' => '0711000003', 'role_id' => $this->roleId($superAdmin, 'super_admin')]))->assertForbidden();
+        $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$other->id}", $this->payload($superAdmin, ['empl_no' => '0711000003', 'role_id' => $this->roleId($superAdmin, 'shareholder')]))->assertUnprocessable();
+        $this->actingAs($hr)->postJson('/api/v1/hrm/staff', $this->payload($superAdmin, ['empl_no' => '0711000004', 'role_id' => $this->roleId($superAdmin, 'super_admin')]))->assertForbidden();
+
+        // An Admin or Super Admin moves HR.
+        $this->actingAs($admin)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['role_id' => $this->roleId($superAdmin, 'finance')]))->assertOk();
+        $this->assertSame('finance', $hr->fresh()->role->key);
+        $this->actingAs($superAdmin)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['role_id' => $this->roleId($superAdmin, 'hr')]))->assertOk();
+        $this->assertSame('hr', $hr->fresh()->role->key);
+    }
+
     public function test_block_all_keeps_signed_in_admin_active(): void
     {
         $admin = $this->signInAdmin();

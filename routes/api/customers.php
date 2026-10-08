@@ -68,6 +68,7 @@ Route::prefix('customers')->name('customers.')->group(function (): void {
         Route::get('{customer}/overview', 'overview')->whereNumber('customer')->name('overview');
         Route::get('{customer}/debt', 'debt')->whereNumber('customer')->name('debt');
         Route::get('{customer}/timeline', 'timeline')->whereNumber('customer')->name('timeline');
+        Route::get('{customer}/credit-history', 'creditHistory')->whereNumber('customer')->name('credit-history');
         Route::get('{customer}/audit-trail', 'auditTrail')->whereNumber('customer')->name('audit-trail');
         Route::get('{customer}/eligibility', 'eligibility')->whereNumber('customer')->name('eligibility');
         Route::get('{customer}/balance', 'balance')->whereNumber('customer')->name('balance');

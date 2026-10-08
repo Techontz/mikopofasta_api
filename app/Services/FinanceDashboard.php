@@ -149,12 +149,14 @@ final class FinanceDashboard
     }
 
     /**
-     * Rows of the Total Cash card always listed, even when empty, in this order (user request 2026-10-07: RESERVE, DIVIDEND,
-     * FUND and SAVINGS were missing whenever they held nothing).
+     * Rows of the Total Cash card always listed, even when empty, in this order (user requests 2026-10-07: RESERVE, DIVIDEND,
+     * FUND and SAVINGS were missing whenever they held nothing; 2026-10-08: PROFIT).
      *
      * @var list<string>
      */
-    private const CASH_ROWS = ['OPERATION PRINCIPAL', 'OPERATION INCOME', self::DIVIDEND_ROW, 'RESERVE', 'FUND', 'SAVINGS'];
+    private const CASH_ROWS = ['OPERATION PRINCIPAL', 'OPERATION INCOME', self::PROFIT_ROW, self::DIVIDEND_ROW, 'RESERVE', 'FUND', 'SAVINGS'];
+
+    private const PROFIT_ROW = 'PROFIT (inside OPERATION INCOME)';
 
     private const DIVIDEND_ROW = 'DIVIDEND (inside OPERATION INCOME)';
 
@@ -165,8 +167,13 @@ final class FinanceDashboard
      * its ledger name. Received money not yet matched to a loan (SUSPENSE) is not available cash, so it is a negative UNMATCHED
      * row, exactly as the report nets it. These rows add up to the card (`in_total`).
      *
-     * DIVIDEND is listed too but is not in the total: it is DIVIDEND PAYABLE — dividends declared and not yet paid — and that
-     * money is still held in OPERATION INCOME ({@see DashboardStatistics::hqFunds()}), so adding it would count it twice.
+     * PROFIT and DIVIDEND are listed too but are not in the total, because their money is still held in OPERATION INCOME
+     * ({@see DashboardStatistics::hqFunds()}) and adding them would count it twice:
+     *  - PROFIT is the PROFIT ACCOUNT: on the 1st the month-end close moves the past month's income less expenses there
+     *    ({@see PeriodClose}), but only on paper — the cash stays in the income accounts until the dividend decision;
+     *  - DIVIDEND is DIVIDEND PAYABLE: once the decision is approved, the shareholders' 30 % is declared there (paid later) and
+     *    the 70 % reinvestment, after commission, is moved in cash from the income accounts to OPERATION PRINCIPAL
+     *    ({@see DividendService}).
      * The rows of {@see CASH_ROWS} are always listed; any other account with nothing in it is left out.
      *
      * @return list<array{label: string, amount: float, in_total: bool}>
@@ -199,7 +206,7 @@ final class FinanceDashboard
             ->selectRaw('accounts.key AS account_key, bank_accounts.name AS bank_name, SUM(journal_lines.debit - journal_lines.credit) AS amount')
             ->get();
 
-        $amounts = array_fill_keys(array_diff(self::CASH_ROWS, [self::DIVIDEND_ROW]), 0.0);
+        $amounts = array_fill_keys(array_diff(self::CASH_ROWS, [self::PROFIT_ROW, self::DIVIDEND_ROW]), 0.0);
         foreach ($balances as $balance) {
             $account = Account::tryFrom($balance->account_key);
             $label = match (true) {
@@ -210,6 +217,8 @@ final class FinanceDashboard
             $amounts[$label] = ($amounts[$label] ?? 0) + (float) $balance->amount;
         }
 
+        $profit = (float) $scope->apply($lines()->where('accounts.key', Account::RetainedProfit->value), 'accounts.branch_id')
+            ->sum(DB::raw('journal_lines.credit - journal_lines.debit'));
         // Dividends are declared for the whole company, so only a view that includes HQ shows them.
         $dividend = $scope->includeHq
             ? (float) $lines()->where('accounts.key', Account::DividendPayable->value)->sum(DB::raw('journal_lines.credit - journal_lines.debit'))
@@ -220,6 +229,7 @@ final class FinanceDashboard
         return collect($amounts)
             ->map(fn (float $amount, string $label): array => ['label' => $label, 'amount' => round($amount, 2) + 0.0, 'in_total' => true])
             ->filter(fn (array $row): bool => isset($order[$row['label']]) || abs($row['amount']) >= 0.005)
+            ->push(['label' => self::PROFIT_ROW, 'amount' => round($profit, 2) + 0.0, 'in_total' => false])
             ->push(['label' => self::DIVIDEND_ROW, 'amount' => round($dividend, 2) + 0.0, 'in_total' => false])
             ->sortBy(fn (array $row): array => [$row['amount'] < 0 ? 1 : 0, $order[$row['label']] ?? count($order), -$row['amount']])
             ->values()
