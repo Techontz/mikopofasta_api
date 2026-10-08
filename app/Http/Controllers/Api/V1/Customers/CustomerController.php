@@ -17,6 +17,7 @@ use App\Models\FaceScan;
 use App\Models\Loan;
 use App\Models\SmsLog;
 use App\Services\CustomerEligibility;
+use App\Services\Customers\CustomerCreditHistory;
 use App\Services\Customers\CustomerDebt;
 use App\Services\Customers\CustomerRegistrar;
 use App\Services\Customers\KycStatusCalculator;
@@ -220,6 +221,18 @@ class CustomerController extends ApiController
         $this->assertAccessible($customer);
 
         return response()->json(['data' => $debts->summary($customer)]);
+    }
+
+    /**
+     * GET /customers/{id}/credit-history — the profile's Credit History tab: every loan, instalment performance, arrears,
+     * defaults, penalties, interest and salary advances of the customer (read only; totals agree with the Debt Profile).
+     */
+    public function creditHistory(Customer $customer, CustomerCreditHistory $history): JsonResponse
+    {
+        $this->authorizeAny('customers.view');
+        $this->assertAccessible($customer);
+
+        return response()->json(['data' => $history->for($customer)]);
     }
 
     /**
