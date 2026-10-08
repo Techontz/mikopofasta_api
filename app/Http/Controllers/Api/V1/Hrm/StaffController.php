@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Hrm;
 
 use App\Enums\Account;
 use App\Enums\StaffCreditStatus;
+use App\Http\Controllers\Api\V1\Settings\RoleController;
 use App\Http\Requests\Api\Hrm\StaffRequest;
 use App\Http\Requests\Api\Hrm\StaffSalaryRequest;
 use App\Http\Resources\Api\V1\Hrm\SalaryChangeRequestResource;
@@ -15,6 +16,7 @@ use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\NegligenceDeduction;
+use App\Models\Role;
 use App\Models\SalaryChangeRequest;
 use App\Models\StaffAllowance;
 use App\Services\Hrm\EmployeeNumberGenerator;
@@ -37,6 +39,14 @@ use Illuminate\Support\Str;
  */
 class StaffController extends HrmController
 {
+    /**
+     * Where an employee sits and what they may do. Nobody changes their own (user ruling 2026-10-08: HR could move themselves
+     * to Finance or Admin); an Admin or Super Admin moves them.
+     *
+     * @var list<string>
+     */
+    private const ASSIGNMENT = ['role_id', 'zone_id', 'branch_id', 'position'];
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAny('hrm.manage', 'users.manage');
@@ -66,6 +76,7 @@ class StaffController extends HrmController
         if ($data['branch_id'] !== null) {
             $this->assertBranchAccessible($data['branch_id']);
         }
+        $this->assertRoleAssignable(null, $request->role());
 
         $companyId = $this->companyId();
         $register = fn (): Employee => DB::transaction(function () use ($request, $data, $companyId, $ledger, $numbers): Employee {
@@ -158,10 +169,17 @@ class StaffController extends HrmController
             $this->assertBranchAccessible($data['branch_id']);
         }
 
-        $before = $employee->only(['role_id', 'zone_id', 'branch_id', 'position']);
-        $employee->update($data);
-        if ($before !== $employee->only(['role_id', 'zone_id', 'branch_id', 'position'])) {
-            $this->audit('Employee.assignment_changed', $employee, $before, $employee->only(['role_id', 'zone_id', 'branch_id', 'position']));
+        $before = $employee->only(self::ASSIGNMENT);
+        $employee->fill($data);
+        if ($employee->isDirty(self::ASSIGNMENT)) {
+            abort_if($employee->is($this->currentEmployee()), 403, 'You cannot change your own role, branch, zone or position. Ask an Admin or Super Admin to move you.');
+            if ($employee->isDirty('role_id')) {
+                $this->assertRoleAssignable($employee->getOriginal('role_id') === null ? null : Role::find($employee->getOriginal('role_id')), $request->role());
+            }
+        }
+        $employee->save();
+        if ($before !== $employee->only(self::ASSIGNMENT)) {
+            $this->audit('Employee.assignment_changed', $employee, $before, $employee->only(self::ASSIGNMENT));
         }
 
         return $this->message('Employee Updated successfully', 200, ['data' => new StaffResource($employee->load(['branch', 'role', 'zone']))]);
@@ -386,6 +404,16 @@ class StaffController extends HrmController
      * @param  array<string, mixed>|null  $before
      * @param  array<string, mixed>|null  $after
      */
+    /**
+     * The same limits as Settings → Roles ({@see RoleController::assignEmployeeRole()}), so the staff form is no way around
+     * them: the Shareholder role comes only with a shareholder login, and only a Super Admin grants or removes Super Admin.
+     */
+    private function assertRoleAssignable(?Role $from, ?Role $to): void
+    {
+        abort_if($to?->key === 'shareholder', 422, 'The Shareholder role is assigned only by creating a shareholder login (Capital → Shareholders).');
+        abort_if(($to?->key === 'super_admin' || $from?->key === 'super_admin') && $this->currentEmployee()->role?->key !== 'super_admin', 403, 'Only a Super Admin can assign the Super Admin role.');
+    }
+
     private function audit(string $action, Employee $employee, ?array $before, ?array $after): void
     {
         AuditLog::create([
