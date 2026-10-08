@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Api\Reports;
 
+use App\Enums\Account;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\Loan;
 use App\Models\LoanTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
+use App\Services\Ledger;
 use App\Services\LoanService;
 use App\Services\Reports\Financial\CashFlowReport;
 use App\Services\Reports\Financial\FinancialScope;
@@ -79,11 +81,12 @@ class FinanceDashboardApiTest extends TestCase
         $accounts = collect($data['cards']['cash_accounts']);
         $this->assertEquals($data['cards']['cash_balance'], round($accounts->where('in_total', true)->sum('amount'), 2), 'The accounts behind the Total Cash card add up to it.');
         $this->assertSame(
-            ['OPERATION PRINCIPAL', 'OPERATION INCOME', 'DIVIDEND (inside OPERATION INCOME)', 'RESERVE', 'FUND', 'SAVINGS'],
-            $accounts->pluck('label')->intersect(['OPERATION PRINCIPAL', 'OPERATION INCOME', 'DIVIDEND (inside OPERATION INCOME)', 'RESERVE', 'FUND', 'SAVINGS'])->values()->all(),
+            ['OPERATION PRINCIPAL', 'OPERATION INCOME', 'PROFIT (inside OPERATION INCOME)', 'DIVIDEND (inside OPERATION INCOME)', 'RESERVE', 'FUND', 'SAVINGS'],
+            $accounts->pluck('label')->intersect(['OPERATION PRINCIPAL', 'OPERATION INCOME', 'PROFIT (inside OPERATION INCOME)', 'DIVIDEND (inside OPERATION INCOME)', 'RESERVE', 'FUND', 'SAVINGS'])->values()->all(),
             'The HQ pools are always listed, in order, even when empty.',
         );
         $this->assertFalse($accounts->firstWhere('label', 'DIVIDEND (inside OPERATION INCOME)')['in_total'], 'Declared dividends are still held in OPERATION INCOME.');
+        $this->assertFalse($accounts->firstWhere('label', 'PROFIT (inside OPERATION INCOME)')['in_total'], 'Closed profit is still held in OPERATION INCOME.');
         $this->assertContains('OPERATION PRINCIPAL', $accounts->pluck('label'), 'Loans are funded from, and repaid to, OPERATION PRINCIPAL.');
 
         $income = collect($data['income_expenses']['income'])->keyBy('key');
@@ -146,6 +149,25 @@ class FinanceDashboardApiTest extends TestCase
         $this->actingAs($this->finance)->getJson('/api/v1/dashboard/finance?month=2026-13')->assertUnprocessable()->assertJsonValidationErrors(['month']);
         $foreign = Branch::factory()->create();
         $this->actingAs($this->finance)->getJson("/api/v1/dashboard/finance?branch_id={$foreign->id}")->assertForbidden();
+    }
+
+    public function test_closed_profit_is_listed_inside_operation_income_without_changing_the_total(): void
+    {
+        $month = CarbonImmutable::today()->format('Y-m');
+        $before = $this->actingAs($this->finance)->getJson("/api/v1/dashboard/finance?month={$month}")->assertOk()->json('data.cards');
+
+        // The month-end close moves income to the PROFIT ACCOUNT on paper only: the cash stays in the income accounts.
+        app(Ledger::class)->journal($this->admin->company_id, 'MONTH END CLOSE', [
+            ['account' => Account::InterestIncome, 'branch' => $this->admin->branch_id, 'debit' => 50000],
+            ['account' => Account::RetainedProfit, 'branch' => $this->admin->branch_id, 'credit' => 50000],
+        ]);
+
+        $after = $this->actingAs($this->finance)->getJson("/api/v1/dashboard/finance?month={$month}")->assertOk()->json('data.cards');
+        $profit = collect($after['cash_accounts'])->firstWhere('label', 'PROFIT (inside OPERATION INCOME)');
+
+        $this->assertEquals(50000, $profit['amount']);
+        $this->assertFalse($profit['in_total']);
+        $this->assertEquals($before['cash_balance'], $after['cash_balance'], 'Profit is not extra money on top of OPERATION INCOME.');
     }
 
     public function test_mobile_money_is_shown_per_network_like_banks(): void
