@@ -19,8 +19,10 @@ class TicketResource extends JsonResource
         return [
             'id' => $this->id,
             'ticket_number' => $this->ticket_number,
+            'type' => $this->type,
+            'type_label' => CrmTicket::TYPES[$this->type] ?? $this->type,
             'category' => $this->category,
-            'category_label' => CrmTicket::CATEGORIES[$this->category] ?? $this->category,
+            'category_label' => CrmTicket::categoryLabel((string) $this->category),
             'channel' => $this->channel,
             'channel_label' => CrmTicket::CHANNELS[$this->channel] ?? $this->channel,
             'priority' => $this->priority,

@@ -20,6 +20,7 @@ use App\Services\CustomerEligibility;
 use App\Services\Customers\CustomerCreditHistory;
 use App\Services\Customers\CustomerDebt;
 use App\Services\Customers\CustomerRegistrar;
+use App\Services\Customers\CustomerUpdates;
 use App\Services\Customers\KycStatusCalculator;
 use App\Services\LoanService;
 use Illuminate\Database\Eloquent\Builder;
@@ -79,6 +80,7 @@ class CustomerController extends ApiController
             ->when($request->filled('customer_category_id'), fn (Builder $query) => $query->where('customer_category_id', $request->integer('customer_category_id')))
             ->when($request->filled('loan_eligible'), function (Builder $query) use ($request): void {
                 $eligible = fn (Builder $query) => $query->where('kyc_status', KycStatusCalculator::COMPLETED)
+                    ->whereIn('approval_status', CustomerEligibility::REGISTRATION_CLEARED)
                     ->where(fn (Builder $query) => $query->whereNull('customer_category_id')->orWhereHas('customerCategory', fn (Builder $query) => $query->where('is_active', true)));
 
                 $request->boolean('loan_eligible') ? $eligible($query) : $query->whereNot(fn (Builder $query) => $eligible($query));
@@ -139,9 +141,16 @@ class CustomerController extends ApiController
         return new CustomerResource($this->loadForResource($this->findAccessible($customer, withTrashed: true)));
     }
 
-    public function update(UpdateCustomerRequest $request, Customer $customer): CustomerResource
+    /**
+     * A change by branch staff to a registered customer waits for CRM approval (202, nothing changed yet); CRM, Admin and
+     * changes to a registration still in progress apply at once ({@see CustomerUpdates}).
+     */
+    public function update(UpdateCustomerRequest $request, Customer $customer, CustomerUpdates $updates): CustomerResource|JsonResponse
     {
-        $this->registrar->update($customer, $request->validated(), $this->currentEmployee());
+        $pending = $updates->submit($customer, $request->validated(), $this->currentEmployee());
+        if ($pending !== null) {
+            return $this->message('Changes sent to CRM for approval. The customer keeps the current details until they are approved.', 202, ['data' => ['update_request_id' => $pending->id, 'changes' => $pending->changes]]);
+        }
 
         return new CustomerResource($this->loadForResource($customer->refresh()));
     }

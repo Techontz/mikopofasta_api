@@ -26,6 +26,7 @@ class TicketRequest extends FormRequest
 
         return [
             'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')->where('company_id', $companyId)],
+            'type' => ['required', Rule::in(array_keys(CrmTicket::TYPES))],
             'category' => ['required', Rule::in(array_keys(CrmTicket::CATEGORIES))],
             'channel' => ['required', Rule::in(array_keys(CrmTicket::CHANNELS))],
             'priority' => ['required', Rule::in(array_keys(CrmTicket::PRIORITIES))],

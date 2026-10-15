@@ -13,6 +13,7 @@ use App\Models\Employee;
 use App\Models\Loan;
 use App\Models\LoanTransaction;
 use App\Models\SmsLog;
+use App\Services\Crm\CustomerCareDashboard;
 use App\Services\LoanService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,8 +40,28 @@ class CrmController extends ApiController
             'my_follow_ups_due' => $pendingFollowUps()->where('employee_id', $me)->whereDate('follow_up_date', '<=', $today)->count(),
             'follow_ups_due' => $pendingFollowUps()->whereDate('follow_up_date', $today)->count(),
             'follow_ups_overdue' => $pendingFollowUps()->whereDate('follow_up_date', '<', $today)->count(),
-            'open_tickets' => $this->scoped(CrmTicket::query())->whereIn('status', ['open', 'in_progress'])->count(),
+            'open_tickets' => $this->scoped(CrmTicket::query())->whereIn('status', CrmTicket::OPEN_STATUSES)->count(),
         ]]);
+    }
+
+    /**
+     * Customer Care dashboard of the CRM department ({@see CustomerCareDashboard}).
+     */
+    public function dashboard(CustomerCareDashboard $dashboard): JsonResponse
+    {
+        $this->authorizeAny('crm.use');
+
+        return response()->json(['data' => $dashboard->build($this->currentEmployee())]);
+    }
+
+    /**
+     * Sidebar counts of what waits for CRM ({@see CustomerCareDashboard::badges()}).
+     */
+    public function badges(CustomerCareDashboard $dashboard): JsonResponse
+    {
+        $this->authorizeAny('crm.use');
+
+        return response()->json(['data' => $dashboard->badges($this->currentEmployee())]);
     }
 
     public function options(): JsonResponse
@@ -53,6 +74,7 @@ class CrmController extends ApiController
             'types' => $pairs(CrmInteraction::TYPES),
             'directions' => $pairs(CrmInteraction::DIRECTIONS),
             'outcomes' => $pairs(CrmInteraction::OUTCOMES),
+            'case_types' => $pairs(CrmTicket::TYPES),
             'categories' => $pairs(CrmTicket::CATEGORIES),
             'channels' => $pairs(CrmTicket::CHANNELS),
             'priorities' => $pairs(CrmTicket::PRIORITIES),

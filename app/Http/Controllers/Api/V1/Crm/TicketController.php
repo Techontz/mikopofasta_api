@@ -22,8 +22,9 @@ class TicketController extends ApiController
         $this->authorizeAny('crm.use');
 
         $tickets = $this->applyFilters($this->scoped(CrmTicket::query()), $request, 'crm_tickets.created_at')
+            ->when($request->filled('type') && $request->input('type') !== 'all', fn ($query) => $query->where('type', $request->string('type')->toString()))
             ->when($request->filled('status') && $request->input('status') !== 'all', fn ($query) => $request->input('status') === 'pending'
-                ? $query->whereIn('status', ['open', 'in_progress'])
+                ? $query->whereIn('status', CrmTicket::OPEN_STATUSES)
                 : $query->where('status', $request->string('status')->toString()))
             ->when($request->boolean('mine'), fn ($query) => $query->where(fn ($inner) => $inner
                 ->where('assigned_to', $this->currentEmployee()->id)->orWhere('employee_id', $this->currentEmployee()->id)))
@@ -48,6 +49,7 @@ class TicketController extends ApiController
             'customer_id' => $customer->id,
             'employee_id' => $this->currentEmployee()->id,
             'assigned_to' => $request->input('assigned_to'),
+            'type' => $request->string('type')->toString(),
             'category' => $request->string('category')->toString(),
             'channel' => $request->string('channel')->toString(),
             'priority' => $request->string('priority')->toString(),
@@ -55,7 +57,7 @@ class TicketController extends ApiController
             'description' => $request->string('description')->toString(),
         ]);
 
-        return $this->message('Customer report registered successfully', 201, ['data' => new TicketResource($ticket->refresh()->load(['customer', 'branch', 'employee', 'assignee']))]);
+        return $this->message(CrmTicket::TYPES[$ticket->type].' registered successfully', 201, ['data' => new TicketResource($ticket->refresh()->load(['customer', 'branch', 'employee', 'assignee']))]);
     }
 
     public function show(CrmTicket $ticket): TicketResource
