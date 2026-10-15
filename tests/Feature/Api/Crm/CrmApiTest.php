@@ -116,12 +116,13 @@ class CrmApiTest extends TestCase
 
         $ticket = $this->postJson('/api/v1/crm/tickets', [
             'customer_id' => $customer->id,
+            'type' => 'complaint',
             'category' => 'payment_issue',
             'channel' => 'call',
             'priority' => 'high',
             'subject' => 'Malipo hayajaonekana',
             'description' => 'Alilipa kwa M-Pesa jana lakini salio halijabadilika.',
-        ])->assertCreated()->assertJsonPath('message', 'Customer report registered successfully')->json('data');
+        ])->assertCreated()->assertJsonPath('message', 'Complaint registered successfully')->assertJsonPath('data.type', 'complaint')->json('data');
 
         $this->assertMatchesRegularExpression('/^CRM\d{6}$/', $ticket['ticket_number']);
 

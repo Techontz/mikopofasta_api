@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 /**
- * Customer report / complaint received by staff and tracked until resolved.
+ * CRM case received from a customer and tracked until resolved: a complaint (something went wrong) or a customer request
+ * (something the customer asks for — a statement, a change of details …), shown on Complaints and Customer Requests.
  */
 class CrmTicket extends Model
 {
@@ -17,13 +18,36 @@ class CrmTicket extends Model
     /**
      * @var array<string, string>
      */
-    public const CATEGORIES = [
+    public const TYPES = [
         'complaint' => 'Complaint',
-        'inquiry' => 'Inquiry',
-        'request' => 'Request',
-        'payment_issue' => 'Payment issue',
-        'staff_conduct' => 'Staff conduct',
+        'request' => 'Customer Request',
+    ];
+
+    /**
+     * Categories offered for a new case (Customer Care dashboard "Customer Cases by Category").
+     *
+     * @var array<string, string>
+     */
+    public const CATEGORIES = [
+        'payment_issue' => 'Payment Issue',
+        'loan_inquiry' => 'Loan Inquiry',
+        'account_update' => 'Account Update',
+        'kyc_issue' => 'KYC Issue',
+        'general_inquiry' => 'General Inquiry',
+        'staff_conduct' => 'Staff Conduct',
         'feedback' => 'Feedback',
+        'other' => 'Other',
+    ];
+
+    /**
+     * Categories of cases recorded before the Customer Care categories, still shown by their label.
+     *
+     * @var array<string, string>
+     */
+    public const LEGACY_CATEGORIES = [
+        'complaint' => 'Complaint',
+        'inquiry' => 'General Inquiry',
+        'request' => 'Request',
     ];
 
     /**
@@ -51,9 +75,22 @@ class CrmTicket extends Model
     public const STATUSES = [
         'open' => 'OPEN',
         'in_progress' => 'IN PROGRESS',
+        'waiting' => 'WAITING',
         'resolved' => 'RESOLVED',
         'closed' => 'CLOSED',
     ];
+
+    /**
+     * Statuses of a case still being handled.
+     *
+     * @var list<string>
+     */
+    public const OPEN_STATUSES = ['open', 'in_progress', 'waiting'];
+
+    public static function categoryLabel(string $category): string
+    {
+        return self::CATEGORIES[$category] ?? self::LEGACY_CATEGORIES[$category] ?? Str::headline($category);
+    }
 
     protected $guarded = ['id'];
 

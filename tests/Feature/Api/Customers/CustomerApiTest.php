@@ -29,7 +29,9 @@ class CustomerApiTest extends TestCase
         $matrix = [
             'super_admin' => [true, true, true, true],
             'admin' => [true, true, true, true],
-            'branch_manager' => [true, true, true, true],
+            // KYC approval is Admin's and CRM's only, never the branch's (user ruling 2026-10-15).
+            'branch_manager' => [true, true, false, true],
+            'crm' => [true, false, true, false],
             'loan_officer' => [true, true, false, false],
             'finance' => [true, false, false, false],
             'credit_officer' => [true, false, false, false],
@@ -70,8 +72,10 @@ class CustomerApiTest extends TestCase
         $this->getJson('/api/v1/customers?approval_status=pending')->assertOk()->assertJsonPath('meta.total', 1);
         $this->getJson("/api/v1/customers?branch_id={$other->id}")->assertOk()->assertJsonPath('meta.total', 1);
         $this->getJson("/api/v1/customers?customer_category_id={$category->id}")->assertOk()->assertJsonPath('meta.total', 1);
-        $this->getJson('/api/v1/customers?loan_eligible=0')->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $foreign->id);
-        $this->getJson('/api/v1/customers?loan_eligible=1')->assertOk()->assertJsonPath('meta.total', 4);
+        // Asha's KYC is complete but her registration still waits for approval, so she cannot be applied for yet.
+        $notEligible = $this->getJson('/api/v1/customers?loan_eligible=0')->assertOk()->assertJsonPath('meta.total', 2)->json('data.*.id');
+        $this->assertEqualsCanonicalizing([$asha->id, $foreign->id], $notEligible);
+        $this->getJson('/api/v1/customers?loan_eligible=1')->assertOk()->assertJsonPath('meta.total', 3);
         $this->getJson('/api/v1/customers?include_deleted=1')->assertOk()->assertJsonPath('meta.total', 6);
 
         $officer = $this->employeeWithRole($admin, 'loan_officer');
@@ -214,7 +218,9 @@ class CustomerApiTest extends TestCase
     {
         $admin = $this->signInAdmin();
         $this->seedCustomerModule($admin);
-        $customer = Customer::factory()->create(['branch_id' => $admin->branch_id, 'first_name' => 'MARKO', 'last_name' => 'VUKARI', 'gender' => null]);
+        // A registration still waiting for KYC approval is edited directly; changes to a registered customer wait for CRM
+        // (CustomerUpdateApiTest).
+        $customer = Customer::factory()->create(['branch_id' => $admin->branch_id, 'first_name' => 'MARKO', 'last_name' => 'VUKARI', 'gender' => null, 'approval_status' => 'pending']);
         $otherBranch = Branch::factory()->create(['company_id' => $admin->company_id]);
 
         // Zone managers hold customers.edit too, but only reach customers of their zone's branches (AccessControl scope).
@@ -241,10 +247,13 @@ class CustomerApiTest extends TestCase
         $this->seedCustomerModule($admin);
         $customerId = $this->postJson('/api/v1/customers', $this->registrationPayload($admin))->json('data.id');
         $officer = $this->employeeWithRole($admin, 'loan_officer');
-        $manager = $this->employeeWithRole($admin, 'branch_manager');
+        $manager = $this->employeeWithRole($admin, 'crm');
 
         $this->actingAs($officer)->getJson('/api/v1/customers/pending-approval')->assertForbidden();
         $this->actingAs($officer)->postJson("/api/v1/customers/{$customerId}/approve")->assertForbidden();
+        $branchManager = $this->employeeWithRole($admin, 'branch_manager');
+        $this->actingAs($branchManager)->getJson('/api/v1/customers/pending-approval')->assertForbidden();
+        $this->actingAs($branchManager)->postJson("/api/v1/customers/{$customerId}/approve")->assertForbidden();
 
         $this->actingAs($manager)->getJson('/api/v1/customers/pending-approval')->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $customerId);
         $this->postJson("/api/v1/customers/{$customerId}/reject", [])->assertUnprocessable()->assertJsonValidationErrors('reason');

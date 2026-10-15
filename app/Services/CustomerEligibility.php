@@ -11,8 +11,10 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Loan eligibility of a customer from the business model CUSTOMER TYPE (1) → (many) LOAN CATEGORY and KYC completion
- * (`kyc_status` = completed). Used by the Loans module.
+ * Loan eligibility of a customer from the business model CUSTOMER TYPE (1) → (many) LOAN CATEGORY, KYC completion
+ * (`kyc_status` = completed) and the approval of the registration (`approval_status` approved; customers registered
+ * before registration approvals existed are `not_required`). A newly registered customer cannot be applied for until
+ * the registration is approved. Used by the Loans module.
  *
  * A customer may take only the ACTIVE loan categories (LoanCategory::scopeActive — customer type active, category assigned
  * to the customer's branch) whose customer_category_id is the customer's customer type; the amount limits are the loan
@@ -27,16 +29,24 @@ class CustomerEligibility
 {
     public const NO_CUSTOMER_TYPE = 'Assign a customer type to this customer before applying for a loan.';
 
+    public const REGISTRATION_PENDING = "The customer's registration (KYC) is waiting for approval. A loan can be applied for once it is approved.";
+
+    public const REGISTRATION_REJECTED = "The customer's registration (KYC) was returned. Correct it and have it approved before applying for a loan.";
+
+    /** Registration approval states that allow a loan: approved, or registered before approvals existed. */
+    public const REGISTRATION_CLEARED = ['approved', 'not_required'];
+
     public function __construct(private KycStatusCalculator $kyc) {}
 
     /**
-     * @return array{customer_id: int, kyc_status: string, kyc_complete: bool, eligible: bool, category: array{id: int, key: string|null, code: string|null, name: string}|null, risk_level: string|null, loan_category_ids: list<int>, checklist: list<array{key: string, label: string, required: bool, complete: bool}>, reasons: list<string>, freeze: array<string, mixed>, can_apply: bool}
+     * @return array{customer_id: int, kyc_status: string, kyc_complete: bool, approval_status: string, registration_approved: bool, eligible: bool, category: array{id: int, key: string|null, code: string|null, name: string}|null, risk_level: string|null, loan_category_ids: list<int>, checklist: list<array{key: string, label: string, required: bool, complete: bool}>, reasons: list<string>, freeze: array<string, mixed>, can_apply: bool}
      */
     public function for(Customer $customer): array
     {
         $customer->loadMissing('customerCategory');
         $category = $customer->customerCategory;
         $kycComplete = $customer->kyc_status === KycStatusCalculator::COMPLETED;
+        $registrationApproved = in_array($customer->approval_status ?? 'not_required', self::REGISTRATION_CLEARED, true);
 
         $reasons = [];
         if ($category === null) {
@@ -47,6 +57,9 @@ class CustomerEligibility
         if (! $kycComplete) {
             $reasons[] = "Please wait for the customer's KYC to be verified!";
         }
+        if (! $registrationApproved) {
+            $reasons[] = $customer->approval_status === 'rejected' ? self::REGISTRATION_REJECTED : self::REGISTRATION_PENDING;
+        }
 
         $freeze = $this->freeze($customer);
 
@@ -54,6 +67,8 @@ class CustomerEligibility
             'customer_id' => $customer->id,
             'kyc_status' => (string) $customer->kyc_status,
             'kyc_complete' => $kycComplete,
+            'approval_status' => (string) ($customer->approval_status ?? 'not_required'),
+            'registration_approved' => $registrationApproved,
             'eligible' => $reasons === [],
             'category' => $category ? ['id' => $category->id, 'key' => $category->key, 'code' => $category->code, 'name' => $category->name] : null,
             'risk_level' => $category?->risk_level,

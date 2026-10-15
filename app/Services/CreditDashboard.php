@@ -255,7 +255,7 @@ final class CreditDashboard
      * @param  list<int>|null  $branchIds
      * @return list<array{key: string, label: string, count: int, status: string, tone: string, link: string|null}>
      */
-    private function approvals(Company $company, ?array $branchIds, Employee $viewer): array
+    public function approvals(Company $company, ?array $branchIds, Employee $viewer): array
     {
         $counts = $this->scoped(DB::table('loans'), $company, $branchIds)
             ->whereIn('loans.status', LoanStatus::values(...LoanStatus::inPipeline()))

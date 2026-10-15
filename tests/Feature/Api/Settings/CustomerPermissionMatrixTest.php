@@ -28,7 +28,9 @@ class CustomerPermissionMatrixTest extends TestCase
     private const MATRIX = [
         'super_admin' => ['customers.view', 'customers.manage', 'customers.approve', 'customers.assign_officer', 'branches.view_all'],
         'admin' => ['customers.view', 'customers.manage', 'customers.approve', 'customers.assign_officer', 'branches.view_all'],
-        'branch_manager' => ['customers.view', 'customers.manage', 'customers.approve', 'customers.assign_officer'],
+        // KYC approval left the branch for the CRM department (user ruling 2026-10-15).
+        'branch_manager' => ['customers.view', 'customers.manage', 'customers.assign_officer'],
+        'crm' => ['customers.view', 'customers.approve', 'branches.view_all'],
         'loan_officer' => ['customers.view', 'customers.manage'],
         'finance' => ['customers.view', 'branches.view_all'],
         'credit_officer' => ['customers.view', 'branches.view_all'],
