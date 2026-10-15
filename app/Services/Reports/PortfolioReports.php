@@ -597,6 +597,19 @@ class PortfolioReports
     }
 
     /**
+     * Running loans (active, overdue, default) in scope with their balances (out_principal, out_total…), branch and
+     * `arrears` / `oldest_due` / `dpd` as of today — the loans the Default & Arrears report is built from.
+     *
+     * @return Collection<int, object>
+     */
+    public function runningLoans(ReportScope $scope, CarbonImmutable $today): Collection
+    {
+        return $this->withArrears($this->loanDataset($scope, filterByWithdrawal: false), $today)
+            ->filter(fn (object $loan): bool => $this->isRepayable($loan))
+            ->values();
+    }
+
+    /**
      * Cashed-out loans in scope with balances and grouping attributes.
      *
      * @return Collection<int, object>
