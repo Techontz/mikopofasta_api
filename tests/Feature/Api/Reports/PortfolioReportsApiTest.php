@@ -102,6 +102,7 @@ class PortfolioReportsApiTest extends TestCase
             'outstanding_interest' => 120000, 'outstanding_penalty' => 5000, 'outstanding_insurance' => 0, 'outstanding_total' => 405000, 'written_off_principal' => 0, 'written_off_outstanding' => 0,
             'penalty_without_loan' => 0, 'active_outstanding_principal' => 200000, 'default_outstanding_principal' => 80000, 'salary_advance_outstanding' => 0,
             'customer_outstanding' => 405000, 'old_system_loans' => 0, 'old_system_outstanding_principal' => 0,
+            'default_outstanding' => 110000, 'default_customers' => 1,
         ], $data['summary']);
 
         $branch = collect($data['by_branch'])->firstWhere('outstanding_principal', 80000);
