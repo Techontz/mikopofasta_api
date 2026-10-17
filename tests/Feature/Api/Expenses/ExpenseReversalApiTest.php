@@ -82,7 +82,7 @@ class ExpenseReversalApiTest extends TestCase
     {
         $this->ledger->openingBalance($this->admin->company_id, Account::HqInterest, 50000);
         $hq = $this->pending('hq', $this->type('hq', 'MAFUTA'), 20000);
-        $this->approveAsSecondUser($this->admin, "/api/v1/expenses/requests/{$hq->id}/accept", ['from_account' => Account::HqInterest->value]);
+        $this->approveAsSecondUser($this->admin, "/api/v1/expenses/requests/{$hq->id}/accept");
 
         $bank = BankAccount::create(['company_id' => $this->admin->company_id, 'name' => 'NMB']);
         $this->ledger->openingBalance($this->admin->company_id, Account::Bank, 16200, bankAccount: $bank);

@@ -343,20 +343,7 @@ class CompanyFunds
     private function postFromPool(BankTransfer $transfer, Employee $approver, array $destination, array $holdings, string $description): BankTransfer
     {
         $amount = (float) $transfer->amount;
-        $total = round(array_sum(array_column($holdings, 'balance')), 2);
-
-        $credits = array_map(fn (array $holding): float => min($holding['balance'], floor($amount * $holding['balance'] / $total * 100) / 100), $holdings);
-        $remainder = round($amount - array_sum($credits), 2);
-        foreach ($holdings as $index => $holding) {
-            $extra = min($remainder, round($holding['balance'] - $credits[$index], 2));
-            $credits[$index] = round($credits[$index] + $extra, 2);
-            $remainder = round($remainder - $extra, 2);
-        }
-
-        $lines = [$destination + ['debit' => $amount]];
-        foreach ($holdings as $index => $holding) {
-            $lines[] = ['account' => $holding['account'], 'branch' => $holding['branch'], 'credit' => $credits[$index]];
-        }
+        $lines = [$destination + ['debit' => $amount], ...CashAccounts::drawLines($holdings, $amount)];
 
         $entry = $this->ledger->journal($transfer->company_id, $description, $lines, $transfer);
 

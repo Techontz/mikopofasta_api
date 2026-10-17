@@ -142,6 +142,34 @@ class CashAccounts
     }
 
     /**
+     * Credit lines that draw an amount from a pool ({@see fundHoldings()}), each account in proportion to what it holds, rounded
+     * to the cent with the remainder placed on the accounts that still have room — so the lines add up to the amount exactly
+     * and no account goes below zero. The caller has checked that the pool covers the amount.
+     *
+     * @param  list<array{account: Account, branch: int|null, balance: float}>  $holdings
+     * @return list<array{account: Account, branch: int|null, credit: float}>
+     */
+    public static function drawLines(array $holdings, float $amount): array
+    {
+        $total = round(array_sum(array_column($holdings, 'balance')), 2);
+
+        $credits = array_map(fn (array $holding): float => min($holding['balance'], floor($amount * $holding['balance'] / $total * 100) / 100), $holdings);
+        $remainder = round($amount - array_sum($credits), 2);
+        foreach ($holdings as $index => $holding) {
+            $extra = min($remainder, round($holding['balance'] - $credits[$index], 2));
+            $credits[$index] = round($credits[$index] + $extra, 2);
+            $remainder = round($remainder - $extra, 2);
+        }
+
+        $lines = [];
+        foreach ($holdings as $index => $holding) {
+            $lines[] = ['account' => $holding['account'], 'branch' => $holding['branch'], 'credit' => $credits[$index]];
+        }
+
+        return $lines;
+    }
+
+    /**
      * Balances of the given accounts per branch, largest first, ignoring accounts without money.
      *
      * @param  list<Account>  $accounts
