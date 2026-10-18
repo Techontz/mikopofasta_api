@@ -115,16 +115,17 @@ class ExpenseApiTest extends TestCase
         $this->assertSame(900000.0, $this->ledger->balance($this->admin->company_id, Account::Principal, $this->admin->branch_id));
     }
 
-    public function test_hq_expense_is_approved_by_admin_and_paid_from_hq_account_never_branch_petty_cash(): void
+    public function test_hq_expense_is_approved_by_admin_and_paid_from_operation_income_never_branch_petty_cash(): void
     {
         $type = $this->type('hq', 'MAFUTA');
         $this->ledger->openingBalance($this->admin->company_id, Account::Interest, 100000, branch: $this->admin->branch_id);
         $this->ledger->openingBalance($this->admin->company_id, Account::HqInterest, 50000);
+        $this->ledger->openingBalance($this->admin->company_id, Account::PettyCash, 10000, branch: $this->admin->branch_id);
         $requester = $this->employeeWithRole('admin');
         $this->actingAs($requester);
 
         $this->postJson('/api/v1/expenses/requests', [
-            'scope' => 'hq', 'blanch_id' => $this->admin->branch_id, 'ex_id' => $type->id, 'req_amount' => 20000, 'req_description' => 'gari',
+            'scope' => 'hq', 'blanch_id' => $this->admin->branch_id, 'ex_id' => $type->id, 'req_amount' => 30000, 'req_description' => 'gari',
         ])->assertCreated();
         $request = ExpenseRequest::firstOrFail();
         $this->assertSame($this->admin->branch_id, $request->branch_id);
@@ -134,25 +135,31 @@ class ExpenseApiTest extends TestCase
         $this->postJson("/api/v1/expenses/requests/{$request->id}/accept")->assertForbidden();
 
         $this->actingAs($requester);
-        $this->postJson("/api/v1/expenses/requests/{$request->id}/accept", ['from_account' => Account::Interest->value])->assertUnprocessable()->assertJsonValidationErrors('from_account');
+        // HQ expenses come from OPERATION INCOME only (user ruling 2026-10-18): no other account may be chosen.
+        $this->postJson("/api/v1/expenses/requests/{$request->id}/accept", ['from_account' => Account::Company->value])->assertUnprocessable()->assertJsonValidationErrors('from_account');
         // Rule 6: the requesting admin cannot accept it; another admin does.
-        $this->postJson("/api/v1/expenses/requests/{$request->id}/accept", ['from_account' => Account::HqInterest->value])->assertForbidden();
-        $this->approveAsSecondUser($requester, "/api/v1/expenses/requests/{$request->id}/accept", ['from_account' => Account::HqInterest->value]);
+        $this->postJson("/api/v1/expenses/requests/{$request->id}/accept")->assertForbidden();
+        $this->approveAsSecondUser($requester, "/api/v1/expenses/requests/{$request->id}/accept", ['from_account' => 'operation_income']);
 
-        $this->assertSame(30000.0, $this->ledger->balance($this->admin->company_id, Account::HqInterest));
-        $this->assertSame(100000.0, $this->ledger->balance($this->admin->company_id, Account::Interest, $this->admin->branch_id));
-        $this->getJson('/api/v1/expenses/requests?scope=hq&status=accepted')->assertOk()->assertJsonPath('data.0.paid_from', 'INTEREST ACCOUNT')->assertJsonPath('data.0.branch', $this->admin->branch->name);
+        // 30,000 drawn from the pool in proportion: 100,000 branch interest → 20,000, 50,000 HQ interest → 10,000.
+        $this->assertSame(80000.0, $this->ledger->balance($this->admin->company_id, Account::Interest, $this->admin->branch_id));
+        $this->assertSame(40000.0, $this->ledger->balance($this->admin->company_id, Account::HqInterest));
+        $this->assertSame(10000.0, $this->ledger->balance($this->admin->company_id, Account::PettyCash, $this->admin->branch_id));
+        $this->getJson('/api/v1/expenses/requests?scope=hq&status=accepted')->assertOk()->assertJsonPath('data.0.paid_from', 'OPERATION INCOME')->assertJsonPath('data.0.branch', $this->admin->branch->name);
     }
 
-    public function test_hq_expense_defaults_to_company_account(): void
+    public function test_hq_expense_is_paid_from_operation_income_not_the_company_account(): void
     {
         $request = $this->pending('hq', $this->type('hq', 'KODI'), 20000);
-
-        $this->postJson("/api/v1/expenses/requests/{$request->id}/accept")->assertUnprocessable();
-
         $this->ledger->openingBalance($this->admin->company_id, Account::Company, 25000);
+
+        $this->postJson("/api/v1/expenses/requests/{$request->id}/accept")->assertUnprocessable()->assertJsonPath('errors.req_amount.0', 'Insufficient balance in OPERATION INCOME');
+        $this->getJson('/api/v1/hq/options/accounts?with_company=1')->assertOk()->assertExactJson(['data' => [['value' => 'operation_income', 'label' => 'OPERATION INCOME - 0']]]);
+
+        $this->ledger->openingBalance($this->admin->company_id, Account::LoanFee, 25000, branch: $this->admin->branch_id);
         $this->postJson("/api/v1/expenses/requests/{$request->id}/accept")->assertOk();
-        $this->assertSame(5000.0, $this->ledger->balance($this->admin->company_id, Account::Company));
+        $this->assertSame(5000.0, $this->ledger->balance($this->admin->company_id, Account::LoanFee, $this->admin->branch_id));
+        $this->assertSame(25000.0, $this->ledger->balance($this->admin->company_id, Account::Company), 'The company account is not touched.');
     }
 
     public function test_bank_expense_debits_the_bank_account(): void

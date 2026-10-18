@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\Api\V1\Expenses;
 
-use App\Enums\Account;
 use App\Models\ApprovalPolicy;
 use App\Models\Employee;
 use App\Models\ExpenseRequest;
@@ -51,7 +50,7 @@ class ExpenseRequestResource extends JsonResource
             'staff' => $this->employee?->full_name,
             'request_date' => $this->request_date?->toDateString(),
             'paid_from_account' => $this->paid_from_account,
-            'paid_from' => $this->paid_from_account ? Account::tryFrom($this->paid_from_account)?->label() : null,
+            'paid_from' => ExpenseApproval::paidFromLabel($this->paid_from_account),
             'approved_by' => $this->approver?->full_name,
             'approved_at' => $this->approved_at?->toDateString(),
             'approval_level' => in_array('expenses.approve_branch', $required, true) ? 'finance' : 'admin',

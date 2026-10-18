@@ -8,6 +8,7 @@ use App\Models\ExpenseRequest;
 use App\Models\JournalEntry;
 use App\Models\Payment;
 use App\Models\TellerDeposit;
+use App\Services\ExpenseApproval;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -50,7 +51,6 @@ class ControlReports
         $rows = $query->get()->map(function (ExpenseRequest $expense): array {
             $flags = $this->expenseFlags($expense);
             $hqPaidBranchTagged = $expense->scope !== 'branch' && $expense->branch_id !== null;
-            $paidFrom = Account::tryFrom((string) $expense->paid_from_account);
 
             return [
                 'id' => $expense->id,
@@ -59,7 +59,7 @@ class ControlReports
                 'scope' => strtoupper($expense->scope),
                 'tag' => $expense->scope === 'branch' ? 'BRANCH' : ($hqPaidBranchTagged ? 'HQ-PAID / BRANCH-TAGGED' : 'HQ'),
                 'branch' => $expense->branch?->name,
-                'paid_from' => $paidFrom?->label() ?? $expense->paid_from_account,
+                'paid_from' => ExpenseApproval::paidFromLabel($expense->paid_from_account),
                 'amount' => (float) $expense->amount,
                 'description' => $expense->description,
                 'requested_by' => $expense->employee?->full_name,

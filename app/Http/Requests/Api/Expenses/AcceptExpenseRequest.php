@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Api\Expenses;
 
-use App\Enums\Account;
 use App\Services\Approvals\ReserveProtection;
 use App\Services\ExpenseApproval;
 use Closure;
@@ -28,6 +27,7 @@ class AcceptExpenseRequest extends FormRequest
         return [
             'req_comment' => ['nullable', 'string', 'max:1000'],
             'req_amount' => ['nullable', 'numeric', 'min:1'],
+            // HQ expenses are always paid from OPERATION INCOME; the field remains for forms that still send it.
             'from_account' => [
                 'nullable',
                 function (string $attribute, mixed $value, Closure $fail): void {
@@ -35,7 +35,7 @@ class AcceptExpenseRequest extends FormRequest
                         $fail(ReserveProtection::MESSAGE);
                     }
                 },
-                Rule::in(array_map(fn (Account $account): string => $account->value, ExpenseApproval::hqSourceAccounts())),
+                Rule::in([ExpenseApproval::HQ_SOURCE->value]),
             ],
         ];
     }

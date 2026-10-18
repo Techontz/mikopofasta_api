@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Enums\Account;
+use App\Enums\HqFund;
 use App\Models\ApprovalPolicy;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\ExpenseRequest;
 use App\Services\Approvals\ReserveProtection;
 use App\Services\Approvals\SegregationOfDuties;
+use App\Services\Reports\Financial\CashAccounts;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -18,9 +20,11 @@ use Illuminate\Validation\ValidationException;
  *  - Branch petty expenses (specification §34, ruling 2026-09-17) are approved by Finance (expenses.approve_branch)
  *    up to the company's expense_approval_limit; anything above it, and all HQ expenses, need Admin
  *    (expenses.approve_hq). Finance can never get under the Admin threshold by approving a smaller amount than requested.
- *  - Branch expenses are paid from the branch PETTY CASH A/C; HQ expenses from HQ (company) accounts and
- *    never from branch interest; bank expenses from the chosen bank account.
- *  - Every expense is posted Dr EXPENSES (tagged with branch + expense type) / Cr source account.
+ *  - Branch expenses are paid from the branch PETTY CASH A/C; bank expenses from the chosen bank account.
+ *  - HQ expenses are paid from OPERATION INCOME (user ruling 2026-10-18: "Matumizi yanayofanywa HQ yanatakiwa kutoka kwenye
+ *    Operation Income") — the pool of interest, loan fee and penalty, branch and HQ ({@see HqFund::OperationIncome}), drawn
+ *    in proportion to what each account holds, exactly as petty cash is ({@see CashAccounts::drawLines()}). Never a reserve.
+ *  - Every expense is posted Dr EXPENSES (tagged with branch + expense type) / Cr source account(s).
  */
 class ExpenseApproval
 {
@@ -30,7 +34,16 @@ class ExpenseApproval
         private readonly Ledger $ledger,
         private readonly TransferReversal $reversals,
         private readonly SegregationOfDuties $duties,
+        private readonly CashAccounts $cash,
     ) {}
+
+    /**
+     * Label of the account an expense was paid from: a ledger account, or the HQ Account List row (OPERATION INCOME).
+     */
+    public static function paidFromLabel(?string $paidFrom): ?string
+    {
+        return $paidFrom === null ? null : (Account::tryFrom($paidFrom)?->label() ?? HqFund::tryFrom($paidFrom)?->label() ?? $paidFrom);
+    }
 
     /**
      * Permissions of which any one allows approving this request for the given amount. The threshold is tested against
@@ -69,28 +82,19 @@ class ExpenseApproval
         unset(self::$limits[$companyId]);
     }
 
-    /**
-     * Accounts an HQ expense may be paid from. Never the HQ RESERVE account (rule 3).
-     *
-     * @return list<Account>
-     */
-    public static function hqSourceAccounts(): array
-    {
-        return ReserveProtection::withoutReserve([Account::Company, ...Account::hqAccounts()]);
-    }
+    /** The HQ Account List row HQ expenses are paid from. */
+    public const HQ_SOURCE = HqFund::OperationIncome;
 
     /**
-     * Resolve the ledger source of the payment.
+     * Resolve the ledger source of a branch or bank expense (HQ expenses are drawn from {@see HQ_SOURCE}).
      *
      * @return array{account: Account, branch?: int|null, bank?: int|null}
      */
-    public function source(ExpenseRequest $expenseRequest, ?Account $hqAccount = null): array
+    public function source(ExpenseRequest $expenseRequest): array
     {
-        return match ($expenseRequest->scope) {
-            'branch' => ['account' => Account::PettyCash, 'branch' => $expenseRequest->branch_id],
-            'bank' => ['account' => Account::Bank, 'bank' => $expenseRequest->bank_account_id],
-            default => ['account' => $hqAccount ?? Account::Company],
-        };
+        return $expenseRequest->scope === 'bank'
+            ? ['account' => Account::Bank, 'bank' => $expenseRequest->bank_account_id]
+            : ['account' => Account::PettyCash, 'branch' => $expenseRequest->branch_id];
     }
 
     /**
@@ -99,14 +103,14 @@ class ExpenseApproval
      *
      * @throws ValidationException when already processed or the source account lacks funds
      */
-    public function accept(ExpenseRequest $expenseRequest, Employee $approver, float $amount, ?string $comment, ?Account $hqAccount = null): ExpenseRequest
+    public function accept(ExpenseRequest $expenseRequest, Employee $approver, float $amount, ?string $comment): ExpenseRequest
     {
         $amount = round($amount, 2);
         if ($amount <= 0) {
             throw ValidationException::withMessages(['req_amount' => 'Amount must be greater than zero']);
         }
 
-        return DB::transaction(function () use ($expenseRequest, $approver, $amount, $comment, $hqAccount): ExpenseRequest {
+        return DB::transaction(function () use ($expenseRequest, $approver, $amount, $comment): ExpenseRequest {
             Company::whereKey($expenseRequest->company_id)->lockForUpdate()->firstOrFail();
             $expenseRequest = ExpenseRequest::whereKey($expenseRequest->id)->lockForUpdate()->firstOrFail();
 
@@ -115,28 +119,31 @@ class ExpenseApproval
             }
             $this->duties->assertCanApprove($expenseRequest->employee_id, $approver, 'expense', workflow: ApprovalPolicy::EXPENSES);
 
-            $source = $this->source($expenseRequest, $hqAccount);
-            ReserveProtection::assertNotReserveSource($source['account'], 'from_account');
-            $available = $this->ledger->balance($expenseRequest->company_id, $source['account'], $source['branch'] ?? null, $source['bank'] ?? null);
+            $expense = ['account' => Account::OperatingExpense, 'branch' => $expenseRequest->branch_id, 'expense_type' => $expenseRequest->expense_type_id];
+            $description = 'Expenses: '.$expenseRequest->expenseType?->name;
 
-            if ($available < $amount) {
-                throw ValidationException::withMessages(['req_amount' => 'Insufficient balance in '.$source['account']->label()]);
+            if ($expenseRequest->scope === 'hq') {
+                $holdings = $this->cash->fundHoldings((int) $expenseRequest->company_id, self::HQ_SOURCE);
+                if (round(array_sum(array_column($holdings, 'balance')), 2) < $amount) {
+                    throw ValidationException::withMessages(['req_amount' => 'Insufficient balance in '.self::HQ_SOURCE->label()]);
+                }
+                $entry = $this->ledger->journal($expenseRequest->company_id, $description, [$expense + ['debit' => $amount], ...CashAccounts::drawLines($holdings, $amount)], $expenseRequest);
+                $paidFrom = self::HQ_SOURCE->value;
+            } else {
+                $source = $this->source($expenseRequest);
+                ReserveProtection::assertNotReserveSource($source['account'], 'from_account');
+                if ($this->ledger->balance($expenseRequest->company_id, $source['account'], $source['branch'] ?? null, $source['bank'] ?? null) < $amount) {
+                    throw ValidationException::withMessages(['req_amount' => 'Insufficient balance in '.$source['account']->label()]);
+                }
+                $entry = $this->ledger->transfer($expenseRequest->company_id, $source, $expense, $amount, $description, $expenseRequest);
+                $paidFrom = $source['account']->value;
             }
-
-            $entry = $this->ledger->transfer(
-                $expenseRequest->company_id,
-                $source,
-                ['account' => Account::OperatingExpense, 'branch' => $expenseRequest->branch_id, 'expense_type' => $expenseRequest->expense_type_id],
-                $amount,
-                'Expenses: '.$expenseRequest->expenseType?->name,
-                $expenseRequest,
-            );
 
             $expenseRequest->update([
                 'amount' => $amount,
                 'comment' => $comment ?? $expenseRequest->comment,
                 'status' => 'accepted',
-                'paid_from_account' => $source['account']->value,
+                'paid_from_account' => $paidFrom,
                 'approved_by' => $approver->id,
                 'approved_at' => now(),
                 'journal_entry_id' => $entry->id,

@@ -107,14 +107,11 @@ class ExpenseRequestController extends ApiController
         $amount = $request->filled('req_amount') ? $request->float('req_amount') : (float) $expenseRequest->amount;
         $this->authorizeAny(...$this->approval->requiredPermissions($expenseRequest, $amount));
 
-        $hqAccount = $expenseRequest->scope === 'hq' && $request->filled('from_account') ? Account::from($request->string('from_account')->toString()) : null;
-
         $this->approval->accept(
             $expenseRequest,
             $this->currentEmployee(),
             $amount,
             $request->filled('req_comment') ? $request->string('req_comment')->toString() : null,
-            $hqAccount,
         );
 
         return $this->message('Expenses Accepted successfully');

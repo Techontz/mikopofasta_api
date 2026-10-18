@@ -15,6 +15,7 @@ use App\Services\Approvals\ReserveProtection;
 use App\Services\Approvals\SegregationOfDuties;
 use App\Services\CompanyFunds;
 use App\Services\DashboardStatistics;
+use App\Services\ExpenseApproval;
 use App\Services\Ledger;
 use App\Services\Reports\Financial\CashAccounts;
 use App\Services\ShareholderAccounts;
@@ -178,7 +179,7 @@ class HqTransactionController extends ApiController
      * the HQ Account List rows behind the green card, each with its balance, and the shareholders' account of the same
      * name in pairs_with, which the form fills the TO box with. DIVIDEND shows what is owed rather than the pool it is
      * held in ({@see HqFund::claim()}); a row with locked=true may be sent to its pair and nowhere else, so the form
-     * fixes the TO box. with_company=1 is the HQ expense payment source (COMPANY ACCOUNT plus the HQ accounts), untouched.
+     * fixes the TO box. with_company=1 is the HQ expense payment source: OPERATION INCOME ({@see ExpenseApproval::HQ_SOURCE}).
      */
     public function accountOptions(Request $request): JsonResponse
     {
@@ -194,12 +195,9 @@ class HqTransactionController extends ApiController
         }
 
         if ($request->boolean('with_company')) {
-            $accounts = ReserveProtection::withoutReserve([Account::Company, ...Account::hqAccounts()]);
+            $fund = ExpenseApproval::HQ_SOURCE;
 
-            return response()->json(['data' => array_map(fn (Account $account): array => [
-                'value' => $account->value,
-                'label' => $account->label().' - '.number_format($this->ledger->balance($companyId, $account)),
-            ], $accounts)]);
+            return response()->json(['data' => [['value' => $fund->value, 'label' => $fund->label().' - '.number_format($this->fundBalance($companyId, $fund))]]]);
         }
 
         $pairs = collect($this->shareholders->options($companyId))->keyBy('fund');
