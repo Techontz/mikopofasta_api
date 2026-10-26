@@ -64,8 +64,17 @@ class SmsTemplates
         }
     }
 
+    /**
+     * The company's template for an automatic message. The defaults are only created when the row is missing, so texting a
+     * hundred receipts in one request costs a hundred reads, not four hundred.
+     */
     public function template(int $companyId, string $key): SmsTemplate
     {
+        $existing = SmsTemplate::where('company_id', $companyId)->where('key', $key)->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+
         $this->ensureDefaults($companyId);
 
         return SmsTemplate::where('company_id', $companyId)->where('key', $key)->firstOrFail();

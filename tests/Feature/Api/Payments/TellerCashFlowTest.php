@@ -4,15 +4,19 @@ namespace Tests\Feature\Api\Payments;
 
 use App\Enums\Account;
 use App\Enums\PaymentStatus;
+use App\Integrations\Sms\SmsGateway;
 use App\Models\AuditLog;
 use App\Models\BankAccount;
 use App\Models\Branch;
+use App\Models\Loan;
 use App\Models\Payment;
 use App\Models\PaymentProvider;
 use App\Models\SmsLog;
 use App\Models\TellerDeposit;
 use App\Services\PaymentService;
+use App\Services\Sms\SmsSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -137,6 +141,85 @@ class TellerCashFlowTest extends TestCase
         $this->assertSame(5000.0, $this->balance($admin, Account::PenaltyIncome, $admin->branch_id));
         $this->assertTrue(SmsLog::where('customer_id', $loan->customer_id)->where('category', 'payment')->where('message', 'like', 'Tumepokea malipo yako%')->exists());
         $this->assertTrue(AuditLog::where('action', 'TellerDeposit.updated')->exists());
+    }
+
+    /**
+     * A slip carrying many receipts is what Finance really verifies, and it used to answer 500: every receipt's SMS was
+     * handed to the provider from inside the posting transaction, so the request spent minutes on blocking HTTP calls and
+     * was cut off before it could commit. The messages must now be written to the SMS Log inside the transaction and reach
+     * the provider only after the response, with the whole slip posted.
+     */
+    public function test_a_long_slip_posts_every_receipt_and_texts_only_after_the_response(): void
+    {
+        $gateway = new class implements SmsGateway
+        {
+            /** @var list<int> */
+            public array $transactionLevels = [];
+
+            public function send(string $phone, string $message): void
+            {
+                $this->transactionLevels[] = DB::transactionLevel();
+            }
+        };
+        $this->app->instance(SmsGateway::class, $gateway);
+
+        $admin = $this->signInAdmin();
+        $teller = $this->employeeWithRole($admin, 'teller');
+        $finance = $this->employeeWithRole($admin, 'finance');
+        $bank = BankAccount::create(['company_id' => $admin->company_id, 'name' => 'NMB']);
+
+        $loans = collect(range(1, 12))->map(fn (int $index): Loan => $this->activeLoan($admin, customer: ['phone' => '0712'.str_pad((string) $index, 6, '0', STR_PAD_LEFT)]));
+        $receipts = $loans->map(fn (Loan $loan): int => (int) $this->actingAs($teller)
+            ->postJson("/api/v1/teller/customers/{$loan->customer_id}/deposit", ['depost' => 1000, 'p_method' => 'CASH'])
+            ->assertCreated()->json('data.id'));
+
+        $this->actingAs($teller)->postJson('/api/v1/teller/bank-deposits', [
+            'bank_account_id' => $bank->id, 'slip_number' => 'SLIP-LONG', 'amount' => 1000 * $receipts->count(), 'deposit_date' => today()->toDateString(), 'payment_ids' => $receipts->all(),
+        ])->assertCreated();
+        $deposit = TellerDeposit::sole();
+
+        $this->actingAs($finance)->postJson("/api/v1/payments/reconciliation/{$deposit->id}/verify", ['statement_amount' => 1000 * $receipts->count(), 'statement_reference' => 'NMB-LONG'])
+            ->assertOk()->assertJsonPath('message', 'Deposit verified and posted: the loans are reduced and the money is in the bank');
+
+        $this->assertSame(TellerDeposit::STATUS_CONFIRMED, $deposit->fresh()->status);
+        $this->assertSame($receipts->count(), Payment::where('status', PaymentStatus::Confirmed->value)->count());
+        $loans->each(fn (Loan $loan) => $this->assertEquals(1000, $loan->transactions()->where('type', 'deposit')->sole()->principal));
+        $this->assertSame(0.0, $this->balance($admin, Account::TellerCash, $admin->branch_id, employeeId: $teller->id));
+        $this->assertSame(0.0, $this->balance($admin, Account::Suspense, null));
+        $this->assertSame(0.0, $this->balance($admin, Account::Bank, bankAccountId: $bank->id));
+
+        // Every receipt is texted, and nothing was sent while the posting transaction was still open.
+        $this->assertSame($receipts->count(), SmsLog::where('category', 'payment')->where('status', SmsSender::STATUS_SENT)->count());
+        $this->assertCount($receipts->count(), $gateway->transactionLevels);
+        // RefreshDatabase keeps one transaction open around the test, so "no posting transaction" is that depth and no deeper.
+        $this->assertSame([DB::transactionLevel()], array_values(array_unique($gateway->transactionLevels)), 'receipt SMS must leave the posting transaction before it reaches the provider');
+    }
+
+    /**
+     * payments.loan_id is nulled when a loan is deleted, so a banked receipt can outlive its loan. Posting the slip used to
+     * read the status of a loan that was not there any more and answer 500; Finance must be told which receipt is the problem.
+     */
+    public function test_a_receipt_whose_loan_is_gone_is_named_instead_of_failing_the_slip(): void
+    {
+        $admin = $this->signInAdmin();
+        $teller = $this->employeeWithRole($admin, 'teller');
+        $finance = $this->employeeWithRole($admin, 'finance');
+        $bank = BankAccount::create(['company_id' => $admin->company_id, 'name' => 'NMB']);
+        $loan = $this->activeLoan($admin);
+
+        $this->actingAs($teller)->postJson("/api/v1/teller/customers/{$loan->customer_id}/deposit", ['depost' => 1000, 'p_method' => 'CASH'])->assertCreated();
+        $payment = Payment::sole();
+        $this->actingAs($teller)->postJson('/api/v1/teller/bank-deposits', [
+            'bank_account_id' => $bank->id, 'slip_number' => 'SLIP-ORPHAN', 'amount' => 1000, 'deposit_date' => today()->toDateString(), 'payment_ids' => [$payment->id],
+        ])->assertCreated();
+        $deposit = TellerDeposit::sole();
+
+        $payment->forceFill(['loan_id' => null])->save();
+
+        $this->actingAs($finance)->postJson("/api/v1/payments/reconciliation/{$deposit->id}/verify", ['statement_amount' => 1000, 'statement_reference' => 'NMB-ORPHAN'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['deposit' => 'These receipts have no loan left to post to: '.$payment->receipt_number.'. Reject the slip so the teller can bank the rest.']);
+        $this->assertSame(TellerDeposit::STATUS_PENDING, $deposit->fresh()->status);
     }
 
     public function test_the_teller_edits_a_mismatched_slip_and_finance_verifies_it_again(): void

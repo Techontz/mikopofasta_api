@@ -48,6 +48,7 @@ class ReconciliationController extends ApiController
         $this->authorizeAny('payments.verify');
         $this->assertBranchAccessible((int) $tellerDeposit->branch_id);
         $duties->assertCanApprove($tellerDeposit->employee_id, $this->currentEmployee(), 'teller deposit', workflow: ApprovalPolicy::TELLER_DEPOSITS);
+        self::allowTimeToPostEveryReceipt();
 
         $deposit = DB::transaction(function () use ($request, $tellerDeposit): TellerDeposit {
             $deposit = $this->payments->verifyDeposit($tellerDeposit, (float) $request->input('statement_amount'), $request->string('statement_reference')->toString(), $this->currentEmployee());
@@ -69,6 +70,7 @@ class ReconciliationController extends ApiController
         $this->authorizeAny('payments.verify');
         $this->assertBranchAccessible((int) $tellerDeposit->branch_id);
         $duties->assertCanApprove($tellerDeposit->employee_id, $this->currentEmployee(), 'teller deposit', workflow: ApprovalPolicy::TELLER_DEPOSITS);
+        self::allowTimeToPostEveryReceipt();
 
         $this->payments->confirmDeposit($tellerDeposit, $this->currentEmployee());
 
@@ -87,5 +89,18 @@ class ReconciliationController extends ApiController
         $this->payments->rejectDeposit($tellerDeposit, $request->string('reason')->toString(), $this->currentEmployee());
 
         return $this->message('Deposit rejected successfully');
+    }
+
+    /**
+     * Posting a slip is a full repayment per receipt — lock the loan, allocate it across the instalments reached, journal it,
+     * settle penalties — so a slip carrying a hundred receipts is a hundred times the work of a short one and runs past the
+     * default web time limit. A request cut off halfway rolls the whole slip back and answers 500, which is what a long slip
+     * used to do, so the limit is lifted for the two actions that post one.
+     */
+    private static function allowTimeToPostEveryReceipt(): void
+    {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(600);
+        }
     }
 }

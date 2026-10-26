@@ -17,6 +17,7 @@ use App\Models\LoanRecovery;
 use App\Models\LoanTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
+use App\Models\SmsLog;
 use App\Models\TellerDeposit;
 use App\Services\Approvals\SegregationOfDuties;
 use App\Services\Reports\Financial\ControlReports;
@@ -305,7 +306,8 @@ class PaymentService
     /**
      * Final confirmation (POST /payments/confirm): Dr Bank Cr Teller Cash, allocate each receipt to its loan (a written-off loan's
      * cash becomes a recovery), SMS. The slip and its receipts are locked and their statuses re-checked inside the transaction, so
-     * a double confirmation posts once.
+     * a double confirmation posts once. The receipt messages are only written to the SMS Log here and go out to the provider after
+     * the response ({@see self::deliverSmsAfterResponse()}): a slip of many receipts must not be posted at the gateway's speed.
      */
     public function confirmDeposit(TellerDeposit $deposit, Employee $finance): TellerDeposit
     {
@@ -320,6 +322,12 @@ class PaymentService
             if ($payments->contains(fn (Payment $payment): bool => $payment->status !== PaymentStatus::Deposited)) {
                 throw ValidationException::withMessages(['deposit' => 'Some receipts of this deposit are no longer waiting for confirmation.']);
             }
+            // payments.loan_id is cleared when a loan is deleted, so a receipt can outlive the loan it was taken for. Name those
+            // receipts instead of failing on them halfway through posting the slip.
+            $orphaned = $payments->filter(fn (Payment $payment): bool => $payment->loan === null);
+            if ($orphaned->isNotEmpty()) {
+                throw ValidationException::withMessages(['deposit' => 'These receipts have no loan left to post to: '.$orphaned->pluck('receipt_number')->implode(', ').'. Reject the slip so the teller can bank the rest.']);
+            }
 
             foreach ($payments->groupBy('employee_id') as $tellerId => $tellerPayments) {
                 $total = round((float) $tellerPayments->sum('amount'), 2);
@@ -329,6 +337,7 @@ class PaymentService
                 ], $deposit, $date, $deposit->branch_id, $finance);
             }
 
+            $messages = [];
             foreach ($payments as $payment) {
                 $payment->update(['status' => PaymentStatus::Confirmed, 'verified_by' => $finance->id, 'verified_at' => now()]);
                 $excess = $payment->loan->status === LoanStatus::WrittenOff
@@ -337,10 +346,14 @@ class PaymentService
                 if ($excess > 0) {
                     $this->holdExcess($payment, $excess, $date, alreadyInSuspense: true);
                 }
-                $this->notifyPayment($payment, $payment->loan, (float) $payment->amount - $excess);
+                $log = $this->recordPaymentSms($payment, $payment->loan, (float) $payment->amount - $excess);
+                if ($log !== null) {
+                    $messages[] = (int) $log->id;
+                }
             }
 
             $deposit->update(['status' => TellerDeposit::STATUS_CONFIRMED, 'confirmed_by' => $finance->id, 'confirmed_at' => now()]);
+            self::deliverSmsAfterResponse($messages);
 
             return $deposit;
         });
@@ -1166,13 +1179,29 @@ class PaymentService
 
     /**
      * Text the customer the "rejesho" receipt worded by the company's payment_received template (SMS Centre → Templates);
-     * nothing is sent when the template is switched off. A gateway failure never undoes the money movement ({@see SmsSender}).
+     * nothing is sent when the template is switched off. The message is recorded with the payment and handed to the provider
+     * after the response, so a gateway that is slow or down delays nothing and undoes no money movement ({@see SmsSender}).
      */
     private function notifyPayment(Payment $payment, Loan $loan, float $amount): void
     {
+        $log = $this->recordPaymentSms($payment, $loan, $amount);
+
+        if ($log !== null) {
+            self::deliverSmsAfterResponse([(int) $log->id]);
+        }
+    }
+
+    /**
+     * Write the receipt SMS to sms_logs as "pending" (one insert, inside the caller's transaction) without talking to the
+     * provider. {@see self::deliverSmsAfterResponse()} hands it over once the response is out, so posting a repayment never
+     * waits on the SMS gateway — a slip of a hundred receipts used to make a hundred blocking HTTP calls inside the posting
+     * transaction and ran the request out of time.
+     */
+    private function recordPaymentSms(Payment $payment, Loan $loan, float $amount): ?SmsLog
+    {
         $customer = $loan->customer;
         if ($customer === null || ! $customer->phone) {
-            return;
+            return null;
         }
 
         $message = app(SmsTemplates::class)->render((int) $customer->company_id, SmsTemplates::PAYMENT_RECEIVED, [
@@ -1184,9 +1213,26 @@ class PaymentService
             'date' => now()->format('d/m/Y'),
             'company' => $customer->company?->name,
         ]);
-        if ($message !== null) {
-            app(SmsSender::class)->send((int) $customer->company_id, (string) $customer->phone, $message, 'payment', ['customer_id' => $customer->id, 'reference' => "payment:{$payment->id}"]);
+
+        return $message === null ? null : app(SmsSender::class)->record((int) $customer->company_id, (string) $customer->phone, $message, 'payment', ['customer_id' => $customer->id, 'reference' => "payment:{$payment->id}"]);
+    }
+
+    /**
+     * Deliver recorded messages after the response, the way SMS Centre announcements go out. A message whose transaction
+     * rolled back is simply not there any more, and one still pending (the gateway was unreachable) stays in the SMS Log.
+     *
+     * @param  list<int>  $logIds
+     */
+    private static function deliverSmsAfterResponse(array $logIds): void
+    {
+        if ($logIds === []) {
+            return;
         }
+
+        dispatch(function () use ($logIds): void {
+            $sender = app(SmsSender::class);
+            SmsLog::whereKey($logIds)->where('status', SmsSender::STATUS_PENDING)->orderBy('id')->each(fn (SmsLog $log) => $sender->deliver($log));
+        })->afterResponse();
     }
 
     /**
