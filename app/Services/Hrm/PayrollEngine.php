@@ -3,6 +3,7 @@
 namespace App\Services\Hrm;
 
 use App\Enums\Account;
+use App\Enums\HqFund;
 use App\Enums\SalaryType;
 use App\Enums\StaffCreditStatus;
 use App\Models\Branch;
@@ -19,6 +20,7 @@ use App\Models\StaffDeduction;
 use App\Models\StaffLoan;
 use App\Models\StaffSalaryAdvance;
 use App\Services\Ledger;
+use App\Services\Reports\Financial\CashAccounts;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -72,6 +74,7 @@ class PayrollEngine
         private readonly CommissionEngine $commission,
         private readonly StaffCredit $credit,
         private readonly NegligenceDeductions $negligence,
+        private readonly CashAccounts $cash,
     ) {}
 
     public function run(int $companyId, CarbonImmutable $month): ?PayrollRun
@@ -379,6 +382,50 @@ class PayrollEngine
             : ['account' => Account::Interest, 'branch' => (int) $branchId];
     }
 
+    /**
+     * Whether the salary is paid from the COMPANY ACCOUNT (HQ staff) rather than OPERATION INCOME (branch staff).
+     */
+    private function paidFromCompany(PayrollItem|array $item): bool
+    {
+        return $this->payingAccount($item)['account'] === Account::Company;
+    }
+
+    /**
+     * Where a salary's cash comes from, for the "Paid from" column and the salary slip.
+     */
+    public function payingSourceLabel(PayrollItem|array $item): string
+    {
+        return $this->paidFromCompany($item) ? Account::Company->label() : HqFund::OperationIncome->label();
+    }
+
+    /**
+     * Credit lines for the cash a salary is paid with. HQ staff are paid from the COMPANY ACCOUNT; branch staff are paid
+     * from OPERATION INCOME — the interest, loan fee and penalty pools of every branch plus HQ's own
+     * ({@see HqFund::OperationIncome}) — drawn from each account in proportion to what it holds, exactly as an HQ expense
+     * is ({@see ExpenseApproval}). A branch INTEREST A/C is only a report of what that branch generated and never a
+     * separate pot, so a branch whose own interest is short no longer blocks the whole payroll.
+     *
+     * @return list<array{account: Account, branch: int|null, credit: float}>
+     */
+    private function payingLines(PayrollItem $item, int $companyId, float $amount): array
+    {
+        $amount = round($amount, 2);
+        if ($amount <= 0) {
+            return [];
+        }
+        if ($this->paidFromCompany($item)) {
+            return [$this->payingAccount($item) + ['credit' => $amount]];
+        }
+
+        $holdings = $this->cash->fundHoldings($companyId, HqFund::OperationIncome);
+        if (round(array_sum(array_column($holdings, 'balance')), 2) < $amount) {
+            throw ValidationException::withMessages(['status' => 'Insufficient balance in '.HqFund::OperationIncome->label()
+                .': available '.number_format(max(0, round(array_sum(array_column($holdings, 'balance')), 2)), 2).', salary needs '.number_format($amount, 2).'.']);
+        }
+
+        return CashAccounts::drawLines($holdings, $amount);
+    }
+
     private function payItem(PayrollRun $run, PayrollItem $item, Employee $payer): float
     {
         $employee = $item->employee;
@@ -394,6 +441,7 @@ class PayrollEngine
 
         $lines = [['account' => Account::StaffPayable, 'employee' => $employee->id, 'debit' => $gross]];
         $toFundCash = (float) $item->staff_fund;
+        $fromPaying = 0.0;
         $lines[] = ['account' => Account::WriteOffExpense, 'branch' => $item->branch_id, 'credit' => $negligenceTaken];
         $lines[] = ['account' => Account::Principal, 'debit' => $negligenceTaken];
         $lines[] = ['account' => Account::StaffFund, 'employee' => $employee->id, 'credit' => (float) $item->staff_fund];
@@ -413,7 +461,7 @@ class PayrollEngine
             $lines[] = ['account' => Account::StaffAdvanceReceivable, 'employee' => $employee->id, 'credit' => $portion];
             if ($advance->source_account === Account::Company->value) {
                 $lines[] = ['account' => Account::Company, 'debit' => $portion];
-                $lines[] = $paying + ['credit' => $portion];
+                $fromPaying += $portion;
             } else {
                 $toFundCash += $portion;
             }
@@ -453,7 +501,8 @@ class PayrollEngine
         $totalDeductions = round($negligenceTaken + (float) $item->staff_fund + $advanceTaken + $loanTaken + $deductionTaken, 2);
         $takeHome = round($gross - $totalDeductions, 2);
 
-        $lines[] = $paying + ['credit' => $takeHome + $toFundCash + $negligenceTaken];
+        $fromPaying = round($fromPaying + $takeHome + $toFundCash + $negligenceTaken, 2);
+        $lines = [...$lines, ...$this->payingLines($item, (int) $run->company_id, $fromPaying)];
         $lines[] = ['account' => Account::StaffFundCash, 'debit' => $toFundCash];
 
         $payment = SalaryPayment::create([
@@ -475,7 +524,7 @@ class PayrollEngine
             'account_name' => $item->account_name,
             'bank_name' => $item->bank_name,
             'account_number' => $item->account_number,
-            'paid_from_account' => $paying['account']->label(),
+            'paid_from_account' => $this->payingSourceLabel($item),
             'paid_on' => now(),
         ]);
 
