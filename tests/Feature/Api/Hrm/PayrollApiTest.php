@@ -146,17 +146,17 @@ class PayrollApiTest extends TestCase
         $this->actingAs($hr)->postJson('/api/v1/hrm/payroll/generate', ['period' => $period])->assertUnprocessable();
         $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$staff->id}/salary", ['salary' => 500000, 'account_name' => 'NMB', 'account_number' => '1', 'fee_salary' => 0, 'salary_type' => 'branch', 'commission_eligible' => true, 'payment_method' => 'bank'])->assertUnprocessable();
 
-        // Operation Income may never go negative: with 449,999 in the branch INTEREST A/C (1 short) nothing is paid at all.
+        // OPERATION INCOME may never go negative: with 449,999 in the pool (1 short) nothing is paid at all.
         $this->fundPayroll($this->admin, 449999, 180000);
-        $this->actingAs($finance)->postJson("/api/v1/hrm/payroll/{$run->id}/pay", ['ac_id' => 'interest'])->assertUnprocessable()
-            ->assertJsonPath('errors.status.0', 'Insufficient balance in INTEREST A/C ('.Branch::find($branchId)->name.'): available 449,999.00, payroll needs 450,000.00.')
-            ->assertJsonPath('errors.status.1', 'Insufficient balance in Operation Income: available 449,999.00, payroll needs 450,000.00.');
+        $this->actingAs($finance)->postJson("/api/v1/hrm/payroll/{$run->id}/pay", ['ac_id' => 'operation_income'])->assertUnprocessable()
+            ->assertJsonPath('errors.status.0', 'Insufficient balance in OPERATION INCOME: available 449,999.00, salary needs 450,000.00.');
         $this->assertSame('approved', $run->fresh()->status);
         $this->assertSame(0, SalaryPayment::count());
         $this->assertEquals(449999, $this->balance(Account::Interest, $branchId));
         $this->assertEquals(500000, $this->balance(Account::StaffPayable, employee: $staff->id));
 
         $this->fundPayroll($this->admin, 1, 0);
+        // 'interest' is what the previous web build sends; it must keep working while the two repos deploy separately.
         $this->actingAs($finance)->postJson("/api/v1/hrm/payroll/{$run->id}/pay", ['ac_id' => 'interest'])->assertOk()->assertJsonPath('message', 'Salary Paid successfully');
 
         $this->assertSame('paid', $run->fresh()->status);
@@ -167,7 +167,8 @@ class PayrollApiTest extends TestCase
         $this->assertEquals(20000, $this->balance(Account::StaffFund, employee: $hq->id));
         // Fund cash: 40,000 + 20,000 contributions + 4,000 loan restoration.
         $this->assertEquals(64000, $this->balance(Account::StaffFundCash));
-        // Interest pays branch staff: take home 386,000 + fund 40,000 + loan 4,000 + advance back to HQ 20,000.
+        // OPERATION INCOME pays branch staff and here it holds only the branch INTEREST A/C, so the whole
+        // 450,000 (take home 386,000 + fund 40,000 + loan 4,000 + advance back to HQ 20,000) comes from it.
         $this->assertEquals(0, $this->balance(Account::Interest, $branchId));
         // Company account pays HQ staff 180,000 + 20,000 fund, receives the 20,000 advance recovery.
         $this->assertEquals(0, $this->balance(Account::Company));
@@ -193,5 +194,52 @@ class PayrollApiTest extends TestCase
         $this->actingAs($finance)->postJson("/api/v1/hrm/staff-fund/claims/{$claimId}/pay")->assertOk();
         $this->assertEquals(44000, $this->balance(Account::StaffFundCash));
         $this->assertEquals(0, $this->balance(Account::StaffFund, employee: $hq->id));
+    }
+
+    /**
+     * Client report 2026-10-26: salaries could not be paid because the amount was taken from the branch INTEREST A/C
+     * alone. That account is only one of the OPERATION INCOME accounts ({@see HqFund::OperationIncome}) and a branch
+     * figure is never a separate pot, so a branch whose interest is short is still paid from the loan fee and penalty
+     * it generated and from what the other branches hold, drawn in proportion to each.
+     */
+    public function test_branch_salary_is_drawn_from_the_whole_operation_income_pool_not_the_branch_interest_account(): void
+    {
+        $ledger = app(Ledger::class);
+        $companyId = $this->admin->company_id;
+        $branchId = $this->admin->branch_id;
+        $otherBranch = Branch::factory()->create(['company_id' => $companyId]);
+        $staff = $this->staff(100000);
+        $period = now()->subMonthNoOverflow()->format('Y-m');
+
+        $finance = Employee::factory()->create(['company_id' => $companyId, 'branch_id' => $branchId, 'role_id' => $this->admin->company->roles()->where('key', 'finance')->value('id')]);
+        $hr = Employee::factory()->create(['company_id' => $companyId, 'branch_id' => $branchId, 'role_id' => $this->admin->company->roles()->where('key', 'hr')->value('id')]);
+
+        // The pool holds 100,000 in total, but only 20,000 of it is this branch's INTEREST A/C — the old rule refused the run.
+        $ledger->openingBalance($companyId, Account::Interest, 20000, branch: $branchId);
+        $ledger->openingBalance($companyId, Account::LoanFee, 30000, branch: $branchId);
+        $ledger->openingBalance($companyId, Account::Penalty, 10000, branch: $branchId);
+        $ledger->openingBalance($companyId, Account::Interest, 40000, branch: $otherBranch->id);
+
+        $this->actingAs($hr)->postJson('/api/v1/hrm/payroll/generate', ['period' => $period])->assertOk();
+        $run = PayrollRun::firstOrFail();
+        $this->actingAs($finance)->postJson("/api/v1/hrm/payroll/{$run->id}/approve")->assertOk();
+
+        // Take home is the 100,000 salary less the 10% staff fund, and the fund cash comes from the pool too.
+        $this->actingAs($finance)->postJson("/api/v1/hrm/payroll/{$run->id}/pay", ['ac_id' => 'operation_income'])
+            ->assertOk()->assertJsonPath('message', 'Salary Paid successfully');
+
+        $payment = SalaryPayment::where('employee_id', $staff->id)->firstOrFail();
+        $this->assertEquals(90000, $payment->take_home);
+        $this->assertSame('OPERATION INCOME', $payment->paid_from_account);
+
+        // 100,000 drawn from a 100,000 pool empties every account in it, and none of them goes negative.
+        $this->assertEquals(0, $this->balance(Account::Interest, $branchId));
+        $this->assertEquals(0, $this->balance(Account::LoanFee, $branchId));
+        $this->assertEquals(0, $this->balance(Account::Penalty, $branchId));
+        $this->assertEquals(0, $this->balance(Account::Interest, $otherBranch->id));
+        // The salary expense still belongs to the staff member's own branch.
+        $this->assertEquals(100000, $this->balance(Account::SalaryExpense, $branchId));
+        $this->assertEquals(0, $this->balance(Account::StaffPayable, employee: $staff->id));
+        $this->assertEquals(10000, $this->balance(Account::StaffFundCash));
     }
 }

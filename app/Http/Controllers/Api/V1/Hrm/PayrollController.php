@@ -61,7 +61,7 @@ class PayrollController extends HrmController
             ->filter(fn (array $row): bool => $branchIds === null || in_array((int) $row['branch_id'], $branchIds, true))
             ->map(fn (array $row): array => array_merge(collect($row)->except('allowance_ids')->all(), collect(self::MONEY)->mapWithKeys(fn (string $key): array => [$key => (float) $row[$key]])->all(), [
                 'net_commission' => round((float) $row['commission'] - (float) $row['negligence'], 2),
-                'paying_account' => $this->payroll->payingAccount($row)['account']->label(),
+                'paying_account' => $this->payroll->payingSourceLabel($row),
                 'salary_type_label' => SalaryType::tryFrom((string) $row['salary_type'])?->label(),
             ]))
             ->values();
@@ -120,7 +120,7 @@ class PayrollController extends HrmController
     }
 
     /**
-     * "Pay Salary" modal. Branch staff are paid from their branch INTEREST ACC, HQ staff from the COMPANY ACCOUNT.
+     * "Pay Salary" modal. Branch staff are paid from OPERATION INCOME, HQ staff from the COMPANY ACCOUNT.
      * Rule 6: approving is the authorisation of the payment, so the payer must differ from the preparer (the approver
      * already differs from the preparer); an approver who also pays is allowed.
      */
@@ -129,7 +129,9 @@ class PayrollController extends HrmController
         $this->authorizeAny('payroll.pay');
         abort_unless($run->company_id === $this->companyId(), 404);
         $duties->assertCanApprove($run->prepared_by, $this->currentEmployee(), 'payroll payment', workflow: ApprovalPolicy::PAYROLL);
-        $request->validate(['ac_id' => ['required', Rule::in(['interest'])]]);
+        // 'interest' is the value the previous web build sends; both repos deploy separately, so it stays accepted
+        // until that build is gone. Either way the engine decides the source ({@see PayrollEngine::payingLines()}).
+        $request->validate(['ac_id' => ['required', Rule::in(['operation_income', 'interest'])]]);
 
         $this->payroll->pay($run, $this->currentEmployee());
 
