@@ -97,6 +97,8 @@ enum Account: string
     case CommissionExpense = 'commission_expense';
     case AllowanceExpense = 'allowance_expense';
     case WriteOffExpense = 'write_off_expense';
+    /** Approved loan discounts / waivers of outstanding principal (enhancement §6): never cash received. */
+    case LoanDiscountExpense = 'loan_discount_expense';
     case BankCharges = 'bank_charges';
 
     public function type(): string
@@ -105,7 +107,7 @@ enum Account: string
             self::Suspense, self::SavingsDeposits, self::StaffPayable, self::StaffFund, self::DividendPayable, self::CommissionPayable => 'liability',
             self::Capital, self::RetainedProfit, self::ReinvestedProfit, self::InterestReserve, self::InsuranceReserve, self::LegacyOpeningBalance => 'equity',
             self::InterestIncome, self::SalaryAdvanceIncome, self::FeeIncome, self::PenaltyIncome, self::InsuranceIncome, self::RecoveryIncome => 'income',
-            self::OperatingExpense, self::SalaryExpense, self::CommissionExpense, self::AllowanceExpense, self::WriteOffExpense, self::BankCharges => 'expense',
+            self::OperatingExpense, self::SalaryExpense, self::CommissionExpense, self::AllowanceExpense, self::WriteOffExpense, self::LoanDiscountExpense, self::BankCharges => 'expense',
             default => 'asset',
         };
     }
@@ -138,7 +140,7 @@ enum Account: string
             self::InterestIncome => '4000', self::FeeIncome => '4010', self::PenaltyIncome => '4020',
             self::InsuranceIncome => '4030', self::RecoveryIncome => '4040', self::SalaryAdvanceIncome => '4050',
             self::OperatingExpense => '5000', self::SalaryExpense => '5100', self::CommissionExpense => '5110',
-            self::AllowanceExpense => '5120', self::WriteOffExpense => '5200', self::BankCharges => '5300',
+            self::AllowanceExpense => '5120', self::WriteOffExpense => '5200', self::LoanDiscountExpense => '5210', self::BankCharges => '5300',
         };
     }
 
@@ -203,6 +205,7 @@ enum Account: string
             self::CommissionExpense => 'COMMISSION EXPENSE',
             self::AllowanceExpense => 'ALLOWANCE EXPENSE',
             self::WriteOffExpense => 'WRITE-OFF EXPENSE',
+            self::LoanDiscountExpense => 'LOAN DISCOUNT / WAIVER EXPENSE',
             self::BankCharges => 'BANK CHARGES',
         };
     }

@@ -209,6 +209,9 @@ class TellerController extends ApiController
         $this->assertBranchAccessible((int) $branchIds->first());
 
         $deposit = $this->payments->submitBankDeposit($this->currentEmployee(), (int) $branchIds->first(), $request->validated(), array_map('intval', $request->input('payment_ids')));
+        if ($request->hasFile('receipt')) {
+            $deposit->attachReceipt($request->file('receipt'));
+        }
 
         return $this->message('Bank deposit submitted successfully', 201, [
             'data' => new TellerDepositResource($deposit->load(['branch', 'employee', 'bankAccount', 'payments.customer'])),
@@ -225,6 +228,9 @@ class TellerController extends ApiController
         $this->assertBranchAccessible((int) $tellerDeposit->branch_id);
 
         $deposit = $this->payments->updateBankDeposit($this->currentEmployee(), $tellerDeposit, $request->validated(), array_map('intval', $request->input('payment_ids')));
+        if ($request->hasFile('receipt')) {
+            $deposit->attachReceipt($request->file('receipt'));
+        }
 
         return $this->message('Bank deposit updated and sent back to Finance for verification', 200, [
             'data' => new TellerDepositResource($deposit->load(['branch', 'employee', 'bankAccount', 'payments.customer'])),

@@ -27,6 +27,19 @@ class Loan extends Model
     /**
      * @return array<string, string|class-string>
      */
+    /**
+     * Every status change stamps status_changed_at (enhancement §7.2: Ready to Pay Out filters a tab by the day the loan
+     * reached it).
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Loan $loan): void {
+            if ($loan->isDirty('status')) {
+                $loan->status_changed_at = now();
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -47,6 +60,8 @@ class Loan extends Model
             'agreement_uploaded_at' => 'datetime',
             'withdrawn_at' => 'date',
             'end_date' => 'date',
+            'start_date' => 'date',
+            'status_changed_at' => 'datetime',
             'expected_completion_date' => 'date',
             'telco_matched' => 'boolean',
             'telco_verified_at' => 'datetime',

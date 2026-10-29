@@ -19,6 +19,7 @@ Route::prefix('payments')->name('payments.')->group(function (): void {
         Route::post('{tellerDeposit}/verify', 'verify')->name('verify');
         Route::post('{tellerDeposit}/confirm', 'confirm')->name('confirm');
         Route::post('{tellerDeposit}/reject', 'reject')->name('reject');
+        Route::get('{tellerDeposit}/receipt', 'receipt')->name('receipt');
     });
 
     Route::controller(SuspenseController::class)->group(function (): void {

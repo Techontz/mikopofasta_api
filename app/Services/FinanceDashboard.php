@@ -480,7 +480,7 @@ final class FinanceDashboard
             ['key' => 'salaries', 'label' => 'Salaries', 'amount' => $value(Account::SalaryExpense)],
             ['key' => 'operating', 'label' => 'Operating Expenses', 'amount' => $value(Account::OperatingExpense)],
             ['key' => 'commission', 'label' => 'Commission', 'amount' => $value(Account::CommissionExpense)],
-            ['key' => 'other', 'label' => 'Other Expenses', 'amount' => $value(Account::AllowanceExpense, Account::WriteOffExpense, Account::BankCharges)],
+            ['key' => 'other', 'label' => 'Other Expenses', 'amount' => $value(Account::AllowanceExpense, Account::WriteOffExpense, Account::LoanDiscountExpense, Account::BankCharges)],
         ];
 
         return [

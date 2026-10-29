@@ -296,7 +296,7 @@ class CashFlowReport
             Account::FeeIncome => 'fees',
             Account::InsuranceIncome => 'insurance',
             Account::RecoveryIncome => 'recovery',
-            Account::LoanArrears, Account::LoanDefault, Account::Offset, Account::WriteOffExpense => 'loan_other',
+            Account::LoanArrears, Account::LoanDefault, Account::Offset, Account::WriteOffExpense, Account::LoanDiscountExpense => 'loan_other',
             Account::SalaryAdvanceReceivable, Account::StaffLoanReceivable, Account::StaffAdvanceReceivable => 'staff_credit',
             Account::Capital => 'funding',
             Account::SavingsDeposits => 'savings',

@@ -183,6 +183,18 @@ class LoanWorkflowController extends LoanApiController
         }, $loan);
     }
 
+    /**
+     * POST loans/{loan}/return-to-previous-stage — Ready to Pay Out → Reverse / Return to Previous Stage (enhancement §7.1).
+     */
+    public function returnToPreviousStage(Request $request, Loan $loan): JsonResponse
+    {
+        $this->authorizeAny('loans.disburse', 'loans.prepare_disbursement');
+        $this->ensureVisible($loan);
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+
+        return $this->loanMessage('Loan returned to the previous stage successfully', $this->workflow->returnToPreviousStage($loan, $validated['reason'], $this->currentEmployee()));
+    }
+
     public function requeue(Loan $loan): JsonResponse
     {
         $this->authorizeAny('loans.disburse', 'loans.prepare_disbursement');

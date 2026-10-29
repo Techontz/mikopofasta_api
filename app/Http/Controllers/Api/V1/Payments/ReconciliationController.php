@@ -14,6 +14,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Payments → Bank Reconciliation: teller deposit slips vs teller cash vs bank statement.
@@ -34,8 +36,16 @@ class ReconciliationController extends ApiController
             ->latest('deposit_date')
             ->latest('id');
         $this->applyFilters($query, $request, 'deposit_date');
+        $rows = $query->get();
 
-        return TellerDepositResource::collection($query->get());
+        // Enhancement §8.2: counts and totals of every status within the selected branch, zone and period.
+        $all = $this->scoped(TellerDeposit::query())
+            ->when($request->filled('zone_id') && $request->input('zone_id') !== 'all', fn ($query) => $query->whereHas('branch', fn ($branch) => $branch->where('zone_id', $request->integer('zone_id'))));
+        $this->applyFilters($all, $request, 'deposit_date');
+        $summary = $all->selectRaw('status, COUNT(*) as records, COALESCE(SUM(amount), 0) as amount')->groupBy('status')->get()
+            ->mapWithKeys(fn ($row): array => [$row->status => ['count' => (int) $row->records, 'amount' => round((float) $row->amount, 2)]]);
+
+        return TellerDepositResource::collection($rows)->additional(['summary' => $summary->all() ?: (object) []]);
     }
 
     /**
@@ -102,5 +112,22 @@ class ReconciliationController extends ApiController
         if (function_exists('set_time_limit')) {
             @set_time_limit(600);
         }
+    }
+
+    /**
+     * GET payments/reconciliation/{tellerDeposit}/receipt — the bank receipt the teller attached (enhancement §8.4), streamed
+     * from private storage to Finance or the branch teller. A deposit without one says so; nothing is generated.
+     */
+    public function receipt(TellerDeposit $tellerDeposit): StreamedResponse|JsonResponse
+    {
+        $this->authorizeAny('payments.verify', 'payments.cash');
+        abort_unless((int) $tellerDeposit->company_id === (int) $this->currentEmployee()->company_id, 404);
+        $this->assertBranchAccessible((int) $tellerDeposit->branch_id);
+
+        if (! $tellerDeposit->hasReceipt()) {
+            return $this->message('No receipt was uploaded for this deposit.', 404);
+        }
+
+        return Storage::disk(TellerDeposit::DISK)->response($tellerDeposit->receipt_file, $tellerDeposit->receipt_file_name, ['Cache-Control' => 'private, max-age=300'], 'inline');
     }
 }
