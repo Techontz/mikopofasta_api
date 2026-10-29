@@ -105,6 +105,52 @@ class CustomerCareDashboard
                 ], $request->changes))
                 ->take(5)->values()->all(),
             'badges' => $this->badges($viewer),
+            'kyc_pipeline' => $this->kycPipeline($viewer, $today),
+        ];
+    }
+
+    /**
+     * Pending Approvals / Applications of the CRM dashboard (enhancement §17): new registrations awaiting KYC approval and
+     * changes to approved profiles awaiting re-approval, together. Pending stays until decided whatever its age; Approved
+     * and Rejected Today use the decision day; Customer Applications Today the submission day. A change CRM or Admin made
+     * themselves (applied at once, requester = decider) is not an application.
+     *
+     * @return list<array{key: string, label: string, count: int, registrations: int, profile_changes: int, link: string}>
+     */
+    private function kycPipeline(Employee $viewer, CarbonImmutable $today): array
+    {
+        $day = [$today->startOfDay(), $today->endOfDay()];
+        $customers = fn (): Builder => $this->access->scope(Customer::query(), $viewer);
+        $reviewed = fn (): Builder => $this->access->scope(CustomerUpdateRequest::query(), $viewer)
+            ->where(fn (Builder $query) => $query->whereNull('decided_by')->orWhereColumn('decided_by', '!=', 'requested_by'));
+        $rejectedRegistrations = AuditLog::where('company_id', $viewer->company_id)
+            ->where('action', 'Customer.rejected')
+            ->where('auditable_type', (new Customer)->getMorphClass())
+            ->whereIn('auditable_id', $customers()->select('id'))
+            ->whereBetween('created_at', $day)
+            ->count();
+
+        $item = fn (string $key, string $label, int $registrations, int $changes, string $link): array => [
+            'key' => $key, 'label' => $label, 'count' => $registrations + $changes, 'registrations' => $registrations, 'profile_changes' => $changes, 'link' => $link,
+        ];
+
+        return [
+            $item('pending', 'Pending Applications',
+                $customers()->where('approval_status', 'pending')->count(),
+                $reviewed()->where('status', CustomerUpdateRequest::STATUS_PENDING)->count(),
+                '/customers/approvals'),
+            $item('approved_today', 'Approved Today',
+                $customers()->whereBetween('approved_at', $day)->count(),
+                $reviewed()->where('status', CustomerUpdateRequest::STATUS_APPROVED)->whereBetween('decided_at', $day)->count(),
+                '/customers?approval_status=approved'),
+            $item('rejected_today', 'Rejected Today',
+                $rejectedRegistrations,
+                $reviewed()->where('status', CustomerUpdateRequest::STATUS_REJECTED)->whereBetween('decided_at', $day)->count(),
+                '/customers?approval_status=rejected'),
+            $item('applications_today', 'Customer Applications Today',
+                $customers()->whereNotIn('approval_status', ['not_required'])->whereBetween('created_at', $day)->count(),
+                $reviewed()->whereBetween('created_at', $day)->count(),
+                '/customers/approvals'),
         ];
     }
 

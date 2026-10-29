@@ -159,7 +159,7 @@ return [
             'legacy_imports.manage',
         ]],
         'hr' => ['name' => 'HR', 'scope' => 'company', 'permissions' => [
-            'dashboard.view', 'users.manage', 'hrm.manage', 'hrm.staff_privileges', 'payroll.approve', 'branches.view_all', 'messages.use', 'goals.view',
+            'approvals.view', 'dashboard.view', 'users.manage', 'hrm.manage', 'hrm.staff_privileges', 'payroll.approve', 'branches.view_all', 'messages.use', 'goals.view',
         ]],
         'zone_manager' => ['name' => 'Zone Manager', 'scope' => 'zone', 'permissions' => [
             'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'loans.view', 'reports.operations', 'reports.loans', 'reports.customers', 'reports.portfolio', 'crm.use', 'messages.use', 'goals.view',

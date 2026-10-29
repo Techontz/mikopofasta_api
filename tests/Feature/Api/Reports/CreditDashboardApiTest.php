@@ -74,6 +74,26 @@ class CreditDashboardApiTest extends TestCase
 
     }
 
+    public function test_the_pipeline_counts_each_application_of_the_month_once_with_its_amount(): void
+    {
+        $this->application()->forceFill(['amount_applied' => 100000, 'amount_approved' => 0])->save();
+        $this->application()->forceFill(['status' => LoanStatus::PendingCreditReview, 'amount_applied' => 200000, 'amount_approved' => 150000])->save();
+        $this->application()->forceFill(['status' => LoanStatus::AwaitingDisbursement, 'amount_approved' => 300000])->save();
+        $this->application()->forceFill(['status' => LoanStatus::Rejected, 'amount_applied' => 50000, 'amount_approved' => 0])->save();
+        $this->application()->forceFill(['created_at' => now()->subMonthsNoOverflow(2)])->save();
+
+        $data = $this->actingAs($this->credit)->getJson('/api/v1/dashboard/credit')->assertOk()->json('data');
+        $pipeline = collect($data['pipeline'])->keyBy('key');
+
+        $this->assertSame(['new', 'under_review', 'credit_assessment', 'pending_approval', 'approved', 'ready_for_disbursement', 'rejected'], collect($data['pipeline'])->pluck('key')->all());
+        $this->assertSame(4, $pipeline->sum('count'), 'Each application of this month in exactly one stage; last month\'s is not counted.');
+        $this->assertSame([1, 100000.0], [$pipeline['new']['count'], (float) $pipeline['new']['amount']]);
+        $this->assertSame([1, 150000.0], [$pipeline['credit_assessment']['count'], (float) $pipeline['credit_assessment']['amount']]);
+        $this->assertSame([1, 300000.0], [$pipeline['ready_for_disbursement']['count'], (float) $pipeline['ready_for_disbursement']['amount']]);
+        $this->assertSame(1, $pipeline['rejected']['count']);
+        $this->assertEquals(50000, $data['cards']['rejected_amount']);
+    }
+
     public function test_customer_type_performance_counts_applications_approvals_and_default_rate(): void
     {
         $employed = CustomerCategory::factory()->create(['company_id' => $this->admin->company_id, 'name' => 'WATUMISHI']);

@@ -97,7 +97,7 @@ class PortfolioReportsApiTest extends TestCase
         $data = $this->getJson(route('api.v1.reports.portfolio'))->assertOk()->json('data');
 
         $this->assertEquals([
-            'issued_count' => 5, 'issued_amount' => 600000, 'active_count' => 2, 'overdue_count' => 0, 'completed_count' => 2,
+            'issued_count' => 5, 'issued_amount' => 600000, 'active_count' => 2, 'overdue_count' => 0, 'completed_count' => 2, 'active_amount' => 300000, 'completed_amount' => 200000,
             'default_count' => 1, 'written_off_count' => 0, 'active_customers' => 3, 'outstanding_principal' => 280000,
             'outstanding_interest' => 120000, 'outstanding_penalty' => 5000, 'outstanding_insurance' => 0, 'outstanding_total' => 405000, 'written_off_principal' => 0, 'written_off_outstanding' => 0,
             'penalty_without_loan' => 0, 'active_outstanding_principal' => 200000, 'default_outstanding_principal' => 80000, 'salary_advance_outstanding' => 0,

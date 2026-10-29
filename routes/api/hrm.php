@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\Hrm\AttendanceController;
 use App\Http\Controllers\Api\V1\Hrm\CategoryController;
 use App\Http\Controllers\Api\V1\Hrm\CommissionController;
 use App\Http\Controllers\Api\V1\Hrm\DeductionController;
+use App\Http\Controllers\Api\V1\Hrm\EmployeeDocumentController;
 use App\Http\Controllers\Api\V1\Hrm\LeaveController;
 use App\Http\Controllers\Api\V1\Hrm\MyPortalController;
 use App\Http\Controllers\Api\V1\Hrm\MyStaffCreditController;
@@ -34,9 +35,14 @@ Route::prefix('hrm')->name('hrm.')->group(function (): void {
         Route::post('staff/{employee}/block', 'toggleBlock')->name('staff.block');
         Route::post('staff/{employee}/reject', 'reject')->name('staff.reject');
         Route::post('staff/{employee}/reset-password', 'resetPassword')->name('staff.reset-password');
+        Route::post('staff/{employee}/kyc/approve', 'approveKyc')->name('staff.kyc.approve');
+        Route::post('staff/{employee}/kyc/reject', 'rejectKyc')->name('staff.kyc.reject');
         Route::get('branches', 'branches')->name('branches');
     });
 
+    Route::get('staff/{employee}/documents', [EmployeeDocumentController::class, 'index'])->name('staff.documents.index');
+    Route::post('staff/{employee}/documents', [EmployeeDocumentController::class, 'store'])->name('staff.documents.store');
+    Route::get('staff/{employee}/documents/{document}', [EmployeeDocumentController::class, 'download'])->whereNumber('document')->name('staff.documents.download');
     Route::get('staff/{employee}/privileges', [StaffPrivilegeController::class, 'show'])->name('staff.privileges.show');
     Route::put('staff/{employee}/privileges', [StaffPrivilegeController::class, 'update'])->name('staff.privileges.update');
 

@@ -94,6 +94,24 @@ class CustomerCareApiTest extends TestCase
         $this->actingAs($this->crm)->postJson("/api/v1/customers/{$pending->id}/approve")->assertOk()->assertJsonPath('data.approvalStatus', 'approved');
     }
 
+    public function test_the_kyc_pipeline_counts_registrations_and_profile_changes_by_their_own_dates(): void
+    {
+        Customer::factory()->create(['branch_id' => $this->admin->branch_id, 'approval_status' => 'pending', 'created_at' => now()->subDays(10)]);
+        $today = Customer::factory()->create(['branch_id' => $this->admin->branch_id, 'approval_status' => 'pending']);
+        $this->actingAs($this->officer)->putJson("/api/v1/customers/{$this->customer->id}", ['email' => 'new@example.com'])->assertStatus(202);
+        $this->actingAs($this->crm)->putJson("/api/v1/customers/{$this->customer->id}", ['email' => 'crm@example.com']);
+
+        $pipeline = fn (): array => collect($this->actingAs($this->crm)->getJson('/api/v1/crm/dashboard')->assertOk()->json('data.kyc_pipeline'))->keyBy('key')->all();
+        $first = $pipeline();
+        $this->assertSame(['pending', 'approved_today', 'rejected_today', 'applications_today'], array_keys($first));
+        $this->assertSame([2, 1, 3], [$first['pending']['registrations'], $first['pending']['profile_changes'], $first['pending']['count']], 'Pending stays whatever its age; registrations and re-approvals together.');
+        $this->assertSame([2, 1], [$first['applications_today']['registrations'], $first['applications_today']['profile_changes']], 'Registered today (the fixture customer and one pending) and the branch change; not the old one, not CRM\'s own change.');
+
+        $this->actingAs($this->crm)->postJson("/api/v1/customers/{$today->id}/approve")->assertOk();
+        $after = $pipeline();
+        $this->assertSame([2, 1], [$after['pending']['count'], $after['approved_today']['count']]);
+    }
+
     public function test_dashboard_counts_cases_by_type_status_and_category(): void
     {
         $case = fn (string $type, string $category): int => $this->actingAs($this->crm)->postJson('/api/v1/crm/tickets', [

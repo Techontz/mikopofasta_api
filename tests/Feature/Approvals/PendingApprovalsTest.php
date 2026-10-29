@@ -57,14 +57,16 @@ class PendingApprovalsTest extends TestCase
         $this->admin = $this->signInAdmin();
     }
 
-    public function test_approvals_view_gates_the_list_and_is_granted_to_finance_admin_and_super_admin_only(): void
+    public function test_approvals_view_gates_the_list_and_is_granted_to_finance_admin_super_admin_and_hr(): void
     {
         $this->assertArrayHasKey('approvals.view', config('permissions.permissions'));
         $this->getJson('/api/v1/approvals/pending')->assertOk();
         $this->actingAs($this->secondApprover($this->admin, 'admin'))->getJson('/api/v1/approvals/pending')->assertOk();
         $this->actingAs($this->secondApprover($this->admin, 'finance'))->getJson('/api/v1/approvals/pending')->assertOk();
+        // Enhancement §11.2: HR sees its own workflows on its dashboard (each still gated by its module permission).
+        $this->actingAs($this->secondApprover($this->admin, 'hr'))->getJson('/api/v1/approvals/pending')->assertOk();
 
-        foreach (['teller', 'loan_officer', 'branch_manager', 'credit_officer', 'hr', 'zone_manager'] as $role) {
+        foreach (['teller', 'loan_officer', 'branch_manager', 'credit_officer', 'zone_manager'] as $role) {
             $this->actingAs($this->secondApprover($this->admin, $role))->getJson('/api/v1/approvals/pending')->assertForbidden();
         }
 

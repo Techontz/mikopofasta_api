@@ -138,10 +138,16 @@ class LiveReportController extends ReportApiController
     public function newLoans(Request $request): JsonResponse
     {
         $this->authorizeAny('reports.view', 'reports.loans');
-        $request->validate(['year' => ['nullable', 'integer', 'between:2000,2100']]);
+        $request->validate([
+            'year' => ['nullable', 'integer', 'between:2000,2100'],
+            'month' => ['nullable', 'integer', 'between:1,12'],
+            'loan_status' => ['nullable', 'in:ALL,ACTIVE,CLOSED,DEFAULT'],
+        ]);
         $year = $request->integer('year') ?: (int) now()->format('Y');
+        $month = $request->filled('month') ? $request->integer('month') : null;
 
-        return $this->report($this->reports->newLoans($this->reportScope($request), $year) + ['year' => $year, 'years' => $this->years()]);
+        return $this->report($this->reports->newLoans($this->reportScope($request), $year, $month, $request->string('loan_status')->toString() ?: null)
+            + ['year' => $year, 'month' => $month, 'years' => $this->years()]);
     }
 
     public function pending(Request $request): JsonResponse
@@ -216,8 +222,10 @@ class LiveReportController extends ReportApiController
         $rows = $rows->map(function (array $row) use (&$paid): array {
             $paid += $row['deposit'];
 
-            return $row + ['balance' => round($paid, 2)];
+            return $row + ['discount' => 0.0, 'balance' => round($paid, 2)];
         });
+        // Enhancement §10.7: latest first; the running balances above are worked out oldest first, so they stay correct.
+        $rows = $rows->reverse()->values();
 
         return $this->report([
             'customer' => [
@@ -229,7 +237,8 @@ class LiveReportController extends ReportApiController
             ],
             'loans' => $customerLoans->map(fn (Loan $option): array => [
                 'value' => (string) $option->id,
-                'label' => trim(($option->category?->name ?? 'LOAN').' / '.money($option->amount_approved > 0 ? $option->amount_approved : $option->amount_applied).' / '.$option->status->label()),
+                // Enhancement §10.7: the loan is identified by its Loan ID, not its product.
+                'label' => trim($option->loan_number.' / '.money($option->amount_approved > 0 ? $option->amount_approved : $option->amount_applied).' / '.$option->status->label()),
             ])->values()->all(),
             'loan' => $loan ? [
                 'id' => $loan->id,
@@ -248,7 +257,7 @@ class LiveReportController extends ReportApiController
                 'outstanding' => $loans->outstanding($loan),
             ] : null,
             'rows' => $rows->all(),
-            'totals' => collect(['deposit', 'withdrawal', 'principal', 'penalty', 'interest', 'insurance'])
+            'totals' => collect(['deposit', 'withdrawal', 'discount', 'principal', 'penalty', 'interest', 'insurance'])
                 ->mapWithKeys(fn (string $column): array => [$column => round((float) $rows->sum($column), 2)])
                 ->all(),
         ]);

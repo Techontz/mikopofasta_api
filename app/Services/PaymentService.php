@@ -885,8 +885,10 @@ class PaymentService
                 // A loan carried over from the old system opens at what was still owed to that system (its Remain Amount).
                 $balances[$key] ??= $loan ? (float) $loan->total_payable + (float) $loan->insurance - (float) $loan->opening_paid_principal : 0.0;
                 $isDeposit = $transaction->type === 'deposit';
+                // An approved discount / waiver (enhancement §6) lowers the remaining debt but is neither a deposit nor a withdrawal.
+                $isDiscount = $transaction->type === LoanTransaction::TYPE_DISCOUNT;
                 $isReversed = $transaction->reversed_at !== null;
-                if ($isDeposit && ! $isReversed) {
+                if (($isDeposit || $isDiscount) && ! $isReversed) {
                     $balances[$key] = max(0.0, $balances[$key] - (float) $transaction->amount);
                 }
                 $receipt = $receipts->get($transaction->id)?->payment;
@@ -903,7 +905,8 @@ class PaymentService
                     'receipt_number' => $receipt?->receipt_number,
                     'transaction_id' => $receipt?->transaction_id,
                     'deposit' => $isDeposit ? (float) $transaction->amount : 0.0,
-                    'withdrawal' => $isDeposit ? 0.0 : (float) $transaction->amount,
+                    'withdrawal' => $isDeposit || $isDiscount ? 0.0 : (float) $transaction->amount,
+                    'discount' => $isDiscount ? (float) $transaction->amount : 0.0,
                     'principal' => (float) $transaction->principal,
                     'penalty' => (float) $transaction->penalty,
                     'interest' => (float) $transaction->interest,

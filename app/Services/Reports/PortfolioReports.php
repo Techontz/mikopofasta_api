@@ -103,6 +103,9 @@ class PortfolioReports
                 'active_count' => $loans->whereIn('status', LoanStatus::values(LoanStatus::Active, LoanStatus::Overdue))->count(),
                 'overdue_count' => $loans->where('status', LoanStatus::Overdue->value)->count(),
                 'completed_count' => $loans->where('status', LoanStatus::Closed->value)->count(),
+                // Enhancement §10.8: Active and Completed Loans lead with the money (amount disbursed), then the count.
+                'active_amount' => round((float) $loans->whereIn('status', LoanStatus::values(LoanStatus::Active, LoanStatus::Overdue))->sum('amount_approved'), 2),
+                'completed_amount' => round((float) $loans->where('status', LoanStatus::Closed->value)->sum('amount_approved'), 2),
                 'default_count' => $loans->where('status', LoanStatus::Default->value)->count(),
                 'written_off_count' => $loans->where('status', LoanStatus::WrittenOff->value)->count(),
                 'active_customers' => $repayable->pluck('customer_id')->unique()->count(),
