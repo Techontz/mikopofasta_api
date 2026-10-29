@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1\Customers;
 
 use App\Models\Customer;
+use App\Models\CustomerUpdateRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -158,6 +159,8 @@ class CustomerResource extends JsonResource
             'statusChangedById' => $int($this->status_changed_by),
 
             'approvalStatus' => $this->approval_status,
+            // Enhancement §2.2 / §18: changes to an approved profile awaiting re-approval keep it in the pending workflow.
+            'pendingProfileChanges' => CustomerUpdateRequest::where('customer_id', $this->id)->where('status', CustomerUpdateRequest::STATUS_PENDING)->exists(),
             'approvedBy' => $int($this->approved_by),
             'approvedAt' => $time($this->approved_at),
             'rejectionReason' => $this->rejection_reason,

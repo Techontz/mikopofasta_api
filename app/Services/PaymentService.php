@@ -412,13 +412,20 @@ class PaymentService
         }
 
         $loan = $this->matchLoan($notification);
+        $note = 'Invalid or missing reference';
+        // Enhancement §4.2: an E-Mandate loan is repaid by the bank mandate, not by Customer Payment ID payments; such money
+        // is held in suspense for Finance (early settlement and cancellation follow the company's manual procedure).
+        if ($loan !== null && $notification->channel !== MandateCollections::CHANNEL && MandateCollections::collectsByMandate($loan)) {
+            $loan = null;
+            $note = 'E-Mandate loan: repayments come through the bank mandate. Held for Finance.';
+        }
         $companyId = $loan?->company_id ?? $this->defaultCompanyId();
         if ($companyId === null) {
             throw ValidationException::withMessages(['reference' => 'Payment could not be matched to a company.']);
         }
 
         try {
-            return DB::transaction(function () use ($notification, $loan, $companyId): array {
+            return DB::transaction(function () use ($notification, $loan, $companyId, $note): array {
                 $date = $notification->paidOn ? CarbonImmutable::parse($notification->paidOn)->startOfDay() : CarbonImmutable::today();
                 $payment = Payment::create([
                     'company_id' => $companyId,
@@ -433,7 +440,7 @@ class PaymentService
                     'amount' => $notification->amount,
                     'status' => $loan ? PaymentStatus::Allocated : PaymentStatus::Unallocated,
                     'paid_on' => $date->toDateString(),
-                    'note' => $loan ? null : 'Invalid or missing reference',
+                    'note' => $loan ? null : $note,
                     'payload' => $notification->payload,
                 ]);
                 $payment->forceFill(['receipt_number' => $this->receiptNumber($payment)])->save();

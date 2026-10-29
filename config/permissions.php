@@ -51,6 +51,8 @@ return [
         'loans.prepare_disbursement' => 'Prepare disbursement batches',
         'loans.disburse' => 'Disburse and retry disbursements',
         'loans.write_off' => 'Write off defaulted loans',
+        'phone_bond.manage' => 'Register Phone Bond devices and manage their Linda enrollment, status and closure',
+        'phone_bond.lock' => 'Lock or unlock a Phone Bond device manually through Linda, with a reason',
         'loans.discount_request' => 'Request a discount / waiver of an issued loan\'s outstanding debt (approved by another user)',
         'loans.discount_approve' => 'Approve or reject loan discount / waiver requests raised by another user',
         'loans.reverse_repayment' => 'Request the reversal of a posted loan repayment (another user approves; the money returns to suspense)',
@@ -142,6 +144,7 @@ return [
     'roles' => [
         'super_admin' => ['name' => 'Super Admin', 'scope' => 'company', 'permissions' => ['*']],
         'admin' => ['name' => 'Admin', 'scope' => 'company', 'permissions' => [
+            'phone_bond.manage', 'phone_bond.lock',
             'loans.discount_request', 'loans.discount_approve',
             'dashboard.view', 'settings.manage', 'users.manage', 'hrm.staff_privileges', 'hrm.staff_reset_password', 'float.manage', 'bank.manage', 'expenses.request',
             'expenses.approve_hq', 'hq.manage', 'customers.view', 'customers.manage', 'customers.edit', 'customers.approve',
@@ -151,6 +154,7 @@ return [
             'legacy_imports.manage', 'legacy_imports.approve',
         ]],
         'finance' => ['name' => 'Finance', 'scope' => 'company', 'permissions' => [
+            'phone_bond.lock',
             'loans.discount_request', 'loans.discount_approve',
             'dashboard.view', 'float.manage', 'funds.transfer', 'expenses.approve_branch', 'hq.manage', 'customers.view', 'customers.edit', 'groups.view', 'branches.view_all',
             'loans.view', 'loans.prepare_disbursement', 'loans.disburse', 'loans.reverse_repayment', 'loans.reverse_disbursement', 'loans.recover', 'payments.verify', 'payments.suspense',
@@ -165,6 +169,7 @@ return [
             'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'loans.view', 'reports.operations', 'reports.loans', 'reports.customers', 'reports.portfolio', 'crm.use', 'messages.use', 'goals.view',
         ]],
         'branch_manager' => ['name' => 'Branch Manager', 'scope' => 'branch', 'permissions' => [
+            'phone_bond.manage', 'phone_bond.lock',
             'loans.discount_request',
             'dashboard.view', 'customers.view', 'customers.manage', 'customers.edit', 'customers.assign_officer', 'customers.transfer', 'groups.view', 'groups.manage',
             'loans.view', 'loans.approve_manager', 'expenses.request', 'penalties.manage', 'reports.operations', 'reports.loans', 'reports.customers', 'reports.portfolio', 'crm.use',
@@ -180,6 +185,7 @@ return [
             'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'branches.view_all', 'loans.view', 'loans.credit_review', 'reports.loans', 'reports.customers', 'reports.portfolio', 'messages.use', 'goals.view',
         ]],
         'loan_officer' => ['name' => 'Loan Officer', 'scope' => 'branch', 'permissions' => [
+            'phone_bond.manage',
             'dashboard.view', 'customers.view', 'customers.manage', 'customers.edit', 'groups.view', 'groups.manage',
             'loans.view', 'loans.apply', 'crm.use', 'messages.use', 'goals.view',
         ]],
@@ -297,6 +303,8 @@ return [
                 ['key' => 'report_portfolio', 'label' => 'PORTFOLIO & RISK REPORTS', 'permissions' => ['reports.portfolio']],
                 ['key' => 'loan_discount_request', 'label' => 'REQUEST LOAN DISCOUNT / WAIVER', 'permissions' => ['loans.discount_request']],
                 ['key' => 'loan_discount_approve', 'label' => 'APPROVE LOAN DISCOUNT / WAIVER', 'permissions' => ['loans.discount_approve']],
+                ['key' => 'phone_bond_manage', 'label' => 'PHONE BOND DEVICES', 'permissions' => ['phone_bond.manage']],
+                ['key' => 'phone_bond_lock', 'label' => 'PHONE BOND LOCK / UNLOCK', 'permissions' => ['phone_bond.lock']],
                 ['key' => 'financial_reports', 'label' => 'FINANCIAL REPORTS', 'permissions' => ['reports.financial']],
                 ['key' => 'audit', 'label' => 'AUDIT TRAIL', 'permissions' => ['audit.view']],
                 ['key' => 'approvals_view', 'label' => 'PENDING APPROVALS', 'permissions' => ['approvals.view']],

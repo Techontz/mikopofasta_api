@@ -177,6 +177,9 @@ class LoanWorkflow
         // Customer → customer type → active loan category of that type, then the category's limits, then eligibility and freeze.
         $this->eligibility->assertLoanCategoryAvailable($customer, (int) $data['loan_category_id'], 'loan_category_id');
         $this->assertWithinLimits(LoanCategory::findOrFail($data['loan_category_id']), (float) $data['amount_applied'], 'amount_applied');
+        if (LoanCategory::whereKey($data['loan_category_id'])->value('loan_method') === 'phone_bond') {
+            PhoneBond::assertEligible($customer);
+        }
 
         $status = $this->borrowingStatus($customer, $data['loan_category_id'], $data['amount_applied']);
         if (! $status['allowed']) {
@@ -429,6 +432,16 @@ class LoanWorkflow
                 'reference_number' => $loan->reference_number ?? $this->newReferenceNumber($loan),
             ]);
             $this->record($loan, 'CREDIT_APPROVED', LoanStatus::PendingCreditReview, $employee, ['reference_number' => $loan->reference_number]);
+
+            // Enhancement §3.4: an E-Mandate top-up accepted by credit starts the cancellation of the old loan's mandate;
+            // it stays "requested" until the bank confirms it, and the mandate's history is kept.
+            if ($loan->topup_of_loan_id !== null) {
+                $oldMandate = LoanMandate::where('loan_id', $loan->topup_of_loan_id)->where('status', LoanMandate::ACTIVE)->whereNull('cancelled_at')->latest('id')->first();
+                if ($oldMandate !== null) {
+                    app(MandateCollections::class)->requestCancellation($oldMandate, $employee);
+                    $this->record($loan, 'MANDATE_CANCELLATION_REQUESTED', null, $employee, ['mandate_id' => $oldMandate->id, 'mandate_reference' => $oldMandate->mandate_reference]);
+                }
+            }
 
             return $loan;
         });
@@ -835,6 +848,8 @@ class LoanWorkflow
                     $this->recordOffset($loan, $previous, $settlement, (float) $disbursement->amount);
                     $this->record($previous->fresh(), 'SETTLED_BY_TOPUP', $previous->status, $employee, ['amount' => $balance, 'new_loan' => $loan->loan_number]);
                 }
+                // Enhancement §3.4: a Phone Bond top-up keeps the enrolled device and sends Linda the new debt.
+                app(PhoneBond::class)->moveToTopUp($previous, $loan->fresh(), $employee);
             }
 
             $loan->refresh();

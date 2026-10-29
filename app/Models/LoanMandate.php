@@ -16,6 +16,11 @@ class LoanMandate extends Model
 
     public const ACTIVE = 'active';
 
+    /** A replaced mandate whose cancellation was asked of the bank, not yet confirmed (enhancement §3.4). */
+    public const CANCELLATION_REQUESTED = 'requested';
+
+    public const CANCELLATION_CONFIRMED = 'confirmed';
+
     protected $guarded = ['id'];
 
     /**
@@ -25,6 +30,8 @@ class LoanMandate extends Model
     {
         return [
             'activated_at' => 'datetime',
+            'cancellation_requested_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 

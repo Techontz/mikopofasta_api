@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Loans\BankMandateWebhookController;
 use App\Http\Controllers\Api\V1\Loans\VodacomDisbursementWebhookController;
 use App\Http\Controllers\Api\V1\Payments\PaymentWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 
 // Loans
 Route::post('webhooks/vodacom/disbursement-status', VodacomDisbursementWebhookController::class)->middleware('throttle:120,1')->name('webhooks.vodacom.disbursement');
+Route::post('webhooks/bank-mandate/collections', BankMandateWebhookController::class)->middleware('throttle:120,1')->name('webhooks.bank-mandate.collections');
 
 // Payments
 Route::post('webhooks/payments', PaymentWebhookController::class)->middleware('throttle:120,1')->name('webhooks.payments');

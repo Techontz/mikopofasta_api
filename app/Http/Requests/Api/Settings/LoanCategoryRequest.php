@@ -22,6 +22,8 @@ class LoanCategoryRequest extends BaseLoanCategoryRequest
         return array_merge(parent::rules(), [
             'formular' => ['required', Rule::in(InterestFormula::where('is_enabled', true)->pluck('code')->all())],
             'requires_mandate' => ['required', 'in:YES,NO'],
+            // Enhancement §4–5: the loan method; E-Mandate keeps requires_mandate, Phone Bond is for eligible customer types.
+            'loan_method' => ['nullable', Rule::in(['normal', 'e_mandate', 'phone_bond'])],
             'freeze_time_days' => ['nullable', 'integer', 'min:0', 'max:365'],
         ]);
     }
@@ -41,8 +43,10 @@ class LoanCategoryRequest extends BaseLoanCategoryRequest
      */
     public function categoryData(): array
     {
+        $method = $this->input('loan_method') ?: ($this->input('requires_mandate') === 'YES' ? 'e_mandate' : 'normal');
+
         return parent::categoryData()
-            + ['requires_mandate' => $this->input('requires_mandate') === 'YES']
+            + ['requires_mandate' => $method === 'e_mandate', 'loan_method' => $method]
             + ($this->filled('freeze_time_days') ? ['freeze_time_days' => $this->integer('freeze_time_days')] : []);
     }
 }
