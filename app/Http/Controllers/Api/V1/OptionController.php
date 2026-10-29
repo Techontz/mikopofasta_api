@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Region;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Lightweight {value,label} lists for dropdowns (replaces the live fetch_* endpoints).
@@ -16,7 +18,9 @@ class OptionController extends ApiController
     public function branchOptions(Request $request): JsonResponse
     {
         // branches_only: real branches, without Head Office (HQ is not a branch — e.g. branch expenses, petty cash).
-        $branches = $this->visibleBranches()
+        // transfer_targets: every branch of the company, the destinations of a customer branch transfer.
+        $transferTargets = $request->boolean('transfer_targets') && Gate::allows('customers.transfer');
+        $branches = ($transferTargets ? Branch::where('company_id', $this->currentEmployee()->company_id)->orderBy('id')->get() : $this->visibleBranches())
             ->when($request->boolean('branches_only'), fn ($branches) => $branches->reject(fn ($branch): bool => (bool) $branch->is_head_office))
             ->map(fn ($branch): array => ['value' => (string) $branch->id, 'label' => $branch->name]);
 

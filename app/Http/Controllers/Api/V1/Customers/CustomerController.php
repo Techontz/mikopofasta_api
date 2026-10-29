@@ -21,7 +21,9 @@ use App\Services\Customers\CustomerCreditHistory;
 use App\Services\Customers\CustomerDebt;
 use App\Services\Customers\CustomerRegistrar;
 use App\Services\Customers\CustomerUpdates;
+use App\Services\Customers\DuplicateCustomerCheck;
 use App\Services\Customers\KycStatusCalculator;
+use App\Services\Customers\PossibleDuplicateCustomer;
 use App\Services\LoanService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -127,9 +129,21 @@ class CustomerController extends ApiController
         ]]);
     }
 
-    public function store(StoreCustomerRequest $request): JsonResponse
+    /**
+     * A registration that may belong to an existing customer of any branch is not created: it is held for KYC approvers
+     * (202) with a reference only, never the existing customer's details ({@see DuplicateCustomerCheck}).
+     */
+    public function store(StoreCustomerRequest $request, DuplicateCustomerCheck $duplicates): JsonResponse
     {
-        $customer = $this->registrar->register($request->validated(), $this->currentEmployee());
+        try {
+            $customer = $this->registrar->register($request->validated(), $this->currentEmployee());
+        } catch (PossibleDuplicateCustomer $exception) {
+            $review = $duplicates->hold($request->validated(), $this->currentEmployee(), $exception->matches);
+
+            return $this->message('This customer may already be registered. The registration was sent to CRM for verification and has not been created yet.', 202, [
+                'data' => ['duplicate_review_id' => $review->id, 'status' => $review->status],
+            ]);
+        }
 
         return (new CustomerResource($this->loadForResource($customer)))->response()->setStatusCode(201);
     }

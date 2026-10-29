@@ -103,7 +103,7 @@ trait BuildsCustomerModule
             'employeeId' => $admin->id,
             'customerCategoryId' => null,
             'firstName' => 'Asha',
-            'middleName' => 'Juma',
+            'middleName' => 'Juma'.Str::upper(Str::random(4)),
             'lastName' => 'Hamisi',
             'dob' => '1990-04-15',
             'gender' => 'female',
