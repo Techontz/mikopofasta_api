@@ -26,7 +26,7 @@ class LiveReportController extends ReportApiController
 
     public function cash(Request $request, LoanService $loans): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.operations');
         $scope = $this->reportScope($request, defaultToToday: true);
 
         $report = $this->reports->cash($scope);
@@ -93,7 +93,7 @@ class LiveReportController extends ReportApiController
 
     public function branchwise(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.operations');
         $scope = $this->reportScope($request);
 
         return $this->report($this->reports->branchwise($scope) + ['filter' => $this->filterEcho($request, $scope)]);
@@ -101,7 +101,7 @@ class LiveReportController extends ReportApiController
 
     public function file(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
         $request->validate(['loan_status' => ['nullable', 'in:ALL,ACTIVE,CLOSED,DEFAULT'], 'year' => ['nullable', 'integer', 'between:2000,2100']]);
         $scope = $this->reportScope($request);
         $year = $request->integer('year') ?: (int) now()->format('Y');
@@ -114,7 +114,7 @@ class LiveReportController extends ReportApiController
      */
     public function historicalPayments(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
         $request->validate(['year' => ['nullable', 'integer', 'between:2000,2100']]);
         $scope = $this->reportScope($request);
         $historicalYears = $this->reports->historicalYears($scope);
@@ -129,7 +129,7 @@ class LiveReportController extends ReportApiController
      */
     public function penalties(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
         $scope = $this->reportScope($request);
 
         return $this->report($this->reports->penalties($scope) + ['filter' => $this->filterEcho($request, $scope)]);
@@ -137,7 +137,7 @@ class LiveReportController extends ReportApiController
 
     public function newLoans(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
         $request->validate(['year' => ['nullable', 'integer', 'between:2000,2100']]);
         $year = $request->integer('year') ?: (int) now()->format('Y');
 
@@ -146,21 +146,21 @@ class LiveReportController extends ReportApiController
 
     public function pending(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
 
         return $this->report($this->reports->pending($this->reportScope($request), CarbonImmutable::today()));
     }
 
     public function repayment(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
 
         return $this->report($this->reports->repayment($this->reportScope($request)));
     }
 
     public function default(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
 
         return $this->report($this->reports->default($this->reportScope($request), CarbonImmutable::today()));
     }
@@ -170,14 +170,14 @@ class LiveReportController extends ReportApiController
      */
     public function writeOff(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
 
         return $this->report($this->reports->writeOff($this->reportScope($request), $request->boolean('done')));
     }
 
     public function collection(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.loans');
         $request->validate(['loan_status' => ['nullable', 'in:PENDING,APROVED,DISBURSED,ACTIVE,DONE,DEFALT']]);
 
         return $this->report($this->reports->collection($this->reportScope($request), $request->string('loan_status')->toString() ?: null));
@@ -189,7 +189,7 @@ class LiveReportController extends ReportApiController
      */
     public function statement(Request $request, PaymentService $payments, LoanService $loans): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.customers');
         $request->validate([
             'customer_id' => ['nullable', 'integer'],
             'loan_id' => ['nullable', 'integer'],
@@ -256,7 +256,7 @@ class LiveReportController extends ReportApiController
 
     public function receivable(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.operations');
         $request->validate(['paid_status' => ['nullable', 'in:paid,not paid,all']]);
         $scope = $this->reportScope($request, defaultToToday: true);
         $status = $request->string('paid_status')->toString();
@@ -269,7 +269,7 @@ class LiveReportController extends ReportApiController
      */
     public function received(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.operations');
         $scope = $this->reportScope($request, defaultToToday: ! is_numeric($request->input('branch_id')));
 
         return $this->report($this->reports->received($scope) + ['filter' => $this->filterEcho($request, $scope)]);
@@ -277,7 +277,7 @@ class LiveReportController extends ReportApiController
 
     public function daily(Request $request, DailyReport $daily): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.operations');
         $scope = $this->reportScope($request, defaultToToday: true);
         $from = $scope->from ?? $scope->to ?? CarbonImmutable::today();
         $to = $scope->to ?? $from;
@@ -290,14 +290,14 @@ class LiveReportController extends ReportApiController
 
     public function development(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.customers');
 
         return $this->report($this->reports->markedCustomers($this->reportScope($request)));
     }
 
     public function developmentShow(Customer $customer): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.customers');
         abort_unless($this->scoped(Customer::query())->whereKey($customer->id)->exists(), 404);
 
         return $this->report($this->reports->development($customer));

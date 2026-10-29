@@ -48,7 +48,22 @@ class AccessControl
             return $portal;
         }
 
-        return $this->withoutCompanyMoneyUnlessOwner($employee, $this->staffPermissionsFor($employee, $portal));
+        return $this->withoutHrmUnlessHrmRole($employee, $this->withoutCompanyMoneyUnlessOwner($employee, $this->staffPermissionsFor($employee, $portal)));
+    }
+
+    /**
+     * HRM department permissions stay only with the HR, Admin and Super Admin roles (the role the session acts as).
+     *
+     * @param  list<string>  $permissions
+     * @return list<string>
+     */
+    private function withoutHrmUnlessHrmRole(Employee $employee, array $permissions): array
+    {
+        if (in_array($employee->role?->key, config('permissions.hrm_department.roles', []), true)) {
+            return $permissions;
+        }
+
+        return array_values(array_diff($permissions, config('permissions.hrm_department.permissions', [])));
     }
 
     /**

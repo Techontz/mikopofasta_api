@@ -55,6 +55,7 @@ Route::prefix('settings')->name('settings.')->group(function (): void {
         Route::get('permissions', 'permissions')->name('permissions.index');
         Route::put('roles/{role}/permissions', 'updatePermissions')->name('roles.permissions');
         Route::put('employees/{employee}/role', 'assignEmployeeRole')->name('employees.role');
+        Route::put('employees/{employee}/roles', 'syncAdditionalRoles')->name('employees.roles');
     });
 
     Route::controller(SettingsOptionController::class)->prefix('options')->name('options.')->group(function (): void {

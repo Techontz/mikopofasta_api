@@ -37,7 +37,9 @@ class EmployeeResource extends JsonResource
             'company' => $this->whenLoaded('company', fn () => ['id' => $this->company->id, 'name' => $this->company->name, 'logo' => $this->company->logo]),
             'branch' => $this->whenLoaded('branch', fn () => $this->branch ? ['id' => $this->branch->id, 'name' => $this->branch->name] : null),
             'zone' => $this->whenLoaded('zone', fn () => $this->zone ? ['id' => $this->zone->id, 'name' => $this->zone->name] : null),
-            'role' => $this->whenLoaded('role', fn () => $this->role ? ['key' => $this->role->key, 'name' => $this->role->name, 'scope' => $this->role->scope] : null),
+            'role' => $this->whenLoaded('role', fn () => $this->role ? ['id' => $this->role->id, 'key' => $this->role->key, 'name' => $this->role->name, 'scope' => $this->role->scope] : null),
+            // Switch Role (enhancement §13): every role the employee may act as; `role` above is the one this session acts as.
+            'roles' => $this->whenLoaded('role', fn () => $this->resource->assignedRoles()->map(fn ($role): array => ['id' => $role->id, 'key' => $role->key, 'name' => $role->name, 'primary' => $role->id === $this->resource->primaryRoleId()])->values()),
             'permissions' => $this->whenLoaded('role', fn () => app(AccessControl::class)->permissionsFor($this->resource)),
             'branch_ids' => $this->whenLoaded('role', fn () => app(AccessControl::class)->branchIds($this->resource)),
         ];

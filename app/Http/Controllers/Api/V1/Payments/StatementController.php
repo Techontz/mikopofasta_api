@@ -17,7 +17,7 @@ class StatementController extends ApiController
 {
     public function __invoke(Request $request, Customer $customer, PaymentService $payments): JsonResponse
     {
-        $this->authorizeAny('reports.view', 'payments.cash', 'payments.verify', 'payments.suspense');
+        $this->authorizeAny('reports.view', 'reports.customers', 'payments.cash', 'payments.verify', 'payments.suspense');
         $this->assertBranchAccessible((int) $customer->branch_id);
 
         $request->validate(['from' => ['nullable', 'date'], 'to' => ['nullable', 'date', 'after_or_equal:from']]);

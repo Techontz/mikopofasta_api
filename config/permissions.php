@@ -69,7 +69,11 @@ return [
         'income.view' => 'View deducted loan fee income',
         'savings.manage' => 'Manage insurance savings',
         'visa.manage' => 'Manage customer bank card details',
-        'reports.view' => 'View operational reports',
+        'reports.view' => 'View every operational, loan, customer and portfolio report (Admin and Finance)',
+        'reports.operations' => 'View branch operations reports: cash transactions, branch-wise, daily, today receivable and received',
+        'reports.loans' => 'View loan reports: file, penalty, pending, repayment, default, write-off and collection',
+        'reports.customers' => 'View customer reports: customer statement and customer development',
+        'reports.portfolio' => 'View portfolio and risk reports: portfolio, expected vs actual, arrears and PAR, recovery, DPD, segmentation, age analysis',
         'reports.financial' => 'View financial, commission and strategic reports',
         'hrm.manage' => 'Manage staff records, leave, allowances and deductions',
         'hrm.staff_privileges' => 'Grant or revoke individual staff privileges (per-employee permissions)',
@@ -108,6 +112,16 @@ return [
     | for a Super Admin / Admin staff login or a login linked to a shareholder of the company — never for any other role,
     | whatever its role permissions or per-employee overrides say.
     */
+    /*
+    | HRM department (enhancement §14): managing staff, their privileges and payroll preparation is effective only while the
+    | session acts as HR, Admin or Super Admin, whatever a role's permissions or a per-employee override say. Paying payroll
+    | (payroll.pay, Finance) is not part of it.
+    */
+    'hrm_department' => [
+        'permissions' => ['hrm.manage', 'hrm.staff_privileges', 'hrm.staff_reset_password', 'payroll.approve'],
+        'roles' => ['super_admin', 'admin', 'hr'],
+    ],
+
     'company_money' => [
         'permissions' => ['bank.manage'],
         'roles' => ['super_admin', 'admin'],
@@ -141,24 +155,24 @@ return [
             'legacy_imports.manage',
         ]],
         'hr' => ['name' => 'HR', 'scope' => 'company', 'permissions' => [
-            'dashboard.view', 'users.manage', 'hrm.manage', 'hrm.staff_privileges', 'payroll.approve', 'branches.view_all', 'reports.view', 'messages.use', 'goals.view',
+            'dashboard.view', 'users.manage', 'hrm.manage', 'hrm.staff_privileges', 'payroll.approve', 'branches.view_all', 'messages.use', 'goals.view',
         ]],
         'zone_manager' => ['name' => 'Zone Manager', 'scope' => 'zone', 'permissions' => [
-            'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'loans.view', 'reports.view', 'crm.use', 'messages.use', 'goals.view',
+            'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'loans.view', 'reports.operations', 'reports.loans', 'reports.customers', 'reports.portfolio', 'crm.use', 'messages.use', 'goals.view',
         ]],
         'branch_manager' => ['name' => 'Branch Manager', 'scope' => 'branch', 'permissions' => [
             'dashboard.view', 'customers.view', 'customers.manage', 'customers.edit', 'customers.assign_officer', 'customers.transfer', 'groups.view', 'groups.manage',
-            'loans.view', 'loans.approve_manager', 'expenses.request', 'penalties.manage', 'reports.view', 'crm.use',
+            'loans.view', 'loans.approve_manager', 'expenses.request', 'penalties.manage', 'reports.operations', 'reports.loans', 'reports.customers', 'reports.portfolio', 'crm.use',
             'messages.use', 'goals.view',
         ]],
         // Customer Care department (user ruling 2026-10-15): one company-wide team that approves KYC, approves the changes branch
         // staff make to customers' details, and handles complaints, requests and follow-ups for every branch.
         'crm' => ['name' => 'CRM', 'scope' => 'company', 'permissions' => [
             'dashboard.view', 'customers.view', 'customers.edit', 'customers.approve', 'customers.approve_updates', 'customers.transfer', 'groups.view', 'branches.view_all',
-            'loans.view', 'reports.view', 'crm.use', 'messages.use', 'goals.view',
+            'loans.view', 'reports.customers', 'reports.loans', 'crm.use', 'messages.use', 'goals.view',
         ]],
         'credit_officer' => ['name' => 'Credit Officer', 'scope' => 'company', 'permissions' => [
-            'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'branches.view_all', 'loans.view', 'loans.credit_review', 'reports.view', 'messages.use', 'goals.view',
+            'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'branches.view_all', 'loans.view', 'loans.credit_review', 'reports.loans', 'reports.customers', 'reports.portfolio', 'messages.use', 'goals.view',
         ]],
         'loan_officer' => ['name' => 'Loan Officer', 'scope' => 'branch', 'permissions' => [
             'dashboard.view', 'customers.view', 'customers.manage', 'customers.edit', 'groups.view', 'groups.manage',
@@ -272,6 +286,10 @@ return [
                 ['key' => 'accounting_view', 'label' => 'ACCOUNTING', 'permissions' => ['accounting.view']],
                 ['key' => 'accounting_reverse', 'label' => 'REVERSAL ENTRIES', 'permissions' => ['accounting.reverse']],
                 ['key' => 'close_period', 'label' => 'MONTH-END CLOSE', 'permissions' => ['accounting.close_period']],
+                ['key' => 'report_operations', 'label' => 'BRANCH OPERATIONS REPORTS', 'permissions' => ['reports.operations']],
+                ['key' => 'report_loans', 'label' => 'LOAN REPORTS', 'permissions' => ['reports.loans']],
+                ['key' => 'report_customers', 'label' => 'CUSTOMER REPORTS', 'permissions' => ['reports.customers']],
+                ['key' => 'report_portfolio', 'label' => 'PORTFOLIO & RISK REPORTS', 'permissions' => ['reports.portfolio']],
                 ['key' => 'financial_reports', 'label' => 'FINANCIAL REPORTS', 'permissions' => ['reports.financial']],
                 ['key' => 'audit', 'label' => 'AUDIT TRAIL', 'permissions' => ['audit.view']],
                 ['key' => 'approvals_view', 'label' => 'PENDING APPROVALS', 'permissions' => ['approvals.view']],

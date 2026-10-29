@@ -16,7 +16,7 @@ class PortfolioReportController extends ReportApiController
 
     public function portfolio(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.portfolio');
         $scope = $this->reportScope($request);
 
         return response()->json(['data' => $this->reports->portfolio($scope) + ['filter' => $this->filterEcho($request, $scope)]]);
@@ -27,7 +27,7 @@ class PortfolioReportController extends ReportApiController
      */
     public function collections(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.portfolio');
         $request->validate(['period' => ['nullable', 'in:daily,weekly,monthly']]);
         $scope = $this->reportScope($request);
         if (! $scope->dated()) {
@@ -39,7 +39,7 @@ class PortfolioReportController extends ReportApiController
 
     public function arrears(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.portfolio');
         $scope = $this->reportScope($request);
 
         return response()->json(['data' => $this->reports->arrears($scope, CarbonImmutable::today()) + ['filter' => $this->filterEcho($request, $scope)]]);
@@ -47,7 +47,7 @@ class PortfolioReportController extends ReportApiController
 
     public function recovery(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.portfolio');
         $scope = $this->reportScope($request);
 
         return response()->json(['data' => $this->reports->recovery($scope) + ['filter' => $this->filterEcho($request, $scope)]]);
@@ -55,7 +55,7 @@ class PortfolioReportController extends ReportApiController
 
     public function behaviour(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.portfolio');
         $scope = $this->reportScope($request);
 
         return response()->json(['data' => $this->reports->behaviour($scope, CarbonImmutable::today()) + ['filter' => $this->filterEcho($request, $scope)]]);
@@ -63,7 +63,7 @@ class PortfolioReportController extends ReportApiController
 
     public function segmentation(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.portfolio');
         $scope = $this->reportScope($request);
 
         return response()->json(['data' => ['dimensions' => $this->reports->segmentation($scope, CarbonImmutable::today()), 'filter' => $this->filterEcho($request, $scope)]]);
@@ -71,7 +71,7 @@ class PortfolioReportController extends ReportApiController
 
     public function ageAnalysis(Request $request): JsonResponse
     {
-        $this->authorizeAny('reports.view');
+        $this->authorizeAny('reports.view', 'reports.portfolio');
         $scope = $this->reportScope($request);
 
         return response()->json(['data' => ['rows' => $this->reports->ageAnalysis($scope, CarbonImmutable::today()), 'filter' => $this->filterEcho($request, $scope)]]);
