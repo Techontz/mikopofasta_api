@@ -26,6 +26,8 @@ class TellerDepositResource extends JsonResource
             'bank_account_id' => $this->bank_account_id,
             'bank_account' => $this->bankAccount?->name,
             'slip_number' => $this->slip_number,
+            'has_receipt' => $this->receipt_file !== null,
+            'receipt_file_name' => $this->receipt_file_name,
             'amount' => (float) $this->amount,
             'expected_amount' => $expected,
             // Once Finance has checked the statement: statement − slip (what MISMATCH is about); before that: slip − receipts.

@@ -29,7 +29,8 @@ class PenaltyController extends ApiController
             ->whereColumn('paid_amount', '<', 'amount')
             ->with(['customer', 'branch', 'loan', 'accrualJournal:id,reference', 'legacyImportRow:id,loan_amount'])
             ->orderBy('penalty_date');
-        $this->applyFilters($query, $request);
+        // Enhancement §16.1: the list opens on today's penalties; the period filter reaches every earlier one.
+        $this->applyFilters($query, $request, 'penalty_date');
 
         return response()->json(['data' => $query->get()->map(fn (Penalty $penalty): array => [
             'id' => $penalty->id,

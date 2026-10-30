@@ -28,8 +28,9 @@ final class LoanBalances
      */
     public static function join(BuilderContract $loans): BuilderContract
     {
+        // Approved discounts / waivers (enhancement §6) reduce the balance; they are never counted as cash elsewhere.
         $paid = DB::table('loan_transactions')
-            ->where('type', 'deposit')
+            ->whereIn('type', ['deposit', 'discount'])
             ->whereNull('reversed_at')
             ->whereNotNull('loan_id')
             ->groupBy('loan_id')

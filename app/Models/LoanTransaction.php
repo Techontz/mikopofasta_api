@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class LoanTransaction extends Model
 {
+    /**
+     * An approved loan discount / waiver (enhancement §6): reduces the outstanding balance, never cash received.
+     */
+    public const TYPE_DISCOUNT = 'discount';
+
     protected $guarded = ['id'];
 
     /**

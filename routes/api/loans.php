@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\Loans\CreditAssessmentController;
 use App\Http\Controllers\Api\V1\Loans\LoanController;
+use App\Http\Controllers\Api\V1\Loans\LoanDiscountController;
 use App\Http\Controllers\Api\V1\Loans\LoanRecoveryController;
 use App\Http\Controllers\Api\V1\Loans\LoanSecurityController;
 use App\Http\Controllers\Api\V1\Loans\LoanWorkflowController;
@@ -19,6 +20,14 @@ Route::prefix('loans')->name('loans.')->group(function (): void {
         Route::get('{loan}', 'show')->whereNumber('loan')->name('show');
         Route::put('{loan}', 'update')->whereNumber('loan')->name('update');
         Route::delete('{loan}', 'destroy')->whereNumber('loan')->name('destroy');
+    });
+
+    // Loan Repayment → Discount / Waiver (enhancement §6).
+    Route::controller(LoanDiscountController::class)->group(function (): void {
+        Route::get('discounts', 'index')->name('discounts.index');
+        Route::post('{loan}/discounts', 'store')->whereNumber('loan')->name('discounts.store');
+        Route::post('discounts/{discount}/approve', 'approve')->whereNumber('discount')->name('discounts.approve');
+        Route::post('discounts/{discount}/reject', 'reject')->whereNumber('discount')->name('discounts.reject');
     });
 
     // Credit assessment engine (§36 / §37 / §63): advisory recommendation with its evidence. Reads and records only.
@@ -53,6 +62,7 @@ Route::prefix('loans')->name('loans.')->group(function (): void {
         Route::post('{loan}/retry-disbursement', 'retry')->name('retry-disbursement');
         Route::post('{loan}/escalation', 'escalation')->name('escalation');
         Route::post('{loan}/requeue', 'requeue')->name('requeue');
+        Route::post('{loan}/return-to-previous-stage', 'returnToPreviousStage')->name('return-to-previous-stage');
         Route::post('{loan}/confirm-disbursement', 'confirmDisbursement')->name('confirm-disbursement');
         Route::post('{loan}/cash-out', 'cashOut')->name('cash-out');
         Route::post('{loan}/close', 'close')->name('close');

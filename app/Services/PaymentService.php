@@ -176,7 +176,7 @@ class PaymentService
      * The slip amount the teller types (what is written on the paper slip) must equal the server total of the locked
      * receipts; it is never trusted on its own.
      *
-     * @param  array{bank_account_id: int, slip_number: string, amount: float, deposit_date: string}  $data
+     * @param  array{bank_account_id: int, slip_number?: string|null, amount: float, deposit_date: string}  $data
      * @param  list<int>  $paymentIds
      */
     public function submitBankDeposit(Employee $teller, int $branchId, array $data, array $paymentIds): TellerDeposit
@@ -204,7 +204,7 @@ class PaymentService
                 'branch_id' => $branchId,
                 'employee_id' => $teller->id,
                 'bank_account_id' => $data['bank_account_id'],
-                'slip_number' => $data['slip_number'],
+                'slip_number' => $data['slip_number'] ?? null,
                 'amount' => $expected,
                 'deposit_date' => $data['deposit_date'],
                 'status' => TellerDeposit::STATUS_PENDING,
@@ -259,7 +259,7 @@ class PaymentService
 
             $locked->update([
                 'bank_account_id' => $data['bank_account_id'],
-                'slip_number' => $data['slip_number'],
+                'slip_number' => $data['slip_number'] ?? $locked->slip_number,
                 'amount' => $expected,
                 'deposit_date' => $data['deposit_date'],
                 'status' => TellerDeposit::STATUS_PENDING,
@@ -331,7 +331,7 @@ class PaymentService
 
             foreach ($payments->groupBy('employee_id') as $tellerId => $tellerPayments) {
                 $total = round((float) $tellerPayments->sum('amount'), 2);
-                $this->ledger->journal($deposit->company_id, 'TELLER CASH BANKED '.$deposit->slip_number, [
+                $this->ledger->journal($deposit->company_id, 'TELLER CASH BANKED '.($deposit->slip_number ?? 'DEPOSIT #'.$deposit->id), [
                     ['account' => Account::Bank, 'bank' => $deposit->bank_account_id, 'debit' => $total],
                     ['account' => Account::TellerCash, 'branch' => $deposit->branch_id, 'employee' => $tellerId ?: null, 'credit' => $total],
                 ], $deposit, $date, $deposit->branch_id, $finance);

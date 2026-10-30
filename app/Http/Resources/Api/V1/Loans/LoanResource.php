@@ -94,6 +94,7 @@ class LoanResource extends JsonResource
             'disbursed_at' => $this->disbursed_at?->toDateTimeString(),
             'withdrawn_at' => $this->withdrawn_at?->toDateString(),
             'end_date' => $this->end_date?->toDateString(),
+            'start_date' => $this->start_date?->toDateString(),
             'closed_at' => $this->closed_at?->toDateString(),
             // Early full settlement freeze (LoanService::recordSettlement()): disbursement → maturity → settlement.
             'disbursed_at_iso' => $this->disbursed_at?->toIso8601String(),

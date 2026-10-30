@@ -59,7 +59,7 @@ class PeriodClose
      */
     public const EXPENSE_ACCOUNTS = [
         Account::OperatingExpense, Account::SalaryExpense, Account::CommissionExpense,
-        Account::AllowanceExpense, Account::WriteOffExpense, Account::BankCharges,
+        Account::AllowanceExpense, Account::WriteOffExpense, Account::LoanDiscountExpense, Account::BankCharges,
     ];
 
     public function __construct(private readonly Ledger $ledger) {}

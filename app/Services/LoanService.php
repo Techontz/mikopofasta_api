@@ -230,9 +230,10 @@ class LoanService
 
             $loan->schedules()->delete();
             $duration = $loan->duration;
+            $firstDue = $this->firstDueDate($loan, $date);
             for ($session = 1; $session <= $loan->sessions; $session++) {
                 $loan->schedules()->create([
-                    'due_date' => $duration->addPeriods($date, $session)->toDateString(),
+                    'due_date' => $duration->addPeriods($firstDue, $session - 1)->toDateString(),
                     'amount' => $loan->restoration,
                 ]);
             }
@@ -242,7 +243,7 @@ class LoanService
                 'disbursement_channel' => $channel,
                 'disbursed_at' => now(),
                 'withdrawn_at' => $date->toDateString(),
-                'end_date' => $duration->addPeriods($date, $loan->sessions)->toDateString(),
+                'end_date' => $duration->addPeriods($firstDue, $loan->sessions - 1)->toDateString(),
             ]);
             $loan->customer->update(['status' => 'open']);
 
@@ -330,13 +331,27 @@ class LoanService
     }
 
     /**
+     * The first repayment date (enhancement §3.2): the loan's Start Date, or — for a loan without one, or one disbursed after
+     * its Start Date had passed — one period after disbursement, as before. Every later due date follows from it.
+     */
+    public function firstDueDate(Loan $loan, CarbonImmutable $disbursedOn): CarbonImmutable
+    {
+        $start = $loan->start_date ? CarbonImmutable::parse($loan->start_date)->startOfDay() : null;
+
+        return $start !== null && $start->greaterThanOrEqualTo($disbursedOn->startOfDay())
+            ? $start
+            : $loan->duration->addPeriods($disbursedOn, 1);
+    }
+
+    /**
      * Outstanding balances per component (reversed repayments do not count). A loan fee is never part of it (rule 7).
      *
      * @return array{principal: float, penalty: float, interest: float, insurance: float, total: float}
      */
     public function outstanding(Loan $loan): array
     {
-        $paid = $loan->transactions()->where('type', 'deposit')->whereNull('reversed_at')
+        // An approved discount / waiver (enhancement §6) reduces what is owed like a repayment, without being cash.
+        $paid = $loan->transactions()->whereIn('type', ['deposit', LoanTransaction::TYPE_DISCOUNT])->whereNull('reversed_at')
             ->selectRaw('COALESCE(SUM(principal),0) p, COALESCE(SUM(interest),0) i, COALESCE(SUM(insurance),0) s')
             ->first();
 
@@ -469,7 +484,7 @@ class LoanService
         }
     }
 
-    private function allocateToSchedules(Loan $loan, float $amount): void
+    public function allocateToSchedules(Loan $loan, float $amount): void
     {
         foreach ($loan->schedules()->whereColumn('paid_amount', '<', 'amount')->get() as $schedule) {
             if ($amount <= 0) {

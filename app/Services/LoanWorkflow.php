@@ -185,10 +185,13 @@ class LoanWorkflow
 
         $loan = DB::transaction(function () use ($customer, $data, $employee, $status): Loan {
             $loan = $this->loans->apply($customer, $data, $employee);
+            if (filled($data['start_date'] ?? null)) {
+                $loan->update(['start_date' => $data['start_date']]);
+            }
             if ($status['topup'] !== null) {
                 $loan->update(['topup_of_loan_id' => $status['topup']['loan_id']]);
             }
-            $this->record($loan, 'APPLIED', null, $employee, ['amount' => (float) $loan->amount_applied, 'topup_of' => $status['topup']['loan_number'] ?? null]);
+            $this->record($loan, 'APPLIED', null, $employee, ['amount' => (float) $loan->amount_applied, 'topup_of' => $status['topup']['loan_number'] ?? null, 'start_date' => $data['start_date'] ?? null]);
 
             return $loan;
         });
@@ -247,6 +250,9 @@ class LoanWorkflow
                 'interest_rate' => $category->interest_rate,
                 'status' => LoanStatus::PendingManagerApproval,
             ]);
+            if (array_key_exists('start_date', $data)) {
+                $loan->start_date = $data['start_date'];
+            }
             $loan->setRelation('category', $category);
             $this->loans->price($loan, (float) $data['amount_applied']);
             $loan->save();
@@ -608,6 +614,55 @@ class LoanWorkflow
     }
 
     /**
+     * Return to Previous Stage (enhancement §7.1): a loan moved forward by mistake goes back one stage, with a reason, and
+     * keeps its approval history. Only before any money moved: a completed disbursement is corrected through the
+     * disbursement reversal procedure, and a request the provider is still processing must first get its result. Prepared
+     * or failed batches of the loan are cancelled; nothing is posted.
+     *
+     * @throws ValidationException
+     */
+    public function returnToPreviousStage(Loan $loan, string $reason, Employee $employee): Loan
+    {
+        return DB::transaction(function () use ($loan, $reason, $employee): Loan {
+            $loan = Loan::lockForUpdate()->findOrFail($loan->id);
+            $previous = self::previousStage($loan->status);
+            if ($previous === null) {
+                throw ValidationException::withMessages(['loan' => "A loan that is {$loan->status->label()} cannot be returned to a previous stage. A completed disbursement is corrected by a disbursement reversal."]);
+            }
+
+            $batches = LoanDisbursement::where('loan_id', $loan->id)->lockForUpdate()->get();
+            if ($batches->contains('status', LoanDisbursement::SUCCESS)) {
+                throw ValidationException::withMessages(['loan' => 'This loan was already disbursed. A completed disbursement is corrected by a disbursement reversal.']);
+            }
+            if ($batches->contains('status', LoanDisbursement::REQUESTED)) {
+                throw ValidationException::withMessages(['loan' => 'A disbursement request for this loan is still with the provider. Wait for its result before returning the loan.']);
+            }
+
+            $cancelled = $batches->whereIn('status', [LoanDisbursement::PREPARED, LoanDisbursement::FAILED])->pluck('batch_id')->unique()->values()->all();
+            LoanDisbursement::where('loan_id', $loan->id)->whereIn('status', [LoanDisbursement::PREPARED, LoanDisbursement::FAILED])->update(['status' => LoanDisbursement::CANCELLED]);
+            if ($previous === LoanStatus::PendingFinance) {
+                $loan->disbursement_attempts = 0;
+            }
+
+            $this->transition($loan, $previous, 'RETURNED_TO_PREVIOUS_STAGE', $employee, ['reason' => trim($reason), 'cancelled_batches' => $cancelled]);
+
+            return $loan->fresh();
+        });
+    }
+
+    /**
+     * The stage a loan returns to with {@see self::returnToPreviousStage()}, or null when it cannot be returned.
+     */
+    public static function previousStage(LoanStatus $status): ?LoanStatus
+    {
+        return match ($status) {
+            LoanStatus::PendingFinance => LoanStatus::PendingCreditReview,
+            LoanStatus::AwaitingDisbursement, LoanStatus::DisbursementFailed, LoanStatus::Escalated => LoanStatus::PendingFinance,
+            default => null,
+        };
+    }
+
+    /**
      * Inferred: a loan parked in suspense can be sent back to Finance, which starts a new retry cycle.
      */
     public function requeue(Loan $loan, Employee $employee): Loan
@@ -791,6 +846,9 @@ class LoanWorkflow
                 'provider_reference' => $disbursement->provider_reference,
                 'source' => $disbursement->sourceLabel(),
                 'journal_reference' => $entry->reference,
+                'start_date' => $loan->start_date?->toDateString(),
+                'first_due_date' => $loan->schedules()->value('due_date'),
+                'start_date_passed' => $loan->start_date !== null && $loan->start_date->lt($today),
             ]);
 
             $this->notify($loan, 'Mkopo wako wa TSH '.money($loan->amount_approved).' umetolewa. Umepokea TSH '.money($disbursement->amount)

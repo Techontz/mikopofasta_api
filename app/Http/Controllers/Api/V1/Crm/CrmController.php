@@ -24,13 +24,14 @@ use Illuminate\Http\Request;
  */
 class CrmController extends ApiController
 {
-    public function summary(): JsonResponse
+    public function summary(Request $request): JsonResponse
     {
         $this->authorizeAny('crm.use');
 
         $today = now()->toDateString();
         $me = $this->currentEmployee()->id;
-        $interactions = fn () => $this->scoped(CrmInteraction::query());
+        // Enhancement §9.1: the tiles follow the branch filter of the page (all branches in scope by default).
+        $interactions = fn () => $this->applyFilters($this->scoped(CrmInteraction::query()), $request);
         $pendingFollowUps = fn () => $interactions()->whereNotNull('follow_up_date')->whereNull('follow_up_done_at');
 
         return response()->json(['data' => [
@@ -40,7 +41,7 @@ class CrmController extends ApiController
             'my_follow_ups_due' => $pendingFollowUps()->where('employee_id', $me)->whereDate('follow_up_date', '<=', $today)->count(),
             'follow_ups_due' => $pendingFollowUps()->whereDate('follow_up_date', $today)->count(),
             'follow_ups_overdue' => $pendingFollowUps()->whereDate('follow_up_date', '<', $today)->count(),
-            'open_tickets' => $this->scoped(CrmTicket::query())->whereIn('status', CrmTicket::OPEN_STATUSES)->count(),
+            'open_tickets' => $this->applyFilters($this->scoped(CrmTicket::query()), $request)->whereIn('status', CrmTicket::OPEN_STATUSES)->count(),
         ]]);
     }
 

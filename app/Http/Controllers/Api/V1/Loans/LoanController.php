@@ -89,7 +89,8 @@ class LoanController extends LoanApiController
             ->when($request->has('special'), fn (Builder $query) => $query->where('is_special', $request->boolean('special')))
             ->when($request->filled('customer_id'), fn (Builder $query) => $query->where('customer_id', $request->integer('customer_id')))
             ->latest('id');
-        $this->applyFilters($query, $request, 'created_at');
+        // Ready to Pay Out filters by the day each loan reached its tab, the other stages by the application date.
+        $this->applyFilters($query, $request, $request->input('stage') === 'disbursement' ? 'loans.status_changed_at' : 'loans.created_at');
 
         $rows = $query->get();
 
@@ -115,7 +116,7 @@ class LoanController extends LoanApiController
             ->status(...($request->filled('status') ? [LoanStatus::from($request->string('status')->toString())] : $statuses))
             ->with(['customer', 'latestDisbursement', 'topupOf'])
             ->latest('id');
-        $this->applyFilters($query, $request, 'created_at');
+        $this->applyFilters($query, $request, 'loans.status_changed_at');
 
         foreach ($query->get() as $loan) {
             $file->add($loan->customer, (float) ($loan->latestDisbursement?->amount ?? $this->workflow->netDisbursement($loan)), "Loan {$loan->loan_number}");

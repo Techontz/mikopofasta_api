@@ -20,6 +20,8 @@ class LoanApplicationRequest extends LiveLoanApplicationRequest
         $rules = parent::rules();
         $rules['day'] = ['nullable', 'string'];
         $rules['instalment'] = ['nullable', 'numeric', 'min:0'];
+        // Enhancement §3.2: the first repayment date, today or later (the schedule is built from it at disbursement).
+        $rules['start_date'] = ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'];
 
         if ($this->isMethod('post')) {
             $rules['customer_id'] = ['required', Rule::exists('customers', 'id')->where('company_id', $this->user()->company_id)];
@@ -41,14 +43,16 @@ class LoanApplicationRequest extends LiveLoanApplicationRequest
             'session' => 'number of repayments',
             'rate' => 'interest formula',
             'fee_status' => 'deducted fee',
+            'start_date' => 'start date',
         ];
     }
 
     /**
-     * @return array{loan_category_id: int, group_id: int|null, amount_applied: float, sessions: int, formula: string, fee_deduct: bool, reason: string, instalment: float}
+     * @return array{loan_category_id: int, group_id: int|null, amount_applied: float, sessions: int, formula: string, fee_deduct: bool, reason: string, instalment: float, start_date?: string|null}
      */
     public function loanData(): array
     {
-        return parent::loanData() + ['instalment' => (float) $this->input('instalment', 0)];
+        return parent::loanData() + ['instalment' => (float) $this->input('instalment', 0)]
+            + ($this->has('start_date') ? ['start_date' => $this->filled('start_date') ? $this->string('start_date')->toString() : null] : []);
     }
 }

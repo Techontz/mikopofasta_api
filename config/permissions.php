@@ -51,6 +51,8 @@ return [
         'loans.prepare_disbursement' => 'Prepare disbursement batches',
         'loans.disburse' => 'Disburse and retry disbursements',
         'loans.write_off' => 'Write off defaulted loans',
+        'loans.discount_request' => 'Request a discount / waiver of an issued loan\'s outstanding debt (approved by another user)',
+        'loans.discount_approve' => 'Approve or reject loan discount / waiver requests raised by another user',
         'loans.reverse_repayment' => 'Request the reversal of a posted loan repayment (another user approves; the money returns to suspense)',
         'loans.reverse_disbursement' => 'Request the reversal of a loan disbursement that has no repayments or penalties (another user approves)',
         'penalties.reverse_payment' => 'Request the reversal of a direct penalty payment',
@@ -140,6 +142,7 @@ return [
     'roles' => [
         'super_admin' => ['name' => 'Super Admin', 'scope' => 'company', 'permissions' => ['*']],
         'admin' => ['name' => 'Admin', 'scope' => 'company', 'permissions' => [
+            'loans.discount_request', 'loans.discount_approve',
             'dashboard.view', 'settings.manage', 'users.manage', 'hrm.staff_privileges', 'hrm.staff_reset_password', 'float.manage', 'bank.manage', 'expenses.request',
             'expenses.approve_hq', 'hq.manage', 'customers.view', 'customers.manage', 'customers.edit', 'customers.approve',
             'customers.approve_updates', 'customers.assign_officer', 'customers.transfer', 'customers.approve_transfer', 'groups.view', 'groups.manage', 'branches.view_all', 'loans.view', 'loans.write_off', 'loans.reverse_repayment', 'loans.reverse_disbursement',
@@ -148,6 +151,7 @@ return [
             'legacy_imports.manage', 'legacy_imports.approve',
         ]],
         'finance' => ['name' => 'Finance', 'scope' => 'company', 'permissions' => [
+            'loans.discount_request', 'loans.discount_approve',
             'dashboard.view', 'float.manage', 'funds.transfer', 'expenses.approve_branch', 'hq.manage', 'customers.view', 'customers.edit', 'groups.view', 'branches.view_all',
             'loans.view', 'loans.prepare_disbursement', 'loans.disburse', 'loans.reverse_repayment', 'loans.reverse_disbursement', 'loans.recover', 'payments.verify', 'payments.suspense',
             'accounting.view', 'accounting.reverse', 'accounting.close_period', 'salary_advance.manage', 'penalties.manage', 'penalties.reverse_payment', 'reversals.approve',
@@ -161,6 +165,7 @@ return [
             'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'loans.view', 'reports.operations', 'reports.loans', 'reports.customers', 'reports.portfolio', 'crm.use', 'messages.use', 'goals.view',
         ]],
         'branch_manager' => ['name' => 'Branch Manager', 'scope' => 'branch', 'permissions' => [
+            'loans.discount_request',
             'dashboard.view', 'customers.view', 'customers.manage', 'customers.edit', 'customers.assign_officer', 'customers.transfer', 'groups.view', 'groups.manage',
             'loans.view', 'loans.approve_manager', 'expenses.request', 'penalties.manage', 'reports.operations', 'reports.loans', 'reports.customers', 'reports.portfolio', 'crm.use',
             'messages.use', 'goals.view',
@@ -290,6 +295,8 @@ return [
                 ['key' => 'report_loans', 'label' => 'LOAN REPORTS', 'permissions' => ['reports.loans']],
                 ['key' => 'report_customers', 'label' => 'CUSTOMER REPORTS', 'permissions' => ['reports.customers']],
                 ['key' => 'report_portfolio', 'label' => 'PORTFOLIO & RISK REPORTS', 'permissions' => ['reports.portfolio']],
+                ['key' => 'loan_discount_request', 'label' => 'REQUEST LOAN DISCOUNT / WAIVER', 'permissions' => ['loans.discount_request']],
+                ['key' => 'loan_discount_approve', 'label' => 'APPROVE LOAN DISCOUNT / WAIVER', 'permissions' => ['loans.discount_approve']],
                 ['key' => 'financial_reports', 'label' => 'FINANCIAL REPORTS', 'permissions' => ['reports.financial']],
                 ['key' => 'audit', 'label' => 'AUDIT TRAIL', 'permissions' => ['audit.view']],
                 ['key' => 'approvals_view', 'label' => 'PENDING APPROVALS', 'permissions' => ['approvals.view']],
