@@ -69,36 +69,36 @@ class StaffPrivilegesApiTest extends TestCase
     public function test_grant_and_revoke_persist_and_change_real_authorization(): void
     {
         $admin = $this->signInAdmin();
-        $hr = $this->staff($admin, 'hr');
+        $hr = $this->staff($admin, 'finance');
         $teller = $this->staff($admin, 'teller');
 
         $this->actAs($hr);
-        $this->getJson('/api/v1/settings/roles')->assertOk();
+        $this->getJson('/api/v1/reports/financial/cash-flow')->assertOk();
         $this->actAs($teller);
-        $this->getJson('/api/v1/settings/roles')->assertForbidden();
+        $this->getJson('/api/v1/reports/financial/cash-flow')->assertForbidden();
 
         $this->actAs($admin);
-        $this->save($hr, array_values(array_diff($this->rolePermissions('hr'), ['users.manage'])))
-            ->assertOk()->assertJsonPath('message', 'Staff Privileges Updated successfully')->assertJsonPath('data.revoked', ['users.manage']);
-        $this->save($teller, [...$this->rolePermissions('teller'), 'users.manage'])
-            ->assertOk()->assertJsonPath('data.granted', ['users.manage']);
+        $this->save($hr, array_values(array_diff($this->rolePermissions('finance'), ['reports.financial'])))
+            ->assertOk()->assertJsonPath('message', 'Staff Privileges Updated successfully')->assertJsonPath('data.revoked', ['reports.financial']);
+        $this->save($teller, [...$this->rolePermissions('teller'), 'reports.financial'])
+            ->assertOk()->assertJsonPath('data.granted', ['reports.financial']);
 
-        $this->assertDatabaseHas('employee_permissions', ['employee_id' => $hr->id, 'permission' => 'users.manage', 'granted' => false]);
-        $this->assertDatabaseHas('employee_permissions', ['employee_id' => $teller->id, 'permission' => 'users.manage', 'granted' => true]);
+        $this->assertDatabaseHas('employee_permissions', ['employee_id' => $hr->id, 'permission' => 'reports.financial', 'granted' => false]);
+        $this->assertDatabaseHas('employee_permissions', ['employee_id' => $teller->id, 'permission' => 'reports.financial', 'granted' => true]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'Employee.privileges_updated', 'auditable_id' => $teller->id, 'employee_id' => $admin->id]);
 
         $this->actAs($hr);
-        $this->getJson('/api/v1/settings/roles')->assertForbidden();
+        $this->getJson('/api/v1/reports/financial/cash-flow')->assertForbidden();
         $this->actAs($teller);
-        $this->getJson('/api/v1/settings/roles')->assertOk();
+        $this->getJson('/api/v1/reports/financial/cash-flow')->assertOk();
 
         $this->actAs($admin);
-        $this->getJson("/api/v1/hrm/staff/{$teller->id}/privileges")->assertOk()->assertJsonFragment(['granted' => ['users.manage']]);
+        $this->getJson("/api/v1/hrm/staff/{$teller->id}/privileges")->assertOk()->assertJsonFragment(['granted' => ['reports.financial']]);
 
         // Restoring the role set removes the overrides again.
         $this->save($teller, $this->rolePermissions('teller'))->assertOk();
         $this->assertDatabaseMissing('employee_permissions', ['employee_id' => $teller->id]);
-        $this->assertFalse(app(AccessControl::class)->can($teller->fresh(), 'users.manage'));
+        $this->assertFalse(app(AccessControl::class)->can($teller->fresh(), 'reports.financial'));
     }
 
     public function test_privileges_survive_logout_and_login_with_a_new_token(): void
@@ -141,10 +141,11 @@ class StaffPrivilegesApiTest extends TestCase
         $this->save($loanOfficer, ['reports.view'])->assertForbidden();
         $this->assertDatabaseMissing('employee_permissions', ['employee_id' => $loanOfficer->id]);
 
-        // A custom role that manages staff records but not privileges sees the page read-only.
-        $viewer = $this->staff($admin, 'teller');
+        // HR without the staff-privileges permission sees the page read-only (HRM permissions only count for HR, Admin and
+        // Super Admin, enhancement §14, so a teller granted hrm.manage would not see it at all).
+        $viewer = $this->staff($admin, 'hr');
         $this->actAs($admin);
-        $this->save($viewer, [...$this->rolePermissions('teller'), 'hrm.manage'])->assertOk();
+        $this->save($viewer, array_values(array_diff($this->rolePermissions('hr'), ['hrm.staff_privileges'])))->assertOk();
         $this->actAs($viewer);
         $this->getJson("/api/v1/hrm/staff/{$loanOfficer->id}/privileges")->assertOk()->assertJsonPath('data.can_edit', false);
         $this->save($loanOfficer, ['reports.view'])->assertForbidden();
@@ -162,10 +163,10 @@ class StaffPrivilegesApiTest extends TestCase
         $this->save($teller, [...$this->rolePermissions('teller'), 'capital.manage'])
             ->assertForbidden()->assertJsonPath('message', 'You cannot grant or revoke privileges you do not hold: capital.manage.');
         $this->save($teller, array_values(array_diff($this->rolePermissions('teller'), ['payments.cash'])))->assertForbidden();
-        $this->save($teller, [...$this->rolePermissions('teller'), 'reports.view'])->assertOk();
+        $this->save($teller, [...$this->rolePermissions('teller'), 'branches.view_all'])->assertOk();
 
         $this->assertDatabaseMissing('employee_permissions', ['employee_id' => $teller->id, 'permission' => 'capital.manage']);
-        $this->assertDatabaseHas('employee_permissions', ['employee_id' => $teller->id, 'permission' => 'reports.view', 'granted' => true]);
+        $this->assertDatabaseHas('employee_permissions', ['employee_id' => $teller->id, 'permission' => 'branches.view_all', 'granted' => true]);
     }
 
     public function test_cannot_edit_own_or_super_admin_privileges_and_super_admin_keeps_full_access(): void

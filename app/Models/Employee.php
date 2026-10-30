@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Http\Middleware\ApplyActiveRole;
 use App\Models\Concerns\Auditable;
 use App\Services\AccessControl;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -17,6 +20,11 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Employee extends Authenticatable
 {
+    /**
+     * The primary role id while the request acts as another assigned role ({@see self::actAsRole()}).
+     */
+    public ?int $switchedFromRoleId = null;
+
     /** @use HasFactory<EmployeeFactory> */
     use Auditable, HasApiTokens, HasFactory, Notifiable;
 
@@ -121,9 +129,55 @@ class Employee extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    /**
+     * The role this request acts as: the primary role (employees.role_id), or another assigned role the session switched
+     * to ({@see ApplyActiveRole}).
+     */
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
+    /**
+     * The stored role (employees.role_id), whichever role this request acts as.
+     */
+    public function primaryRoleId(): ?int
+    {
+        $id = $this->switchedFromRoleId ?? $this->role_id;
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /**
+     * Act as another assigned role for this request only: the change is never saved (role_id stays the primary role).
+     */
+    public function actAsRole(Role $role): void
+    {
+        $this->switchedFromRoleId ??= $this->role_id === null ? null : (int) $this->role_id;
+        $this->setAttribute('role_id', $role->id);
+        $this->syncOriginalAttribute('role_id');
+        $this->setRelation('role', $role->loadMissing('permissions'));
+    }
+
+    /**
+     * Roles assigned besides the primary one (multi-role, enhancement §13).
+     */
+    public function additionalRoles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'employee_roles')->withPivot('assigned_by')->withTimestamps();
+    }
+
+    /**
+     * Every role the employee may act as: the primary role first, then the additional ones.
+     *
+     * @return Collection<int, Role>
+     */
+    public function assignedRoles(): Collection
+    {
+        $primaryId = $this->primaryRoleId();
+        $primary = $primaryId ? Role::query()->whereKey($primaryId)->get() : new Collection;
+
+        return $primary->concat($this->additionalRoles()->where('roles.company_id', $this->company_id)->whereKeyNot($primaryId)->orderBy('roles.id')->get())->values();
     }
 
     public function zone(): BelongsTo

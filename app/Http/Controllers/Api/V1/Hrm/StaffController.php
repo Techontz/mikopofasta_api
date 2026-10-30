@@ -24,6 +24,7 @@ use App\Services\Hrm\SalaryChanges;
 use App\Services\Hrm\StaffFund;
 use App\Services\Hrm\StaffPasswordReset;
 use App\Services\Ledger;
+use App\Services\RoleAssignmentRules;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -410,8 +411,7 @@ class StaffController extends HrmController
      */
     private function assertRoleAssignable(?Role $from, ?Role $to): void
     {
-        abort_if($to?->key === 'shareholder', 422, 'The Shareholder role is assigned only by creating a shareholder login (Capital → Shareholders).');
-        abort_if(($to?->key === 'super_admin' || $from?->key === 'super_admin') && $this->currentEmployee()->role?->key !== 'super_admin', 403, 'Only a Super Admin can assign the Super Admin role.');
+        RoleAssignmentRules::assertAssignable($this->currentEmployee(), $from, $to);
     }
 
     private function audit(string $action, Employee $employee, ?array $before, ?array $after): void

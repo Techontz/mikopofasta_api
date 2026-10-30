@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -117,6 +118,60 @@ class AuthController extends Controller
         });
 
         return response()->json(['message' => 'Password changed successfully', 'data' => new EmployeeResource($employee->fresh(['company', 'branch', 'role.permissions', 'zone', 'shareHolder']))]);
+    }
+
+    /**
+     * GET auth/roles — the roles the signed-in employee may switch to, and the one this session acts as.
+     */
+    public function roles(Request $request): JsonResponse
+    {
+        /** @var Employee $employee */
+        $employee = $request->user();
+
+        return response()->json(['data' => [
+            'active_role_id' => $employee->role_id,
+            'roles' => $employee->assignedRoles()->map(fn ($role): array => ['id' => $role->id, 'key' => $role->key, 'name' => $role->name, 'primary' => $role->id === $employee->primaryRoleId()])->values(),
+        ]]);
+    }
+
+    /**
+     * POST auth/switch-role — act as another of the employee's assigned roles without signing out (enhancement §13). Only
+     * a role the employee is assigned can be chosen; the choice is kept on this session's token, revalidated on every
+     * request, and audit-logged. Nothing else changes.
+     */
+    public function switchRole(Request $request): EmployeeResource
+    {
+        $validated = $request->validate(['role_id' => ['required', 'integer']]);
+        /** @var Employee $employee */
+        $employee = $request->user();
+        $token = $employee->currentAccessToken();
+        abort_unless($token instanceof PersonalAccessToken, 422, 'Switching role needs a signed-in session.');
+        abort_if($employee->isShareholderAccount(), 403, 'Shareholder portal accounts have a single role.');
+
+        $role = $employee->assignedRoles()->firstWhere('id', (int) $validated['role_id']);
+        abort_if($role === null || $role->key === 'shareholder', 403, 'You are not assigned this role.');
+
+        $from = $employee->role_id;
+        $token->forceFill(['active_role_id' => $role->id === $employee->primaryRoleId() ? null : $role->id])->save();
+        if ($role->id !== $employee->primaryRoleId()) {
+            $employee->actAsRole($role);
+        } elseif ($employee->switchedFromRoleId !== null) {
+            $employee->forceFill(['role_id' => $employee->primaryRoleId()])->syncOriginalAttribute('role_id');
+            $employee->switchedFromRoleId = null;
+        }
+
+        AuditLog::create([
+            'company_id' => $employee->company_id,
+            'employee_id' => $employee->id,
+            'action' => 'Employee.role_switched',
+            'auditable_type' => $employee->getMorphClass(),
+            'auditable_id' => $employee->id,
+            'before' => ['role_id' => $from],
+            'after' => ['role_id' => $role->id],
+            'ip_address' => $request->ip(),
+        ]);
+
+        return new EmployeeResource($employee->load(['company', 'branch', 'role.permissions', 'zone', 'shareHolder']));
     }
 
     public function logout(Request $request): JsonResponse

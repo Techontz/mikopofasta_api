@@ -6,6 +6,7 @@ use App\Http\Requests\Api\Hrm\StaffPrivilegesRequest;
 use App\Models\AuditLog;
 use App\Models\Employee;
 use App\Services\AccessControl;
+use App\Services\RoleAssignmentRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -38,6 +39,7 @@ class StaffPrivilegeController extends HrmController
 
         abort_if($employee->is($actor), 403, 'You cannot change your own privileges.');
         abort_if($employee->role?->key === 'super_admin', 422, 'The Super Admin has full access; privileges cannot be changed.');
+        abort_unless(RoleAssignmentRules::mayEditEmployee($actor, $employee), 403, 'You cannot change the privileges of an employee who holds a protected role. Ask an Admin.');
 
         $before = $this->access->permissionsFor($employee);
         $desired = $request->permissions();
@@ -86,6 +88,7 @@ class StaffPrivilegeController extends HrmController
             ! Gate::allows('hrm.staff_privileges') => 'You can view these privileges but not change them.',
             $employee->is($actor) => 'You cannot change your own privileges.',
             $isSuperAdmin => 'The Super Admin has full access; privileges cannot be changed.',
+            ! RoleAssignmentRules::mayEditEmployee($actor, $employee) => 'Only an Admin can change the privileges of an employee who holds a protected role.',
             default => null,
         };
 
@@ -103,6 +106,9 @@ class StaffPrivilegeController extends HrmController
                 'status' => $employee->status,
                 'role' => $employee->role ? ['id' => $employee->role->id, 'key' => $employee->role->key, 'name' => $employee->role->name, 'scope' => $employee->role->scope] : null,
                 'zone_id' => $employee->zone_id,
+                // Multi-role (enhancement §13): the roles held besides the primary one.
+                'additional_roles' => $employee->additionalRoles()->orderBy('roles.id')->get()
+                    ->map(fn ($role): array => ['id' => $role->id, 'key' => $role->key, 'name' => $role->name])->values(),
             ],
             // Live privilege list structure (groups → items → permission keys) from config/permissions.php.
             'privilege_groups' => collect(config('permissions.privileges'))
@@ -128,7 +134,7 @@ class StaffPrivilegeController extends HrmController
             'actor_permissions' => $this->access->permissionsFor($actor),
             // Same rules as Settings → Roles & Permissions → assign role (PUT settings/employees/{employee}/role).
             'can_change_role' => (Gate::allows('users.manage') || Gate::allows('hrm.manage')) && ! $employee->is($actor)
-                && (! $isSuperAdmin || $actor->role?->key === 'super_admin'),
+                && RoleAssignmentRules::blockedReason($actor, $employee->role, null) === null,
         ];
     }
 }

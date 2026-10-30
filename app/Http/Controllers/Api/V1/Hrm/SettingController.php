@@ -6,6 +6,7 @@ use App\Http\Requests\Api\Hrm\HrmSettingsRequest;
 use App\Models\HrmSetting;
 use App\Models\Role;
 use App\Models\Zone;
+use App\Services\RoleAssignmentRules;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -40,7 +41,10 @@ class SettingController extends HrmController
     {
         $this->authorizeAny('hrm.manage', 'users.manage');
 
-        return response()->json(['data' => Role::where('company_id', $this->companyId())->orderBy('id')->get()->map(fn (Role $role): array => [
+        // Only the roles the signed-in employee may give (HR never sees the protected roles, enhancement §12.3).
+        $roles = RoleAssignmentRules::assignable($this->currentEmployee(), Role::where('company_id', $this->companyId())->orderBy('id')->get());
+
+        return response()->json(['data' => $roles->map(fn (Role $role): array => [
             'value' => (string) $role->id,
             'label' => $role->name,
             'scope' => $role->scope,
