@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Loans\CreditAssessmentController;
 use App\Http\Controllers\Api\V1\Loans\LoanController;
 use App\Http\Controllers\Api\V1\Loans\LoanDiscountController;
+use App\Http\Controllers\Api\V1\Loans\LoanMandateController;
 use App\Http\Controllers\Api\V1\Loans\LoanRecoveryController;
 use App\Http\Controllers\Api\V1\Loans\LoanSecurityController;
 use App\Http\Controllers\Api\V1\Loans\LoanWorkflowController;
@@ -20,6 +21,14 @@ Route::prefix('loans')->name('loans.')->group(function (): void {
         Route::get('{loan}', 'show')->whereNumber('loan')->name('show');
         Route::put('{loan}', 'update')->whereNumber('loan')->name('update');
         Route::delete('{loan}', 'destroy')->whereNumber('loan')->name('destroy');
+    });
+
+    // E-Mandate management and reports (enhancement §4).
+    Route::controller(LoanMandateController::class)->prefix('mandates')->name('mandates.')->group(function (): void {
+        Route::get('/', 'index')->name('index');
+        Route::get('report', 'report')->name('report');
+        Route::post('collections', 'import')->name('collections.import');
+        Route::post('{mandate}/confirm-cancellation', 'confirmCancellation')->whereNumber('mandate')->name('confirm-cancellation');
     });
 
     // Loan Repayment → Discount / Waiver (enhancement §6).

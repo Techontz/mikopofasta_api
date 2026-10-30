@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Integrations\BankMandate\BankMandateGateway;
 use App\Integrations\BankMandate\HttpBankMandateGateway;
 use App\Integrations\BankMandate\TestBankMandateGateway;
+use App\Integrations\Linda\LindaGateway;
+use App\Integrations\Linda\TestLindaGateway;
+use App\Integrations\Linda\UnconfiguredLindaGateway;
 use App\Integrations\Vodacom\HttpVodacomGateway;
 use App\Integrations\Vodacom\TestVodacomGateway;
 use App\Integrations\Vodacom\VodacomGateway;
@@ -20,5 +23,6 @@ class LoansServiceProvider extends ServiceProvider
         $this->app->bind(VodacomGateway::class, fn (): VodacomGateway => config('integrations.vodacom.driver') === 'test' ? new TestVodacomGateway : new HttpVodacomGateway);
 
         $this->app->bind(BankMandateGateway::class, fn (): BankMandateGateway => config('integrations.bank_mandate.driver') === 'test' ? new TestBankMandateGateway : new HttpBankMandateGateway);
+        $this->app->bind(LindaGateway::class, fn (): LindaGateway => config('integrations.linda.driver') === 'test' ? new TestLindaGateway : new UnconfiguredLindaGateway);
     }
 }

@@ -36,6 +36,21 @@ return [
         'driver' => env('BANK_MANDATE_DRIVER', 'test'),
         'base_url' => env('BANK_MANDATE_BASE_URL'),
         'api_key' => env('BANK_MANDATE_API_KEY'),
+        // Collection notifications (enhancement §4.2): off until the bank's payload is known. Set the secret, the company the
+        // notifications belong to, the provider name and the mapping of our fields to the bank's (dot notation), e.g.
+        // ['mandate_reference' => 'mandate.ref', 'payment_reference' => 'txn_id', 'amount' => 'amount', 'status' => 'status'].
+        'webhook_secret' => env('BANK_MANDATE_WEBHOOK_SECRET'),
+        'company_id' => env('BANK_MANDATE_COMPANY_ID'),
+        'provider' => env('BANK_MANDATE_PROVIDER', 'bank'),
+        'collection_fields' => null,
+    ],
+    // Phone Bond devices (enhancement §5, https://linda.co.tz/). Driver "none" until Linda's API documentation and credentials
+    // exist; "test" for automated tests. No HTTP driver is shipped: none can be written without the documentation.
+    'linda' => [
+        'driver' => env('LINDA_DRIVER', 'none'),
+        'grace_days' => (int) env('PHONE_BOND_GRACE_DAYS', 1),
+        // Customer types (customer_categories.code) that may not take a Phone Bond loan.
+        'excluded_customer_types' => ['WATUMISHI_WA_UMMA', 'MSTAAFU_UMMA'],
     ],
     'payments' => [
         'driver' => env('PAYMENTS_DRIVER', 'test'),
