@@ -41,6 +41,8 @@ class StaffRequest extends FormRequest
         $creating = $employee === null;
 
         return [
+            // Enhancement §12.2: why HR changes KYC-approved details (required then, see StaffController).
+            'change_reason' => ['nullable', 'string', 'max:1000'],
             'empl_name' => ['required', 'string', 'max:100'],
             'emp_mname' => ['required', 'string', 'max:100'],
             'emp_lname' => ['required', 'string', 'max:100'],

@@ -413,9 +413,19 @@ class OperationalReports
      *
      * @return array{rows: list<array<string, mixed>>, totals: array<string, float>}
      */
-    public function newLoans(ReportScope $scope, int $year): array
+    public function newLoans(ReportScope $scope, int $year, ?int $month = null, ?string $status = null): array
     {
-        $rows = $this->loanRows($this->loans($scope)->whereBetween('loans.withdrawn_at', ["{$year}-01-01", "{$year}-12-31"])->reorder('loans.withdrawn_at'));
+        // Enhancement §10.2: Reports → File opens on this month's new loans; Year, Customer Status and Branch reach the rest.
+        [$from, $to] = $month !== null
+            ? [CarbonImmutable::create($year, $month, 1)->toDateString(), CarbonImmutable::create($year, $month, 1)->endOfMonth()->toDateString()]
+            : ["{$year}-01-01", "{$year}-12-31"];
+        $statuses = match ($status) {
+            'ACTIVE' => [LoanStatus::Active, LoanStatus::Overdue],
+            'CLOSED' => [LoanStatus::Closed],
+            'DEFAULT' => [LoanStatus::Default],
+            default => null,
+        };
+        $rows = $this->loanRows($this->loans($scope, $statuses)->whereBetween('loans.withdrawn_at', [$from, $to])->reorder('loans.withdrawn_at'));
 
         return ['rows' => $rows->values()->all(), 'totals' => $this->sums($rows, ['total_payable', 'restoration', 'paid', 'remain'])];
     }
@@ -451,7 +461,12 @@ class OperationalReports
      */
     public function repayment(ReportScope $scope): array
     {
-        $rows = $this->loanRows($this->loans($scope, LoanStatus::repayable())->reorder('loans.withdrawn_at'));
+        // Enhancement §10.4: with a period (the page opens on this month), the loans with an instalment due in it.
+        $loans = $this->loans($scope, LoanStatus::repayable())->reorder('loans.withdrawn_at')
+            ->when($scope->from !== null || $scope->to !== null, fn (Builder $query) => $query->whereExists(
+                fn ($due) => $scope->between($due->from('loan_schedules')->whereColumn('loan_schedules.loan_id', 'loans.id'), 'loan_schedules.due_date')
+            ));
+        $rows = $this->loanRows($loans);
 
         return ['rows' => $rows->values()->all(), 'totals' => $this->sums($rows, ['amount_approved', 'interest_amount', 'total_payable', 'remain'])];
     }
@@ -470,8 +485,9 @@ class OperationalReports
             ->groupBy('loan_id')
             ->selectRaw('loan_id, SUM(amount) as amount');
 
+        // Enhancement §10.5: with a period (the page opens on this month), the loans that went into default in it.
         $rows = $this->loanRows(
-            $this->loans($scope, [LoanStatus::Default])
+            $scope->between($this->loans($scope, [LoanStatus::Default]), 'loans.status_changed_at')
                 ->leftJoinSub($thisMonth, 'this_month', 'this_month.loan_id', '=', 'loans.id')
                 ->addSelect(DB::raw('COALESCE(this_month.amount, 0) as paid_this_month'))
                 ->reorder('loans.withdrawn_at'),
@@ -539,7 +555,9 @@ class OperationalReports
             default => [LoanStatus::Active, LoanStatus::Overdue, LoanStatus::Default, LoanStatus::Closed],
         };
 
-        $rows = $this->loanRows($this->loans($scope, $statuses), fn (Loan $loan): array => [
+        // Enhancement §10.6: with a period (the page opens on this month), loans paid out in it — or, before pay-out, applied in it.
+        $dated = in_array($status, ['PENDING', 'APROVED', 'DISBURSED'], true) ? 'loans.created_at' : 'loans.withdrawn_at';
+        $rows = $this->loanRows($scope->between($this->loans($scope, $statuses), $dated), fn (Loan $loan): array => [
             'remain' => round((float) $loan->out_total - (float) $loan->out_penalty, 2),
         ]);
 

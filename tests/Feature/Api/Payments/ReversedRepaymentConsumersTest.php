@@ -79,7 +79,7 @@ class ReversedRepaymentConsumersTest extends TestCase
         $this->getJson(route('api.v1.reports.statement', ['customer_id' => $this->loan->customer_id, 'loan_id' => $this->loan->id]))->assertOk()
             ->assertJsonCount(2, 'data.rows')
             ->assertJsonPath('data.totals.deposit', 120000)
-            ->assertJsonPath('data.rows.1.balance', 120000);
+            ->assertJsonPath('data.rows.0.balance', 120000);
     }
 
     private function transaction(string $type, float $amount, bool $reversed = false): void

@@ -63,7 +63,13 @@ final class CreditDashboard
                 'rejected_customers' => $monthApplications->where('status', LoanStatus::Rejected->value)->pluck('customer_id')->unique()->count(),
                 'active_loans' => (clone $repayable)->count(),
                 'active_customers' => (clone $repayable)->distinct()->count('loans.customer_id'),
+                // Enhancement §11.6: the cards lead with the money, then the count.
+                'applications_amount' => $this->amount($monthApplications),
+                'approved_amount' => $this->amount($monthApplications->filter(fn (object $loan): bool => $this->isApproved($loan))),
+                'rejected_amount' => $this->amount($monthApplications->where('status', LoanStatus::Rejected->value)),
+                'active_amount' => round((float) (clone $repayable)->sum('loans.amount_approved'), 2),
             ],
+            'pipeline' => $this->pipeline($monthApplications),
             'applications_trend' => $this->applicationsTrend($yearApplications, $yearFrom),
             'collection_trend' => $this->collectionTrend($company, $branchIds, $yearFrom, $yearTo, $today),
             'approvals' => $this->approvals($company, $branchIds, $viewer),
@@ -134,12 +140,49 @@ final class CreditDashboard
             ->whereBetween('loans.created_at', [$from->startOfDay(), $to->endOfDay()])
             ->get([
                 'loans.id', 'loans.customer_id', 'loans.employee_id', 'loans.loan_category_id', 'loans.status', 'loans.approved_at',
+                'loans.amount_applied', 'loans.amount_approved',
                 DB::raw('DATE(loans.created_at) as applied_on'),
                 'product.name as product_name',
                 'customers.customer_category_id',
                 'customer_type.name as customer_type_name',
                 DB::raw("TRIM(CONCAT_WS(' ', officer.first_name, officer.middle_name, officer.last_name)) as officer_name"),
             ]);
+    }
+
+    /**
+     * The loan amount of applications: the approved amount once there is one, else the amount applied.
+     *
+     * @param  Collection<int, object>  $applications
+     */
+    private function amount(Collection $applications): float
+    {
+        return round((float) $applications->sum(fn (object $loan): float => (float) ($loan->amount_approved > 0 ? $loan->amount_approved : $loan->amount_applied)), 2);
+    }
+
+    /**
+     * Loan Applications Pipeline (This Month), enhancement §11.4: each application of the month counted once, in the stage
+     * its current status belongs to (Normal and E-Mandate alike), with the count and loan amount and the page that lists it.
+     *
+     * @param  Collection<int, object>  $applications
+     * @return list<array{key: string, label: string, count: int, amount: float, link: string}>
+     */
+    private function pipeline(Collection $applications): array
+    {
+        $stages = [
+            ['key' => 'new', 'label' => 'New Applications', 'statuses' => [LoanStatus::PendingManagerApproval], 'link' => '/loans/pending'],
+            ['key' => 'under_review', 'label' => 'Under Review', 'statuses' => [LoanStatus::Returned, LoanStatus::MandatePendingOtp, LoanStatus::MandateFailed], 'link' => '/loans/pending'],
+            ['key' => 'credit_assessment', 'label' => 'Credit Assessment', 'statuses' => [LoanStatus::PendingCreditReview], 'link' => '/loans/credit-review'],
+            ['key' => 'pending_approval', 'label' => 'Pending Approval', 'statuses' => [LoanStatus::PendingFinance], 'link' => '/loans/disbursement'],
+            ['key' => 'approved', 'label' => 'Approved', 'statuses' => LoanStatus::disbursed(), 'link' => '/loans/disbursed'],
+            ['key' => 'ready_for_disbursement', 'label' => 'Ready for Disbursement', 'statuses' => [LoanStatus::AwaitingDisbursement, LoanStatus::DisbursementFailed, LoanStatus::Escalated, LoanStatus::DisbursementSuspense], 'link' => '/loans/disbursement'],
+            ['key' => 'rejected', 'label' => 'Rejected', 'statuses' => [LoanStatus::Rejected, LoanStatus::Cancelled], 'link' => '/loans/rejected'],
+        ];
+
+        return array_map(function (array $stage) use ($applications): array {
+            $items = $applications->whereIn('status', LoanStatus::values(...$stage['statuses']));
+
+            return ['key' => $stage['key'], 'label' => $stage['label'], 'count' => $items->count(), 'amount' => $this->amount($items), 'link' => $stage['link']];
+        }, $stages);
     }
 
     /**

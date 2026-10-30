@@ -201,9 +201,10 @@ class LiveReportsApiTest extends TestCase
         $data = $this->getJson(route('api.v1.reports.statement', ['customer_id' => $loan->customer_id, 'loan_id' => $loan->id]))->assertOk()->json('data');
 
         $this->assertCount(2, $data['rows']);
-        $this->assertSame('LOAN RETURN', $data['rows'][1]['description']);
-        $this->assertEquals([100000, 5000, 0], [$data['rows'][1]['principal'], $data['rows'][1]['penalty'], $data['rows'][1]['interest']]);
-        $this->assertEquals(105000, $data['rows'][1]['balance']);
+        // Latest first (enhancement §10.7): the repayment, then the disbursement.
+        $this->assertSame('LOAN RETURN', $data['rows'][0]['description']);
+        $this->assertEquals([100000, 5000, 0], [$data['rows'][0]['principal'], $data['rows'][0]['penalty'], $data['rows'][0]['interest']]);
+        $this->assertEquals(105000, $data['rows'][0]['balance']);
         $this->assertEquals(35000, $data['loan']['outstanding']['total']);
         $this->assertEquals(105000, $data['totals']['deposit']);
         $this->assertSame((string) $loan->id, $data['loans'][0]['value']);
@@ -283,5 +284,25 @@ class LiveReportsApiTest extends TestCase
         $this->getJson(route('api.v1.reports.repayment', ['branch_id' => $mine->branch_id]))->assertForbidden();
         $this->getJson(route('api.v1.reports.statement', ['customer_id' => $mine->customer_id]))->assertForbidden();
         $this->getJson(route('api.v1.reports.development.show', $mine->customer_id))->assertNotFound();
+    }
+
+    public function test_repayment_default_and_collection_follow_the_month_they_open_on(): void
+    {
+        $thisMonth = $this->cashedOutLoan(daysAgo: 5);
+        $older = $this->cashedOutLoan(daysAgo: 70);
+        $older->schedules()->update(['due_date' => today()->subDays(40)->toDateString()]);
+        $thisMonth->schedules()->update(['due_date' => today()->addDays(5)->toDateString()]);
+        $month = ['from' => today()->startOfMonth()->toDateString(), 'to' => today()->endOfMonth()->toDateString()];
+
+        $repayment = $this->getJson(route('api.v1.reports.repayment', $month))->assertOk()->json('data.rows');
+        $this->assertSame([$thisMonth->id], array_column($repayment, 'id'));
+        $this->assertCount(2, $this->getJson(route('api.v1.reports.repayment'))->assertOk()->json('data.rows'), 'All time without a period.');
+
+        $older->forceFill(['status' => LoanStatus::Default])->save();
+        $this->assertSame([$older->id], array_column($this->getJson(route('api.v1.reports.default', $month))->assertOk()->json('data.rows'), 'id'), 'Went into default this month.');
+        $this->assertSame([], $this->getJson(route('api.v1.reports.default', ['from' => today()->subMonths(3)->toDateString(), 'to' => today()->subMonths(2)->toDateString()]))->assertOk()->json('data.rows'));
+
+        $collection = $this->getJson(route('api.v1.reports.collection', $month))->assertOk()->json('data.rows');
+        $this->assertSame([$thisMonth->id], array_column($collection, 'id'), 'Paid out this month.');
     }
 }

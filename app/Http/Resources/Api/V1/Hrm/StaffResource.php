@@ -31,6 +31,10 @@ class StaffResource extends JsonResource
             'gender' => $this->gender,
             'position' => $this->position,
             'status' => $this->status,
+            // Employee KYC (enhancement §12.2): once approved, only HR changes the personal details.
+            'kyc_status' => $this->kyc_status,
+            'kyc_decided_at' => $this->kyc_decided_at?->toDateTimeString(),
+            'kyc_rejection_reason' => $this->kyc_rejection_reason,
             'photo_url' => $this->photo_url,
             'branch_id' => $this->branch_id,
             'branch' => $this->whenLoaded('branch', fn () => $this->branch?->name),

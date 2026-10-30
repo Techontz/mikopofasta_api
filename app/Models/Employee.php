@@ -79,6 +79,7 @@ class Employee extends Authenticatable
             'date_of_birth' => 'date',
             'password' => 'hashed',
             'must_change_password' => 'boolean',
+            'kyc_decided_at' => 'datetime',
         ];
     }
 
@@ -199,6 +200,22 @@ class Employee extends Authenticatable
     public function permissionOverrides(): HasMany
     {
         return $this->hasMany(EmployeePermission::class);
+    }
+
+    /**
+     * HR documents: CV, certificates, employment contract (enhancement §12.1).
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(EmployeeDocument::class);
+    }
+
+    /**
+     * Approved KYC (enhancement §12.2): the personal details are locked to HR.
+     */
+    public function hasApprovedKyc(): bool
+    {
+        return $this->kyc_status === 'approved';
     }
 
     public function privileges(): HasMany

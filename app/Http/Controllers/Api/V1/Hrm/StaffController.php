@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * HRM → All active staff, All Rejected staff, Branch & Staff and the employee profile
@@ -47,6 +48,13 @@ class StaffController extends HrmController
      * @var list<string>
      */
     private const ASSIGNMENT = ['role_id', 'zone_id', 'branch_id', 'position'];
+
+    /**
+     * Personal details approved by employee KYC (enhancement §12.2).
+     *
+     * @var list<string>
+     */
+    private const PERSONAL = ['first_name', 'middle_name', 'last_name', 'phone', 'email', 'date_of_birth', 'gender', 'username'];
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -171,7 +179,9 @@ class StaffController extends HrmController
         }
 
         $before = $employee->only(self::ASSIGNMENT);
+        $personalBefore = $employee->only(self::PERSONAL);
         $employee->fill($data);
+        $this->assertPersonalChangeAllowed($employee, $request->input('change_reason'));
         if ($employee->isDirty(self::ASSIGNMENT)) {
             abort_if($employee->is($this->currentEmployee()), 403, 'You cannot change your own role, branch, zone or position. Ask an Admin or Super Admin to move you.');
             if ($employee->isDirty('role_id')) {
@@ -182,6 +192,7 @@ class StaffController extends HrmController
         if ($before !== $employee->only(self::ASSIGNMENT)) {
             $this->audit('Employee.assignment_changed', $employee, $before, $employee->only(self::ASSIGNMENT));
         }
+        $this->auditPersonalChange($employee, $personalBefore, $request->input('change_reason'));
 
         return $this->message('Employee Updated successfully', 200, ['data' => new StaffResource($employee->load(['branch', 'role', 'zone']))]);
     }
@@ -193,6 +204,8 @@ class StaffController extends HrmController
     {
         $this->authorizeAny('users.manage', 'hrm.manage');
         $this->ensureVisible($employee);
+        abort_if($employee->hasApprovedKyc() && $employee->is($this->currentEmployee()), 403, 'Your details are KYC-approved: only another HR user can change your photo.');
+        $previousPhoto = $employee->photo;
 
         if ($request->hasFile('image')) {
             $request->validate(['image' => ['required', 'image', 'max:5120']]);
@@ -211,6 +224,9 @@ class StaffController extends HrmController
             Storage::disk('public')->delete($employee->photo);
         }
         $employee->update(['photo' => $path]);
+        if ($employee->hasApprovedKyc()) {
+            $this->audit('Employee.kyc_details_changed', $employee, ['photo' => $previousPhoto], ['photo' => $path, 'reason' => $request->input('change_reason')]);
+        }
 
         return $this->message('Passport uploaded successfully', 200, ['url' => $employee->photo_url]);
     }
@@ -426,5 +442,67 @@ class StaffController extends HrmController
             'after' => $after,
             'ip_address' => request()->ip(),
         ]);
+    }
+
+    /**
+     * POST hrm/staff/{employee}/kyc/approve — an HR user approves the employee's registered details (enhancement §12.2).
+     */
+    public function approveKyc(Employee $employee): JsonResponse
+    {
+        return $this->decideKyc($employee, 'approved', null);
+    }
+
+    /**
+     * POST hrm/staff/{employee}/kyc/reject — the details go back for correction, with the reason.
+     */
+    public function rejectKyc(Request $request, Employee $employee): JsonResponse
+    {
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+
+        return $this->decideKyc($employee, 'rejected', $validated['reason']);
+    }
+
+    private function decideKyc(Employee $employee, string $status, ?string $reason): JsonResponse
+    {
+        $this->authorizeAny('hrm.manage');
+        $this->ensureVisible($employee);
+        $actor = $this->currentEmployee();
+        abort_if($employee->is($actor), 403, 'You cannot approve your own KYC. Another HR user must.');
+        abort_if($employee->kyc_status === 'approved' && $status === 'approved', 409, 'This employee\'s KYC is already approved.');
+
+        $before = ['kyc_status' => $employee->kyc_status];
+        $employee->forceFill(['kyc_status' => $status, 'kyc_decided_by' => $actor->id, 'kyc_decided_at' => now(), 'kyc_rejection_reason' => $reason])->save();
+        $this->audit($status === 'approved' ? 'Employee.kyc_approved' : 'Employee.kyc_rejected', $employee, $before, ['kyc_status' => $status, 'reason' => $reason]);
+
+        return $this->message($status === 'approved' ? 'Employee KYC approved' : 'Employee KYC returned for correction', 200, ['data' => new StaffResource($employee->load(['branch', 'role', 'zone']))]);
+    }
+
+    /**
+     * Once KYC is approved the employee never changes their own personal details, and HR changes need a reason.
+     */
+    private function assertPersonalChangeAllowed(Employee $employee, mixed $reason): void
+    {
+        if (! $employee->hasApprovedKyc() || ! $employee->isDirty(self::PERSONAL)) {
+            return;
+        }
+
+        abort_if($employee->is($this->currentEmployee()), 403, 'Your details are KYC-approved: only another HR user can change them.');
+        if (blank($reason)) {
+            throw ValidationException::withMessages(['change_reason' => 'Give the reason for changing KYC-approved details.']);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $before
+     */
+    private function auditPersonalChange(Employee $employee, array $before, mixed $reason): void
+    {
+        $after = $employee->only(self::PERSONAL);
+        $changed = array_keys(array_diff_assoc(array_map(fn ($value) => $value instanceof \DateTimeInterface ? $value->format('Y-m-d') : $value, $after), array_map(fn ($value) => $value instanceof \DateTimeInterface ? $value->format('Y-m-d') : $value, $before)));
+        if ($changed === [] || ! $employee->hasApprovedKyc()) {
+            return;
+        }
+
+        $this->audit('Employee.kyc_details_changed', $employee, array_intersect_key($before, array_flip($changed)), array_intersect_key($after, array_flip($changed)) + ['reason' => (string) $reason]);
     }
 }
