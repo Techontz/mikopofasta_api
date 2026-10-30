@@ -39,6 +39,8 @@ return [
         'customers.approve' => 'KYC approval: approve or reject customer registrations (Admin and CRM only, never the branch)',
         'customers.approve_updates' => 'Approve or reject changes branch staff make to a registered customer\'s details; own changes apply directly',
         'customers.assign_officer' => 'Register a customer for another officer',
+        'customers.transfer' => 'Request moving a customer, with their open loans, penalties and savings, to another branch',
+        'customers.approve_transfer' => 'Approve or reject customer branch transfers requested by another user',
         'groups.view' => 'View customer groups and their members',
         'groups.manage' => 'Create, edit and delete customer groups',
         'branches.view_all' => 'Cross-branch visibility; register into any branch',
@@ -126,7 +128,7 @@ return [
         'admin' => ['name' => 'Admin', 'scope' => 'company', 'permissions' => [
             'dashboard.view', 'settings.manage', 'users.manage', 'hrm.staff_privileges', 'hrm.staff_reset_password', 'float.manage', 'bank.manage', 'expenses.request',
             'expenses.approve_hq', 'hq.manage', 'customers.view', 'customers.manage', 'customers.edit', 'customers.approve',
-            'customers.approve_updates', 'customers.assign_officer', 'groups.view', 'groups.manage', 'branches.view_all', 'loans.view', 'loans.write_off', 'loans.reverse_repayment', 'loans.reverse_disbursement',
+            'customers.approve_updates', 'customers.assign_officer', 'customers.transfer', 'customers.approve_transfer', 'groups.view', 'groups.manage', 'branches.view_all', 'loans.view', 'loans.write_off', 'loans.reverse_repayment', 'loans.reverse_disbursement',
             'reversals.approve', 'loans.recover', 'accounting.view', 'salary_advance.manage', 'penalties.manage', 'savings.manage', 'visa.manage',
             'reports.view', 'reports.financial', 'income.view', 'crm.use', 'sms.manage', 'messages.use', 'goals.manage', 'goals.view', 'audit.view', 'approvals.view',
             'legacy_imports.manage', 'legacy_imports.approve',
@@ -145,14 +147,14 @@ return [
             'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'loans.view', 'reports.view', 'crm.use', 'messages.use', 'goals.view',
         ]],
         'branch_manager' => ['name' => 'Branch Manager', 'scope' => 'branch', 'permissions' => [
-            'dashboard.view', 'customers.view', 'customers.manage', 'customers.edit', 'customers.assign_officer', 'groups.view', 'groups.manage',
+            'dashboard.view', 'customers.view', 'customers.manage', 'customers.edit', 'customers.assign_officer', 'customers.transfer', 'groups.view', 'groups.manage',
             'loans.view', 'loans.approve_manager', 'expenses.request', 'penalties.manage', 'reports.view', 'crm.use',
             'messages.use', 'goals.view',
         ]],
         // Customer Care department (user ruling 2026-10-15): one company-wide team that approves KYC, approves the changes branch
         // staff make to customers' details, and handles complaints, requests and follow-ups for every branch.
         'crm' => ['name' => 'CRM', 'scope' => 'company', 'permissions' => [
-            'dashboard.view', 'customers.view', 'customers.edit', 'customers.approve', 'customers.approve_updates', 'groups.view', 'branches.view_all',
+            'dashboard.view', 'customers.view', 'customers.edit', 'customers.approve', 'customers.approve_updates', 'customers.transfer', 'groups.view', 'branches.view_all',
             'loans.view', 'reports.view', 'crm.use', 'messages.use', 'goals.view',
         ]],
         'credit_officer' => ['name' => 'Credit Officer', 'scope' => 'company', 'permissions' => [
@@ -225,6 +227,8 @@ return [
             'label' => 'Loans & Payments',
             'items' => [
                 ['key' => 'assign_officer', 'label' => 'REGISTER FOR ANOTHER OFFICER', 'permissions' => ['customers.assign_officer']],
+                ['key' => 'branch_transfer', 'label' => 'TRANSFER CUSTOMER TO ANOTHER BRANCH', 'permissions' => ['customers.transfer']],
+                ['key' => 'approve_branch_transfer', 'label' => 'APPROVE CUSTOMER BRANCH TRANSFERS', 'permissions' => ['customers.approve_transfer']],
                 ['key' => 'all_branches', 'label' => 'ALL BRANCHES', 'permissions' => ['branches.view_all']],
                 ['key' => 'prepare_disbursement', 'label' => 'PREPARE DISBURSEMENT', 'permissions' => ['loans.prepare_disbursement']],
                 ['key' => 'disburse', 'label' => 'DISBURSE', 'permissions' => ['loans.disburse']],

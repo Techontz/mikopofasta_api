@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Customers\BranchTransferController;
 use App\Http\Controllers\Api\V1\Customers\CustomerApprovalController;
 use App\Http\Controllers\Api\V1\Customers\CustomerController;
 use App\Http\Controllers\Api\V1\Customers\CustomerNoteController;
 use App\Http\Controllers\Api\V1\Customers\DocumentController;
+use App\Http\Controllers\Api\V1\Customers\DuplicateReviewController;
 use App\Http\Controllers\Api\V1\Customers\FaceScanController;
 use App\Http\Controllers\Api\V1\Customers\GuarantorController;
 use App\Http\Controllers\Api\V1\Customers\NextOfKinController;
@@ -26,6 +28,20 @@ Route::prefix('customers')->name('customers.')->group(function (): void {
         Route::post('{customer}/approve', 'approve')->whereNumber('customer')->name('approve');
         Route::post('{customer}/reject', 'reject')->whereNumber('customer')->name('reject');
         Route::post('{customer}/resubmit', 'resubmit')->whereNumber('customer')->name('resubmit');
+    });
+
+    Route::controller(BranchTransferController::class)->group(function (): void {
+        Route::get('branch-transfers', 'index')->name('branch-transfers.index');
+        Route::post('{customer}/branch-transfers', 'store')->whereNumber('customer')->name('branch-transfers.store');
+        Route::post('branch-transfers/{transfer}/approve', 'approve')->whereNumber('transfer')->name('branch-transfers.approve');
+        Route::post('branch-transfers/{transfer}/reject', 'reject')->whereNumber('transfer')->name('branch-transfers.reject');
+    });
+
+    Route::prefix('duplicate-reviews')->name('duplicate-reviews.')->controller(DuplicateReviewController::class)->group(function (): void {
+        Route::get('/', 'index')->name('index');
+        Route::get('{review}', 'show')->whereNumber('review')->name('show');
+        Route::post('{review}/release', 'release')->whereNumber('review')->name('release');
+        Route::post('{review}/reject', 'reject')->whereNumber('review')->name('reject');
     });
 
     Route::controller(DocumentController::class)->group(function (): void {

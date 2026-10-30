@@ -3,8 +3,10 @@
 namespace App\Services\Customers;
 
 use App\Models\AuditLog;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\CustomerCategory;
+use App\Models\CustomerDuplicateReview;
 use App\Models\District;
 use App\Models\Employee;
 use App\Models\MasterData\Bank;
@@ -105,14 +107,23 @@ class CustomerRegistrar
         private KycStatusCalculator $kyc,
         private StepTwoFields $stepTwo,
         private RequirementProfiles $profiles,
+        private DuplicateCustomerCheck $duplicates,
     ) {}
 
     /**
+     * The duplicate check runs under a lock on the company row, so concurrent registrations of one person are serialised
+     * and only the first passes. `$release` is the duplicate review an approver released: its matches are not held again.
+     *
      * @param  array<string, mixed>  $payload  validated camelCase payload
+     *
+     * @throws PossibleDuplicateCustomer when the registration must first be verified
      */
-    public function register(array $payload, Employee $actor): Customer
+    public function register(array $payload, Employee $actor, ?CustomerDuplicateReview $release = null): Customer
     {
-        return DB::transaction(function () use ($payload, $actor): Customer {
+        return DB::transaction(function () use ($payload, $actor, $release): Customer {
+            Company::query()->whereKey($actor->company_id)->lockForUpdate()->first();
+            $this->duplicates->assertRegistrable((int) $actor->company_id, $payload, $release);
+
             $category = $this->category($payload);
 
             $customer = new Customer;
@@ -152,7 +163,14 @@ class CustomerRegistrar
     public function update(Customer $customer, array $payload, Employee $actor): Customer
     {
         return DB::transaction(function () use ($customer, $payload, $actor): Customer {
-            $merged = $this->payloadFor($customer, $payload);
+            Company::query()->whereKey($customer->company_id)->lockForUpdate()->first();
+            $current = $this->payloadFor($customer);
+            $merged = array_replace($current, $payload);
+            if (is_array($current['bankDetails'])) {
+                $current['bankDetails']['checkNumber'] = $customer->bankDetail()->value('check_number');
+            }
+            $this->duplicates->assertUpdatable($customer, $merged, $current);
+
             $columns = $this->columns($merged, $this->category($merged));
             $columns['employee_id'] = $merged['employeeId'] ?? $customer->employee_id;
             if (array_key_exists('updatedDevice', $payload)) {
