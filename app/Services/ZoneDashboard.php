@@ -15,14 +15,14 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Zone Manager dashboard: the Branch dashboard ({@see BranchDashboard}: loan book, petty cash, today's collection and
- * disbursement, approval queue, the month's pipeline) for every branch of the manager's zone — or one of them — and a
+ * disbursement, approval queue, the month's pipeline) for every branch of the manager's zone - or one of them - and a
  * performance row per branch. Every figure comes from the records:
  *
  *  - active loans and portfolio: the branch's running loans (active, overdue, default) and their outstanding principal;
  *  - expected / actual collection: the month's instalments due on disbursed loans and the repayments received in the month
  *    (reversals excluded); collection % = actual / expected;
  *  - arrears % = PAR 1 rate (outstanding principal of loans with an instalment past due / portfolio) and default % = loans
- *    in DEFAULT or written off out of every disbursed loan — the Default & Arrears report's definitions.
+ *    in DEFAULT or written off out of every disbursed loan - the Default & Arrears report's definitions.
  */
 final class ZoneDashboard
 {

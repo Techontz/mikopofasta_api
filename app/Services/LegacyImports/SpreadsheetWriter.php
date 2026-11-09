@@ -10,7 +10,7 @@ use ZipArchive;
  * Mac, Numbers, Google Sheets and the phone apps. A CSV depends on each program's guess of delimiter and encoding.
  *
  * The first row is the header (bold, frozen). A cell that is a plain amount (no leading zero, at most 10 digits before
- * the point) is written as a number so it can be summed; everything else — names, dates, phone numbers — is text, so a
+ * the point) is written as a number so it can be summed; everything else - names, dates, phone numbers - is text, so a
  * phone number keeps its leading zero and a date stays exactly as {@see SpreadsheetReader} reads it back.
  */
 final class SpreadsheetWriter

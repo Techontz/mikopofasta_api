@@ -69,7 +69,7 @@ class SmsController extends ApiController
     }
 
     /**
-     * How many people the send would reach and how the first message reads — shown before staff confirm.
+     * How many people the send would reach and how the first message reads - shown before staff confirm.
      */
     public function preview(Request $request): JsonResponse
     {

@@ -105,7 +105,7 @@ class CapitalController extends ApiController
         );
 
         return $this->message(
-            $result['created'] ? 'Capital Recorded successfully — awaiting approval by another authorised user' : 'Capital was already recorded',
+            $result['created'] ? 'Capital Recorded successfully - awaiting approval by another authorised user' : 'Capital was already recorded',
             $result['created'] ? 201 : 200,
             ['data' => $this->presentContribution($result['capital']->refresh()->load(self::RELATIONS))],
         );
@@ -166,7 +166,7 @@ class CapitalController extends ApiController
 
     /**
      * Company capital position: historical shareholder contributions (financial records, not ownership) kept apart from what the
-     * company holds and earns now — money balances by group ({@see CashAccounts}), income, expenses and loans.
+     * company holds and earns now - money balances by group ({@see CashAccounts}), income, expenses and loans.
      *
      * Income and expenses are the ledger movements of the income / expense accounts in the range (all time without dates),
      * month-end closing entries excluded ({@see ClosingEntries}) so a closed month still shows what it earned and spent.

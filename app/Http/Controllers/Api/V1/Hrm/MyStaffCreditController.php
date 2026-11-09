@@ -12,7 +12,7 @@ use App\Services\Hrm\StaffCredit;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Spec §29/§30 — every staff member applies for a Staff Loan or a Salary Advance for THEMSELVES and follows their own requests.
+ * Spec §29/§30 - every staff member applies for a Staff Loan or a Salary Advance for THEMSELVES and follows their own requests.
  * No permission is needed; the beneficiary is always the signed-in employee.
  */
 class MyStaffCreditController extends HrmController

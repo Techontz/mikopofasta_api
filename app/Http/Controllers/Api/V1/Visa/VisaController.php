@@ -18,7 +18,7 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * VISA — customer bank account & card password list (live admin/bank_password).
+ * VISA - customer bank account & card password list (live admin/bank_password).
  */
 class VisaController extends ApiController
 {

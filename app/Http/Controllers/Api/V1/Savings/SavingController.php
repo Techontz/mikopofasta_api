@@ -95,7 +95,7 @@ class SavingController extends ApiController
     }
 
     /**
-     * "Today saving Deposit" — today, or the filtered branch and dates.
+     * "Today saving Deposit" - today, or the filtered branch and dates.
      */
     public function deposits(Request $request): AnonymousResourceCollection
     {
@@ -110,7 +110,7 @@ class SavingController extends ApiController
     }
 
     /**
-     * "Saving withdrawal" — all withdrawals (tabs: All / Saving Taken / Saving clear loan on the client).
+     * "Saving withdrawal" - all withdrawals (tabs: All / Saving Taken / Saving clear loan on the client).
      */
     public function withdrawals(Request $request): AnonymousResourceCollection
     {
@@ -120,7 +120,7 @@ class SavingController extends ApiController
     }
 
     /**
-     * "Saving Deposit balance" — balance per customer (filter: branch).
+     * "Saving Deposit balance" - balance per customer (filter: branch).
      */
     public function balances(Request $request): JsonResponse
     {
@@ -142,7 +142,7 @@ class SavingController extends ApiController
     }
 
     /**
-     * "Saving Deposit Balance" modal — HQ saving account balance of every visible branch.
+     * "Saving Deposit Balance" modal - HQ saving account balance of every visible branch.
      */
     public function branchBalances(): JsonResponse
     {

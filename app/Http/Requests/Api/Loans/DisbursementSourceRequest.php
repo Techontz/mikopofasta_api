@@ -9,7 +9,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * Disbursement source: loans are always paid out of the HQ PRINCIPAL A/C ("cash"). The field is optional and only
- * "cash" is accepted — a company bank account is no longer a disbursement source.
+ * "cash" is accepted - a company bank account is no longer a disbursement source.
  */
 class DisbursementSourceRequest extends FormRequest
 {

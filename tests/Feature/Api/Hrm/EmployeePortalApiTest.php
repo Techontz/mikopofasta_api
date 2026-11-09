@@ -25,7 +25,7 @@ use Tests\TestCase;
 
 /**
  * Spec §60 Employee Portal: a staff member sees only their own payslips, staff fund records, loans and advances, commission,
- * allowances and negligence deductions — never another employee's records and never a central balance.
+ * allowances and negligence deductions - never another employee's records and never a central balance.
  */
 class EmployeePortalApiTest extends TestCase
 {
@@ -75,7 +75,7 @@ class EmployeePortalApiTest extends TestCase
 
     /**
      * July payroll paid, August payroll approved but unpaid, fund contributions, claims, allowances, deductions, negligence, a
-     * staff loan and a salary advance — for both employees, with distinct figures.
+     * staff loan and a salary advance - for both employees, with distinct figures.
      */
     private function seedRecords(): void
     {
@@ -131,7 +131,7 @@ class EmployeePortalApiTest extends TestCase
 
     /**
      * July closes with 1,000,000 distributable profit: pool 100,000, zone share 5,000 carved out, staff pool 95,000 shared by
-     * salary — me 71,250, other 23,750.
+     * salary - me 71,250, other 23,750.
      */
     private function calculateJulyCommission(): void
     {

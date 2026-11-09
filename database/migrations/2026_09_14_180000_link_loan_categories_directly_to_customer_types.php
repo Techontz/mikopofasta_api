@@ -84,8 +84,8 @@ return new class extends Migration
     }
 
     /**
-     * Restores loan_categories.main_category_id (NOT NULL, restrict) from the customer type's main category — creating the main
-     * category when the customer type has none — and drops customer_category_id.
+     * Restores loan_categories.main_category_id (NOT NULL, restrict) from the customer type's main category - creating the main
+     * category when the customer type has none - and drops customer_category_id.
      */
     public function down(): void
     {

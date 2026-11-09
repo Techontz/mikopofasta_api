@@ -23,8 +23,8 @@ use Illuminate\Validation\ValidationException;
  *
  * - moves the customer, every loan not yet ended (in the pipeline or being repaid) and their unpaid penalties to the new
  *   branch, so the new branch collects, follows up and reports them from now on;
- * - reclassifies what the old branch's ledger still carries for them — outstanding principal (LOAN RECEIVABLE), accrued
- *   unpaid penalties (PENALTY RECEIVABLE) and the savings balance (SAVINGS DEPOSITS / HQ SAVING) — with one entry,
+ * - reclassifies what the old branch's ledger still carries for them - outstanding principal (LOAN RECEIVABLE), accrued
+ *   unpaid penalties (PENALTY RECEIVABLE) and the savings balance (SAVINGS DEPOSITS / HQ SAVING) - with one entry,
  *   Dr new branch / Cr old branch, so later repayments credit the branch that holds the receivable;
  * - leaves history untouched: repayments, payments, paid penalties, savings rows and journal entries keep the old branch,
  *   so what was collected while the customer belonged there stays that branch's.

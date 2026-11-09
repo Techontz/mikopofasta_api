@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\DB;
  *    not yet paid, leave and salary change requests waiting for a decision. "Pending" = not reviewed yet, "Under Review" =
  *    reviewed by HR and waiting for the next approver;
  *  - payroll: the month's payroll run (draft, approved or paid); before it is generated, the live preview of the salary
- *    sheet ({@see PayrollEngine::preview()}). The staff fund line is the staff's contribution deducted from salary — the
+ *    sheet ({@see PayrollEngine::preview()}). The staff fund line is the staff's contribution deducted from salary - the
  *    company contribution was removed by the product owner;
  *  - staff fund: per month, the contributions deducted in that month's payroll, the claims paid in it and the claims made
  *    in it that are still open.

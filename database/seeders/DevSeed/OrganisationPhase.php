@@ -12,7 +12,7 @@ use App\Models\Zone;
 use Carbon\CarbonImmutable;
 
 /**
- * Branches, expense types, loan categories (with fees and branch assignment) and staff — registered through Settings and
+ * Branches, expense types, loan categories (with fees and branch assignment) and staff - registered through Settings and
  * HRM exactly as an administrator / HR officer would.
  */
 final class OrganisationPhase

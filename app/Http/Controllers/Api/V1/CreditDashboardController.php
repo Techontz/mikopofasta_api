@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 class CreditDashboardController extends ApiController
 {
     /**
-     * GET /dashboard/credit?month=YYYY-MM&branch_id= — the Credit Department dashboard ({@see CreditDashboard}): a month
+     * GET /dashboard/credit?month=YYYY-MM&branch_id= - the Credit Department dashboard ({@see CreditDashboard}): a month
      * and a year of loan applications, the approval pipeline, today's collections and portfolio quality, for the
      * branches the employee may see or one of them. For employees who review credit.
      */

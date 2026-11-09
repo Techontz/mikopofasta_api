@@ -9,7 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * SMS Centre → Templates: the wording of the automatic SMS (payment receipt, repayment and overdue reminders — edited,
+ * SMS Centre → Templates: the wording of the automatic SMS (payment receipt, repayment and overdue reminders - edited,
  * switched on or off, never deleted) and the announcement drafts staff reuse when sending by hand.
  */
 class SmsTemplateController extends ApiController

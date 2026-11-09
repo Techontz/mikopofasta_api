@@ -50,7 +50,7 @@ class FundPositionReportTest extends TestCase
         $this->assertEquals($this->balance(Account::Company), $physical->firstWhere('key', 'company_cash')['amount']);
         $this->assertEquals(692000, $physical->firstWhere('key', 'company_cash')['amount']);
         $this->assertEquals(300000, $physical->firstWhere('bank_account_id', $this->nmb->id)['amount']);
-        $this->assertSame('BANK — NMB', $physical->firstWhere('bank_account_id', $this->nmb->id)['label']);
+        $this->assertSame('BANK - NMB', $physical->firstWhere('bank_account_id', $this->nmb->id)['label']);
         $this->assertEquals(250000, $physical->firstWhere('bank_account_id', $this->crdb->id)['amount']);
         $this->assertEquals(40000, $physical->firstWhere('key', 'bank_clearing')['amount'], 'provider receipts without a bank account');
         $this->assertEquals(15000, $physical->where('key', 'teller_cash')->firstWhere('branch_id', $first)['amount']);

@@ -26,7 +26,7 @@ use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Capital → Assets: asset capital contributions (Add Capitals with Pay Method ASSET) and the Asset Registry — list, view,
+ * Capital → Assets: asset capital contributions (Add Capitals with Pay Method ASSET) and the Asset Registry - list, view,
  * descriptive edit, branch transfer, status change, memo revaluation, contribution reversal, QR code / label / scan and
  * documents. capital.view reads; capital.manage changes.
  *
@@ -90,7 +90,7 @@ class AssetController extends ApiController
         $asset = $result['asset']->fresh(['shareHolder', 'branch', 'capital.shareTransactions', 'journalEntry']);
 
         return $this->message(
-            $result['created'] ? "Asset capital recorded successfully — {$asset->asset_code} awaiting approval by another authorised user" : 'Asset capital was already recorded',
+            $result['created'] ? "Asset capital recorded successfully - {$asset->asset_code} awaiting approval by another authorised user" : 'Asset capital was already recorded',
             $result['created'] ? 201 : 200,
             ['data' => $this->present($asset)],
         );

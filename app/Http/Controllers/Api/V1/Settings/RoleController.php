@@ -115,7 +115,7 @@ class RoleController extends ApiController
     }
 
     /**
-     * PUT settings/employees/{employee}/roles — the roles the employee holds besides the primary one (multi-role, §13).
+     * PUT settings/employees/{employee}/roles - the roles the employee holds besides the primary one (multi-role, §13).
      * Each role added or removed follows {@see RoleAssignmentRules}; a session acting as a removed role falls back to the
      * primary role on its next request.
      */

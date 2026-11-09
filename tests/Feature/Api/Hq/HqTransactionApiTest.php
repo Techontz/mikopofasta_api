@@ -25,7 +25,7 @@ class HqTransactionApiTest extends TestCase
         $ledger->openingBalance($admin->company_id, Account::Principal, 7184000);
         $ledger->openingBalance($admin->company_id, Account::HqInterest, 198190);
         // A claim row: listed, but never added to the total. Closed profit, then declared out of it exactly as
-        // DividendService does it — DIVIDEND PAYABLE is credit-normal, so a declaration credits it.
+        // DividendService does it - DIVIDEND PAYABLE is credit-normal, so a declaration credits it.
         $ledger->journal($admin->company_id, 'MONTH END', [
             ['account' => Account::Company, 'debit' => 500000.0],
             ['account' => Account::RetainedProfit, 'credit' => 500000.0],

@@ -68,7 +68,7 @@ class SuspenseController extends ApiController
     }
 
     /**
-     * POST /payments/confirmed — Finance-entered payment, single step (C6): CONFIRMED, received into suspense and allocated to
+     * POST /payments/confirmed - Finance-entered payment, single step (C6): CONFIRMED, received into suspense and allocated to
      * the loan (repayment, or recovery for a written-off loan) in one transaction.
      */
     public function storeConfirmed(ConfirmedPaymentRequest $request): JsonResponse
@@ -154,7 +154,7 @@ class SuspenseController extends ApiController
 
                 return [
                     'value' => (string) $loan->id,
-                    'label' => $loan->customer->full_name.' / '.($loan->reference_number ?? $loan->loan_number).' — WRITTEN OFF, unrecovered '.money($position['unrecovered']),
+                    'label' => $loan->customer->full_name.' / '.($loan->reference_number ?? $loan->loan_number).' - WRITTEN OFF, unrecovered '.money($position['unrecovered']),
                     'customer_id' => $loan->customer_id,
                     'phone' => $loan->customer->phone,
                     'written_off' => true,
@@ -167,7 +167,7 @@ class SuspenseController extends ApiController
 
             return [
                 'value' => (string) $loan->id,
-                'label' => $loan->customer->full_name.' / '.($loan->reference_number ?? $loan->loan_number).($loan->is_legacy_opening ? ' (OLD SYSTEM)' : '').' — '.money($outstanding['total']),
+                'label' => $loan->customer->full_name.' / '.($loan->reference_number ?? $loan->loan_number).($loan->is_legacy_opening ? ' (OLD SYSTEM)' : '').' - '.money($outstanding['total']),
                 'customer_id' => $loan->customer_id,
                 'phone' => $loan->customer->phone,
                 'written_off' => false,

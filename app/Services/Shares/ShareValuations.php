@@ -17,7 +17,7 @@ use Illuminate\Validation\ValidationException;
  * the effective date, the total issued shares at that date and the previous and new company share valuation.
  * History is never overwritten; a wrong latest valuation is marked reversed (its figures stay).
  *
- * A valuation changes holding values only — never share counts or ownership — and it is a memorandum record: it
+ * A valuation changes holding values only - never share counts or ownership - and it is a memorandum record: it
  * posts no journal entry and is never cash or a bank balance.
  */
 class ShareValuations

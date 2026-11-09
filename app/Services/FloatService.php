@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * Float movements (live Capital → Float pages).
  *
- * Rule 6 (segregation of duties): every float — company → branch, branch → branch, account → account — is initiated as
+ * Rule 6 (segregation of duties): every float - company → branch, branch → branch, account → account - is initiated as
  * PENDING (no journal, no balance movement) and posted only when a different authorised user approves it
  * ({@see SegregationOfDuties}). Approval runs inside one transaction with the company and transfer rows locked, so the
  * source balance is checked against committed postings and a double approval posts once. Reversals: {@see TransferReversal}.
@@ -50,7 +50,7 @@ class FloatService
 
     /**
      * Where a company → HQ float may be taken from: the COMPANY ACCOUNT, a company bank account or the Investment
-     * RESERVE A/C. Never a fixed asset — assets are not money.
+     * RESERVE A/C. Never a fixed asset - assets are not money.
      *
      * @return list<Account>
      */

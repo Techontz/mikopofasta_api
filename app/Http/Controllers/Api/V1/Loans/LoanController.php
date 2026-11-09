@@ -248,7 +248,7 @@ class LoanController extends LoanApiController
             'loan_fee' => [
                 'amount' => (float) $loan->loan_fee,
                 'deducted' => (bool) $loan->fee_deduct,
-                'note' => $loan->fee_deduct ? 'Deducted at disbursement (fee income)' : 'Not deducted — not part of repayment',
+                'note' => $loan->fee_deduct ? 'Deducted at disbursement (fee income)' : 'Not deducted - not part of repayment',
             ],
             'recovery' => $recovery,
             'recovered_total' => $recovery['recovered'] ?? null,

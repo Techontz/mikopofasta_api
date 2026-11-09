@@ -34,7 +34,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Brings the old system's outstanding balances in as opening balances: Loan File → outstanding principal, Penalty List →
- * outstanding penalty, Active Salary Advance → outstanding salary advance — three separate debts, never mixed.
+ * outstanding penalty, Active Salary Advance → outstanding salary advance - three separate debts, never mixed.
  *
  * Upload → validate → preview → submit → approve (someone other than the uploader) → live. Nothing changes a balance before
  * approval. On approval each importable row becomes a loan, penalty or salary advance flagged `is_legacy_opening`:
@@ -47,8 +47,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *    is exactly one it can belong to, so a loan repayment collects it in the usual Principal → Penalty order;
  *  - a salary advance keeps Loan Amount / Principal + Interest, with opening_paid = Principal + Interest − Remain Amount.
  *
- * One balanced opening journal per import brings the receivables into the books — Dr LOAN RECEIVABLE (the Remain Amounts)
- * or Dr SALARY ADVANCE RECEIVABLE (the principal still owed) / Cr OLD SYSTEM OPENING BALANCE — so repayments credit a
+ * One balanced opening journal per import brings the receivables into the books - Dr LOAN RECEIVABLE (the Remain Amounts)
+ * or Dr SALARY ADVANCE RECEIVABLE (the principal still owed) / Cr OLD SYSTEM OPENING BALANCE - so repayments credit a
  * receivable that exists and no cash appears to have been received today. Old-system penalties are cash basis like every
  * unaccrued penalty and need no journal.
  */
@@ -300,7 +300,7 @@ final class LegacyImportService
             $entry = null;
             if (round($receivable, 2) > 0) {
                 $account = $locked->module === LegacyImport::MODULE_LOAN ? Account::LoanReceivable : Account::SalaryAdvanceReceivable;
-                $entry = $this->ledger->journal($locked->company_id, sprintf('OPENING BALANCE — OLD SYSTEM %s #%d', strtoupper($locked->moduleLabel()), $locked->id), [
+                $entry = $this->ledger->journal($locked->company_id, sprintf('OPENING BALANCE - OLD SYSTEM %s #%d', strtoupper($locked->moduleLabel()), $locked->id), [
                     ['account' => $account, 'branch' => $locked->branch_id, 'debit' => round($receivable, 2)],
                     ['account' => Account::LegacyOpeningBalance, 'branch' => $locked->branch_id, 'credit' => round($receivable, 2)],
                 ], $locked, CarbonImmutable::today(), $locked->branch_id, $approver, TransactionType::OpeningBalance);
@@ -355,7 +355,7 @@ final class LegacyImportService
 
     /**
      * Map All: resolve several rows of one import at once, each to an existing customer or to a new customer created from it.
-     * All of it is one transaction — a row that cannot be mapped stops the whole batch — and the import is checked again
+     * All of it is one transaction - a row that cannot be mapped stops the whole batch - and the import is checked again
      * once at the end.
      *
      * @param  list<array{row: LegacyImportRow, customer: Customer|null, create: bool}>  $mappings
@@ -399,7 +399,7 @@ final class LegacyImportService
     }
 
     /**
-     * Map All suggestions: every unmatched row with the customers it could belong to and a proposed choice — the customer
+     * Map All suggestions: every unmatched row with the customers it could belong to and a proposed choice - the customer
      * when exactly one is likely, a new customer when none is, and nothing (the user chooses) when several are.
      *
      * @return list<array{row_id: int, row_number: int, customer_name: string, phone: string|null, messages: list<string>, candidates: list<array{id: int, label: string}>, suggestion: int|string|null}>
@@ -434,7 +434,7 @@ final class LegacyImportService
     }
 
     /**
-     * Undo an approved import as a whole (safe recovery): only while none of its records has been touched since — no
+     * Undo an approved import as a whole (safe recovery): only while none of its records has been touched since - no
      * repayment, penalty payment or waiver, write-off, top-up or status change. Its records are deleted, its opening
      * journal reversed, and its rows can be imported again from a corrected file.
      */
@@ -524,7 +524,7 @@ final class LegacyImportService
 
     /**
      * Who may not decide on their own import: the person who uploaded it or sent it for approval, as for every other approval
-     * (rule 6, {@see SegregationOfDuties}) — except the Super Admin, who may approve anything, their own import included (user
+     * (rule 6, {@see SegregationOfDuties}) - except the Super Admin, who may approve anything, their own import included (user
      * decision 2026-09-16), or someone the company explicitly allows to self-approve.
      */
     public function ownImportReason(LegacyImport $import, Employee $employee): ?string
@@ -597,8 +597,8 @@ final class LegacyImportService
     }
 
     /**
-     * The same record already standing in this system — entered live, or imported earlier under a name written differently
-     * (an exported file prints the customer's registered name) — is a duplicate; a customer who already runs a loan of this
+     * The same record already standing in this system - entered live, or imported earlier under a name written differently
+     * (an exported file prints the customer's registered name) - is a duplicate; a customer who already runs a loan of this
      * system is worth a second look before an old loan is added beside it.
      */
     private function checkAgainstLiveRecords(string $module, LegacyImportRow $row): void
@@ -666,7 +666,7 @@ final class LegacyImportService
             'restoration' => (float) ($row->collection ?? 0),
             'formula' => $category->formula,
             'fee_deduct' => false,
-            'reason' => sprintf('Old system opening balance — Loan File import #%d, row %d', $import->id, $row->row_number),
+            'reason' => sprintf('Old system opening balance - Loan File import #%d, row %d', $import->id, $row->row_number),
             'interest_rate' => 0,
             'interest_amount' => 0,
             'total_payable' => $amount,
@@ -739,8 +739,8 @@ final class LegacyImportService
 
     /**
      * Attach every old-system penalty that stands on its own to the customer's old-system loan when there is exactly one
-     * it can belong to — the only running old-system loan, or among several the one whose Loan Amount the Penalty List
-     * printed — so a loan repayment collects it (Principal → Penalty). It stays its own penalty; the loan's principal is
+     * it can belong to - the only running old-system loan, or among several the one whose Loan Amount the Penalty List
+     * printed - so a loan repayment collects it (Principal → Penalty). It stays its own penalty; the loan's principal is
      * untouched. Anything unclear stays on its own and is paid from the Penalty List.
      *
      * @param  list<int>  $customerIds

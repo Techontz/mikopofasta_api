@@ -8,7 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Balance Sheet (Simplified) — OVERVIEW ALL REPORT §7B:
+ * Balance Sheet (Simplified) - OVERVIEW ALL REPORT §7B:
  * Assets: loan portfolio, cash · Liabilities: staff fund, payables · Equity: capital, retained earnings.
  *
  * Balances are the ledger as of the date. Income and expense accounts not yet closed at month end are
@@ -101,14 +101,14 @@ class BalanceSheetReport
             'balanced' => abs($totalAssets - $totalLiabilities - $totalEquity) < 0.005,
             'memo' => [
                 'legacy_unaccrued_penalties' => $this->legacyUnaccruedPenalties($scope, $asOf),
-                'legacy_unaccrued_penalties_label' => 'Legacy unaccrued penalties (cash basis, memo only — not in PENALTY RECEIVABLE)',
+                'legacy_unaccrued_penalties_label' => 'Legacy unaccrued penalties (cash basis, memo only - not in PENALTY RECEIVABLE)',
             ],
         ];
     }
 
     /**
      * Unpaid, not waived penalties charged before penalty accrual existed (no accrual journal) on loans that are not written off:
-     * they are collected on a cash basis and never appear in PENALTY RECEIVABLE (user decision D9 — history is not backfilled).
+     * they are collected on a cash basis and never appear in PENALTY RECEIVABLE (user decision D9 - history is not backfilled).
      */
     private function legacyUnaccruedPenalties(FinancialScope $scope, CarbonImmutable $asOf): float
     {

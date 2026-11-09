@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * HRM employee registration (enhancement §12.1–12.2): CV, certificates and employment contract (PDF) kept per employee, and
- * employee KYC — a new employee's details are `pending` until an HR user approves them; once approved, only HR may change
+ * employee KYC - a new employee's details are `pending` until an HR user approves them; once approved, only HR may change
  * them (never the employee), with a reason and the old and new values audited. Staff already working are marked approved.
  */
 return new class extends Migration

@@ -150,8 +150,8 @@ class CreateHistoricalCustomers extends Command
      * Whether a customer of the same printed name is the same person as the one on this row, judged on the phone
      * number the report prints beside the name.
      *
-     * Two people really do share a name across branches — FESTO E. NYAGAWA borrows at Makambako on 255655995363 and
-     * another FESTO E. NYAGAWA at Wanging'ombe on 255764587402 — and merging them files one of them under the other's
+     * Two people really do share a name across branches - FESTO E. NYAGAWA borrows at Makambako on 255655995363 and
+     * another FESTO E. NYAGAWA at Wanging'ombe on 255764587402 - and merging them files one of them under the other's
      * branch. So a customer is only reused when the printed number is one of theirs; a different number means a
      * different person and a customer of their own. A row or a customer with no number keeps the old behaviour of
      * matching on the name alone, because that is all either of them has.

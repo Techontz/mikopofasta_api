@@ -20,7 +20,7 @@ use Illuminate\Http\Request;
  *  GET    loans/{loan}/credit-assessments   every snapshot recorded for this application, newest first.
  *
  * Every endpoint is permission-gated and branch-scoped like the other loan endpoints (a loan outside the employee's
- * branch scope is a 404). Every response is advisory (§36): nothing here approves, rejects, prices or re-stages a loan —
+ * branch scope is a 404). Every response is advisory (§36): nothing here approves, rejects, prices or re-stages a loan -
  * the POST writes one loan_assessments row and touches nothing else.
  */
 class CreditAssessmentController extends LoanApiController
@@ -28,7 +28,7 @@ class CreditAssessmentController extends LoanApiController
     public function __construct(private readonly CreditAssessment $assessments) {}
 
     /**
-     * §63: loan requests awaiting analysis — the applications still in the approval pipeline before finance, with the
+     * §63: loan requests awaiting analysis - the applications still in the approval pipeline before finance, with the
      * latest recorded recommendation (null when none has been recorded yet).
      */
     public function queue(Request $request): JsonResponse

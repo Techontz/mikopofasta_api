@@ -907,7 +907,7 @@ class DividendApiTest extends TestCase
         $this->pay($allocation, ['amount' => 200000])->assertCreated();
 
         $this->payAll($allocation->declaration, $confirmed)->assertUnprocessable()
-            ->assertJsonPath('errors.expected_total.0', 'Outstanding balances changed — review and try again.');
+            ->assertJsonPath('errors.expected_total.0', 'Outstanding balances changed - review and try again.');
         $this->payAll($allocation->declaration, null)->assertUnprocessable()->assertJsonValidationErrors('expected_total');
         $this->assertSame(1, DividendPayment::count());
 
@@ -1097,7 +1097,7 @@ class DividendApiTest extends TestCase
     }
 
     /**
-     * Request the declaration (C1 maker/checker) and, when the request is accepted, approve it as a second authorised user —
+     * Request the declaration (C1 maker/checker) and, when the request is accepted, approve it as a second authorised user -
      * returning the approval response (or the rejected request response).
      *
      * @param  array<string, mixed>  $extra

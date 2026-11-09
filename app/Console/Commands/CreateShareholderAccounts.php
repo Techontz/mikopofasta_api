@@ -8,7 +8,7 @@ use App\Services\Shareholders\ShareholderAccounts;
 use Illuminate\Console\Command;
 
 /**
- * Creates (or links) Shareholder Portal logins for existing shareholders without one — the CLI twin of Capital →
+ * Creates (or links) Shareholder Portal logins for existing shareholders without one - the CLI twin of Capital →
  * Shareholders → Login accounts → Generate accounts. Capital, shares, dividends and journals are never touched.
  * Temporary passwords are printed once (never with --dry-run) and never stored.
  */

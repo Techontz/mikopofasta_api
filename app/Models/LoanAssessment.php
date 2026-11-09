@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One stored credit recommendation ({@see CreditAssessment}): what the engine recommended for a loan application, the
- * score, the ordered factors with their weights, contributions and evidence, and the plain-language explanation —
+ * score, the ordered factors with their weights, contributions and evidence, and the plain-language explanation -
  * exactly as the Credit Officer saw it (§36 / §37).
  *
  * The snapshot is advisory evidence, never a control: it holds no status and approves nothing. Rows are never edited;

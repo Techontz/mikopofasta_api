@@ -19,7 +19,7 @@ use Carbon\CarbonImmutable;
 
 /**
  * HRM records for the DEV staff: leave, allowances, deductions, staff salary advances, staff loans, a staff fund withdrawal,
- * performance reviews and attendance — through the HRM endpoints as HR and Finance.
+ * performance reviews and attendance - through the HRM endpoints as HR and Finance.
  */
 final class HrmPhase
 {

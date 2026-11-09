@@ -68,7 +68,7 @@ class FloatController extends ApiController
             $this->currentEmployee(),
         );
 
-        return $this->message('Float Requested successfully — awaiting approval by another authorised user', 201, ['data' => ['id' => $transfer->id, 'status' => $transfer->status]]);
+        return $this->message('Float Requested successfully - awaiting approval by another authorised user', 201, ['data' => ['id' => $transfer->id, 'status' => $transfer->status]]);
     }
 
     /**

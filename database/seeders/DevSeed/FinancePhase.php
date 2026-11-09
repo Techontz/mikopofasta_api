@@ -113,7 +113,7 @@ final class FinancePhase
             $this->ctx->api->call($this->ctx->staff('HQ_HR'), 'POST', 'hrm/commission/calculate', ['period' => self::PAYROLL_PERIOD]);
         }, fn (): bool => CommissionAllocation::whereIn('accounting_period_id', AccountingPeriod::where('company_id', $this->ctx->company->id)->whereDate('period_start', self::PAYROLL_PERIOD.'-01')->pluck('id'))->exists());
 
-        // Spec §21 / §22: commission is paid through its own flow — HR requests, Finance approves and pays on its own date.
+        // Spec §21 / §22: commission is paid through its own flow - HR requests, Finance approves and pays on its own date.
         $june = fn () => CommissionAllocation::whereIn('accounting_period_id', AccountingPeriod::where('company_id', $this->ctx->company->id)->whereDate('period_start', self::PAYROLL_PERIOD.'-01')->pluck('id'))->where('amount', '>', 0);
         $this->ctx->timeline->at('2026-07-02 09:30', 'commission June 2026 payment requested', function (): void {
             $this->ctx->api->call($this->ctx->staff('HQ_HR'), 'POST', 'hrm/commission/payments/request', ['period' => self::PAYROLL_PERIOD]);

@@ -9,7 +9,7 @@ return new class extends Migration
     /**
      * Shares Management: the share register is the authoritative source of ownership.
      *
-     *  - share_structures: one per company — initial capital basis, initial shares, initial share value and the
+     *  - share_structures: one per company - initial capital basis, initial shares, initial share value and the
      *    optional authorised share limit.
      *  - share_valuations: append-only share value events (previous → new value, effective date, totals at the time).
      *  - share_transactions: append-only ledger of share movements (initial allocation, issuance, bonus issuance,

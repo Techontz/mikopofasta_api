@@ -19,8 +19,8 @@ use Illuminate\Validation\ValidationException;
  * Loan Discount / Waiver (enhancement §6), e.g. outstanding TZS 1,500,000, the customer pays 1,450,000 and 50,000 is
  * waived. A request changes nothing; only its approval, by another authorised user, reduces the debt:
  *
- * - a `discount` loan transaction (method DISCOUNT) settles the waived amount — interest first, then insurance, then
- *   principal — and the instalments it covers, exactly like a repayment would, but it is never cash: every cash report,
+ * - a `discount` loan transaction (method DISCOUNT) settles the waived amount - interest first, then insurance, then
+ *   principal - and the instalments it covers, exactly like a repayment would, but it is never cash: every cash report,
  *   collection total and "paid" figure counts deposits only;
  * - the principal waived leaves the branch LOAN RECEIVABLE: Dr LOAN DISCOUNT / WAIVER EXPENSE / Cr LOAN RECEIVABLE.
  *   Interest and insurance are recognised only when collected (cash basis), so waiving them needs no entry.

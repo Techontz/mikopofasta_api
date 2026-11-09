@@ -53,7 +53,7 @@ class ShareHolder extends Model
     }
 
     /**
-     * The login account (employees row) of this shareholder — 1:1, ON DELETE RESTRICT.
+     * The login account (employees row) of this shareholder - 1:1, ON DELETE RESTRICT.
      */
     public function account(): BelongsTo
     {

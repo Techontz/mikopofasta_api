@@ -27,7 +27,7 @@ use Tests\TestCase;
 
 /**
  * Rule 6 on the loan reversals (repayment, disbursement, write-off recovery): the employee who posted the journal does not
- * reverse it — Super Admin included — unless approvals.self_approve is granted explicitly. The loan detail flags carry the
+ * reverse it - Super Admin included - unless approvals.self_approve is granted explicitly. The loan detail flags carry the
  * reason for the poster. Dividend payment reversals are covered in DividendApiTest.
  */
 class ReversalSegregationTest extends TestCase

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Settings → Dividend Settings (Documents: ACCOUNT OVERVIEW "16. Dividend Account" — Profit → Dividend, split
+     * Settings → Dividend Settings (Documents: ACCOUNT OVERVIEW "16. Dividend Account" - Profit → Dividend, split
      * 70% → Principal (reinvestment) / 30% → Shareholders). The split is stored per company; the two percentages must
      * total exactly 100.00 (enforced by the API). Defaults are the documented 30 / 70.
      */

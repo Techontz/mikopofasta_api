@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * Credit assessment snapshots (§36 / §37): the recommendation a Credit Officer was actually shown, frozen with the
-     * factors, weights and evidence that produced it. Additive and advisory only — nothing here changes a loan status,
+     * factors, weights and evidence that produced it. Additive and advisory only - nothing here changes a loan status,
      * an amount or an approval. A loan may carry many snapshots (re-assessed after new evidence); the latest one is the
      * live recommendation and the older rows stay for audit.
      */

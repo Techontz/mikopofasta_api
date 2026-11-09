@@ -19,7 +19,7 @@ use Tests\TestCase;
 
 /**
  * Customer Profile → Credit History: every loan with its source, instalment performance rebuilt from the repayments,
- * arrears, defaults, penalties, interest and salary advances — read only, and agreeing with the Debt Profile.
+ * arrears, defaults, penalties, interest and salary advances - read only, and agreeing with the Debt Profile.
  */
 class CustomerCreditHistoryApiTest extends TestCase
 {

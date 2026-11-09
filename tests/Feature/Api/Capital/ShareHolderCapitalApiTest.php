@@ -103,7 +103,7 @@ class ShareHolderCapitalApiTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('bank_account_id');
 
         $id = $this->postJson('/api/v1/capital/capitals', ['share_id' => $holder->id, 'amount' => 5000000, 'pay_method' => 'BANK', 'bank_account_id' => $bank->id, 'recept' => '12', 'chaque_no' => '99'])
-            ->assertCreated()->assertJsonPath('message', 'Capital Recorded successfully — awaiting approval by another authorised user')->json('data.id');
+            ->assertCreated()->assertJsonPath('message', 'Capital Recorded successfully - awaiting approval by another authorised user')->json('data.id');
         $this->assertSame(0.0, app(Ledger::class)->balance($admin->company_id, Account::Capital), 'a pending contribution posts nothing');
         $this->approveAsSecondUser($admin, "/api/v1/capital/capitals/{$id}/approve")->assertJsonPath('message', 'Capital Contribution Approved successfully');
 

@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  * arrears and default, the branch petty cash, today's collection and disbursement, the portfolio per customer type, the
  * approval queue and the month's application pipeline. Every figure comes from the records:
  *
- *  - active / arrears / default: repayable loans by status — ACTIVE (on time), OVERDUE (in arrears) and DEFAULT — each with
+ *  - active / arrears / default: repayable loans by status - ACTIVE (on time), OVERDUE (in arrears) and DEFAULT - each with
  *    what is still owed on them (principal + interest + penalty, as the Loan Portfolio report counts it); the total
  *    outstanding is their sum. Its change is the movement of the loan receivable accounts since the end of last month. The
  *    ledger keeps no history of a loan's status, so the three status cards have no month-on-month change;

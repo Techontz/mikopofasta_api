@@ -6,12 +6,12 @@ use App\Services\Approvals\ReserveProtection;
 use App\Services\DashboardStatistics;
 
 /**
- * The money rows of the HQ Account List — what Finance sees behind the green card on the dashboard and on Headquarters
+ * The money rows of the HQ Account List - what Finance sees behind the green card on the dashboard and on Headquarters
  * Transaction → Hq Account balance ({@see DashboardStatistics::hqFunds()}).
  *
  * A row is not always one ledger account: OPERATION INCOME is the interest, loan fee and penalty pools of every branch
  * plus HQ's own, and RESERVE is every branch RESERVE A/C plus the HQ one. Money is drawn from such a row in proportion
- * to what each account in it holds, exactly as the reserve transfer does — the per-branch figure is only a report of
+ * to what each account in it holds, exactly as the reserve transfer does - the per-branch figure is only a report of
  * what that branch generated, never a separate pot.
  */
 enum HqFund: string
@@ -51,7 +51,7 @@ enum HqFund: string
 
     /**
      * The account whose balance IS the row, when the row is a claim on money held elsewhere rather than the cash itself:
-     * DIVIDEND is DIVIDEND PAYABLE — dividends declared and not yet paid — so that, not the income pool, is both the
+     * DIVIDEND is DIVIDEND PAYABLE - dividends declared and not yet paid - so that, not the income pool, is both the
      * figure Finance sees and the most that may be sent.
      */
     public function claim(): ?Account
@@ -78,7 +78,7 @@ enum HqFund: string
     }
 
     /**
-     * The rows Finance may send FROM on a Headquarters Transaction — every money row of his green card (user ruling
+     * The rows Finance may send FROM on a Headquarters Transaction - every money row of his green card (user ruling
      * 2026-09-22, which added RESERVE and DIVIDEND). RESERVE still leaves HQ only towards the Investment RESERVE A/C and
      * only the owners may approve it ({@see ReserveProtection}, {@see onlyDestination()}).
      *

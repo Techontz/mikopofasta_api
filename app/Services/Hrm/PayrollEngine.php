@@ -33,7 +33,7 @@ use Illuminate\Validation\ValidationException;
  *   Gross     = Base Salary + Allowance
  *   Take Home = Gross − (Staff Fund + Salary Advance + Deduction + Loan Restoration)
  *
- * Spec §21 / §22 (commission payment flow): commission is NOT a payroll column any more — each employee's commission of a
+ * Spec §21 / §22 (commission payment flow): commission is NOT a payroll column any more - each employee's commission of a
  * closed period is requested by HR, approved and paid by Finance on its own date ({@see CommissionPayments}), and negligence is
  * recovered from that payment. LEGACY: runs generated before that change carry commission (and its negligence recovery) in
  * their lines; their allocations are linked to the run (status `payroll`) and approve/pay still handle them exactly as before.
@@ -46,21 +46,21 @@ use Illuminate\Validation\ValidationException;
  * Payment:                          Dr Staff Payable   Cr Staff Fund, Staff Advance, Staff Loan, paying account
  *                                  negligence (spec §23): Dr Staff Payable   Cr Write-off Expense;  Dr Principal A/C   Cr paying account
  *
- * Spec §20 — payroll is an expense of its PERIOD, not of the payment date: the recognition journal (salary, allowance,
+ * Spec §20 - payroll is an expense of its PERIOD, not of the payment date: the recognition journal (salary, allowance,
  * commission, company contribution) and the salary-expense part of the payment (other deductions) are dated inside the payroll
- * month — today while the month is running, the month's last day once it is over. Cash movements (the payment journal) and
+ * month - today while the month is running, the month's last day once it is over. Cash movements (the payment journal) and
  * `paid_at` / `paid_on` keep the real payment date. When the payroll month is already CLOSED in the ledger nothing can be
  * posted into it any more (closed history is never rewritten): the expense is then recognised on the approval date in the
- * open period and the run records why in `expense_period_note`, which the payroll sheet shows — it is never silent.
+ * open period and the run records why in `expense_period_note`, which the payroll sheet shows - it is never silent.
  *
- * Spec §24 — only Finance-approved allowances are paid: recurring approved (legacy `active`) allowances every month, and an
- * approved allowance of this or an earlier payroll period once — generation reserves it for the run, payment marks it paid.
+ * Spec §24 - only Finance-approved allowances are paid: recurring approved (legacy `active`) allowances every month, and an
+ * approved allowance of this or an earlier payroll period once - generation reserves it for the run, payment marks it paid.
  *
  * Spec §26, as ruled by the product owner (2026-09-17): SALARY EXPENSE is the full basic salary and nothing more. The
- * staff fund share (staff_fund_percent, 20 %) is withheld from it and goes into the STAFF FUND A/C as real cash — basic
+ * staff fund share (staff_fund_percent, 20 %) is withheld from it and goes into the STAFF FUND A/C as real cash - basic
  * 1,000,000: expense 1,000,000, staff receives 800,000, fund receives 200,000. There is no separate company contribution.
  *
- * Spec §23 — negligence is never deducted from salary. It is recovered from commission payments ({@see CommissionPayments});
+ * Spec §23 - negligence is never deducted from salary. It is recovered from commission payments ({@see CommissionPayments});
  * only legacy runs that still carry commission recover it from the commission of their lines ({@see NegligenceDeductions}).
  *
  * Branch staff and zone managers are paid from the INTEREST A/C of their branch, HQ staff from the
@@ -308,7 +308,7 @@ class PayrollEngine
     }
 
     /**
-     * Spec §20: the date a payroll's expense is recognised on — inside the payroll month (today while it runs, its first day
+     * Spec §20: the date a payroll's expense is recognised on - inside the payroll month (today while it runs, its first day
      * before it starts, its last day once it is over). When that month is already closed in the ledger the expense can no
      * longer reach it: today's date is used and the note says why.
      *
@@ -400,8 +400,8 @@ class PayrollEngine
 
     /**
      * Credit lines for the cash a salary is paid with. HQ staff are paid from the COMPANY ACCOUNT; branch staff are paid
-     * from OPERATION INCOME — the interest, loan fee and penalty pools of every branch plus HQ's own
-     * ({@see HqFund::OperationIncome}) — drawn from each account in proportion to what it holds, exactly as an HQ expense
+     * from OPERATION INCOME - the interest, loan fee and penalty pools of every branch plus HQ's own
+     * ({@see HqFund::OperationIncome}) - drawn from each account in proportion to what it holds, exactly as an HQ expense
      * is ({@see ExpenseApproval}). A branch INTEREST A/C is only a report of what that branch generated and never a
      * separate pot, so a branch whose own interest is short no longer blocks the whole payroll.
      *

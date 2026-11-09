@@ -178,7 +178,7 @@ class LoanService
      * Money reaches the customer (teller cash-out, or a successful Vodacom / other-channel disbursement):
      * posts the disbursement to the ledger and starts the repayment schedule.
      *
-     * Posting: Dr LOAN RECEIVABLE (the customer's loan) / Cr the source account — the HQ PRINCIPAL A/C (the lending cash
+     * Posting: Dr LOAN RECEIVABLE (the customer's loan) / Cr the source account - the HQ PRINCIPAL A/C (the lending cash
      * the company floats to HQ, the default) or a company bank account. HQ runs no loan book of its own: the branch takes
      * the application and the receivable is tagged to it, but the money always leaves HQ. A deducted loan fee is income:
      * with the HQ cash source it lands in the branch LOAN FEE A/C (the branch earned it); with a bank source it never
@@ -259,8 +259,8 @@ class LoanService
      * reserve) + Dr RESERVE A/C (reserve) / Cr INTEREST INCOME (interest − reserve) + Cr INTEREST RESERVE (reserve).
      * Penalty cash (rule 14, cash basis): Dr PENALTY A/C / Cr PENALTY INCOME. Only legacy penalties that were accrued when
      * charged (accrual_journal_entry_id set, stream P's short-lived D9) credit PENALTY RECEIVABLE instead, because their income
-     * was already recognised — split per penalty, oldest first, exactly as settlePenalties() pays them.
-     * Insurance cash (rule 15): Dr INSURANCE A/C / Cr INSURANCE RESERVE — never income, never distributable.
+     * was already recognised - split per penalty, oldest first, exactly as settlePenalties() pays them.
+     * Insurance cash (rule 15): Dr INSURANCE A/C / Cr INSURANCE RESERVE - never income, never distributable.
      * The principal returns to the HQ PRINCIPAL A/C it was lent from (no branch): a branch holds no lending money, only the
      * petty cash HQ sends it. The income accounts stay tagged to the branch, as a report of what that branch earned.
      *
@@ -331,8 +331,8 @@ class LoanService
     }
 
     /**
-     * The first repayment date (enhancement §3.2): the loan's Start Date, or — for a loan without one, or one disbursed after
-     * its Start Date had passed — one period after disbursement, as before. Every later due date follows from it.
+     * The first repayment date (enhancement §3.2): the loan's Start Date, or - for a loan without one, or one disbursed after
+     * its Start Date had passed - one period after disbursement, as before. Every later due date follows from it.
      */
     public function firstDueDate(Loan $loan, CarbonImmutable $disbursedOn): CarbonImmutable
     {
@@ -375,7 +375,7 @@ class LoanService
     /**
      * Split an amount across the outstanding components, in the order the specification mandates (§10):
      *
-     *  1. the PRINCIPAL DUE on the instalments reached so far — not the whole loan's principal;
+     *  1. the PRINCIPAL DUE on the instalments reached so far - not the whole loan's principal;
      *  2. PENALTY;
      *  3. the INTEREST DUE on those same instalments;
      *  4. anything beyond that expected amount reduces the OUTSTANDING PRINCIPAL outside the current instalment;
@@ -429,7 +429,7 @@ class LoanService
 
     /**
      * The part of a component (principal or interest) the borrower owes by now: its share of the instalments reached, less
-     * what has already been paid. Instalments are level — restoration = (principal + interest + insurance) / sessions — so
+     * what has already been paid. Instalments are level - restoration = (principal + interest + insurance) / sessions - so
      * one instalment carries the loan's total spread over its sessions.
      */
     private function dueNow(float $total, float $outstanding, int $reached, Loan $loan): float
@@ -441,7 +441,7 @@ class LoanService
 
     /**
      * The principal due now on a loan carried over from the old system. It has no schedule here, only the old system's
-     * Collection (the amount due per instalment, kept in `instalment`), so one Collection is due first — or the whole
+     * Collection (the amount due per instalment, kept in `instalment`), so one Collection is due first - or the whole
      * outstanding principal when the file printed no Collection. Its whole Remain Amount is principal (the old system
      * cannot split it), so the order stays Principal → Penalty → the rest.
      */
@@ -497,7 +497,7 @@ class LoanService
     }
 
     /**
-     * Overdue processing (Documents: "Cron Job POST /loans/overdue/process — missed payment → pending, apply penalty").
+     * Overdue processing (Documents: "Cron Job POST /loans/overdue/process - missed payment → pending, apply penalty").
      * For every repayable loan: one penalty per missed instalment (company penalty setting: percentage of the unpaid
      * instalment or a fixed amount, only for products with penalty = YES), days past due from the oldest unpaid
      * instalment, ACTIVE ⇄ OVERDUE, and DEFAULT once the loan end date has passed with a balance (live behaviour).
@@ -609,7 +609,7 @@ class LoanService
      *  - Early = settlement DATE (closed_at) before the maturity DATE (end_date = last schedule due date, else
      *    MAX(schedule due_date)), both in the app timezone. Settled on the maturity date or later is not early.
      *  - A loan closed by a top-up (a disbursed loan has topup_of_loan_id = this loan) is a refinance, never an early
-     *    settlement — otherwise a top-up would freeze the very loan that paid it off.
+     *    settlement - otherwise a top-up would freeze the very loan that paid it off.
      *  - Freeze window = [disbursed_at, disbursed_at + the category's freeze_time_days], the days snapshotted on the loan.
      *    It may already be over at settlement (then it is recorded as expired and blocks nothing). 0 days = no freeze.
      *  - Not early: every freeze field stays null.
@@ -683,7 +683,7 @@ class LoanService
     }
 
     /**
-     * Charge a penalty (rule 14, cash basis — supersedes stream P's D9 accrual): only the penalty row is created, no journal.
+     * Charge a penalty (rule 14, cash basis - supersedes stream P's D9 accrual): only the penalty row is created, no journal.
      * The penalty becomes income when its cash is collected (repayment allocation or payPenalty()).
      */
     public function chargePenalty(Loan $loan, float $amount, CarbonImmutable $penaltyDate): Penalty
@@ -701,7 +701,7 @@ class LoanService
     /**
      * Direct penalty payment. The penalty row is locked and its remaining balance re-checked inside the transaction.
      * Cash basis (rule 14): Dr PENALTY A/C / Cr PENALTY INCOME. A legacy penalty accrued when charged (accrual journal set)
-     * credits PENALTY RECEIVABLE instead — its income was already recognised. A written-off loan's money is a recovery.
+     * credits PENALTY RECEIVABLE instead - its income was already recognised. A written-off loan's money is a recovery.
      *
      * @throws ValidationException
      */
@@ -930,7 +930,7 @@ class LoanService
     }
 
     /**
-     * Why a loan repayment cannot be reversed now, or null when it can (spec §22, §26 Option A — dependent records
+     * Why a loan repayment cannot be reversed now, or null when it can (spec §22, §26 Option A - dependent records
      * block the reversal, nothing is ever partially reversed). reverseRepayment() enforces exactly these checks.
      */
     public function repaymentReversalBlocker(LoanTransaction $deposit): ?string
@@ -1012,7 +1012,7 @@ class LoanService
 
     /**
      * Why the viewer cannot reverse this repayment now, or null when they can: the business blockers
-     * ({@see repaymentReversalBlocker()}) and rule 6 — the employee who posted the repayment journal does not reverse it.
+     * ({@see repaymentReversalBlocker()}) and rule 6 - the employee who posted the repayment journal does not reverse it.
      */
     public function repaymentReverseBlockedReason(LoanTransaction $deposit, ?Employee $viewer): ?string
     {
@@ -1026,7 +1026,7 @@ class LoanService
 
     /**
      * Reverse a posted loan repayment (spec §22) in one transaction with the loan row locked:
-     *  - Ledger::reverse() of the repayment entry — principal, penalty, interest (+ reserve) and insurance lines exactly as
+     *  - Ledger::reverse() of the repayment entry - principal, penalty, interest (+ reserve) and insurance lines exactly as
      *    allocated, posted today; a repayment of a closed period without profit distributions is corrected in the current
      *    open period (spec §26 Option C);
      *  - the penalty payments of the repayment are removed and the penalties' paid amounts restored (snapshot in the audit log);     *  - instalment paid amounts are rebuilt from the remaining repayments (oldest due first);
@@ -1179,7 +1179,7 @@ class LoanService
 
     /**
      * Why the viewer cannot reverse this loan's disbursement now, or null when they can: the business blockers
-     * ({@see disbursementReversalBlocker()}) and rule 6 — the employee who posted the disbursement journal does not reverse it.
+     * ({@see disbursementReversalBlocker()}) and rule 6 - the employee who posted the disbursement journal does not reverse it.
      */
     public function disbursementReverseBlockedReason(Loan $loan, ?Employee $viewer): ?string
     {
@@ -1550,7 +1550,7 @@ class LoanService
     }
 
     /**
-     * The penalty payments a repayment created: linked rows, or — for repayments posted before the link existed — the
+     * The penalty payments a repayment created: linked rows, or - for repayments posted before the link existed - the
      * unlinked penalty payments of the loan on the repayment date when they add up to its penalty portion and no other
      * repayment that day paid penalty. Null when they cannot be matched reliably.
      *

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * On MariaDB, and on MySQL with explicit_defaults_for_timestamp off, the first NOT NULL TIMESTAMP column of a table is created
  * with ON UPDATE CURRENT_TIMESTAMP: any later update of the row (e.g. linking a dividend payment to its journal entry) silently
- * replaced the event's own time — when a dividend was paid, a face scanned, a loan assessed, shares transacted. Every such
+ * replaced the event's own time - when a dividend was paid, a face scanned, a loan assessed, shares transacted. Every such
  * column (other than updated_at) keeps its value and its default, without the automatic change.
  */
 return new class extends Migration

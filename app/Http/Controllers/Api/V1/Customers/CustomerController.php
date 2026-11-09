@@ -49,7 +49,7 @@ class CustomerController extends ApiController
     public function __construct(private CustomerRegistrar $registrar, private KycStatusCalculator $kyc) {}
 
     /**
-     * GET /customers — filters: search, kyc_status, status, approval_status, loan_eligible, branch_id,
+     * GET /customers - filters: search, kyc_status, status, approval_status, loan_eligible, branch_id,
      * customer_category_id, include_deleted, page, per_page.
      */
     public function index(Request $request): JsonResponse
@@ -97,7 +97,7 @@ class CustomerController extends ApiController
     }
 
     /**
-     * GET /customers/registration-options — branch, officer and lock state for the wizard's Registration group.
+     * GET /customers/registration-options - branch, officer and lock state for the wizard's Registration group.
      */
     public function registrationOptions(): JsonResponse
     {
@@ -170,7 +170,7 @@ class CustomerController extends ApiController
     }
 
     /**
-     * GET /customers/{id}/kyc-status — checklist and outstanding items.
+     * GET /customers/{id}/kyc-status - checklist and outstanding items.
      */
     public function kycStatus(Customer $customer): JsonResponse
     {
@@ -187,7 +187,7 @@ class CustomerController extends ApiController
     }
 
     /**
-     * GET /customers/{id}/overview — loans summary and balances for the profile's Overview tab.
+     * GET /customers/{id}/overview - loans summary and balances for the profile's Overview tab.
      */
     public function overview(Customer $customer, LoanService $loans, CustomerDebt $debts): JsonResponse
     {
@@ -235,7 +235,7 @@ class CustomerController extends ApiController
     }
 
     /**
-     * GET /customers/{id}/debt — the customer's debt profile: loan principal, penalty and salary advance as separate debts,
+     * GET /customers/{id}/debt - the customer's debt profile: loan principal, penalty and salary advance as separate debts,
      * their total, and the part carried over from the old system.
      */
     public function debt(Customer $customer, CustomerDebt $debts): JsonResponse
@@ -247,7 +247,7 @@ class CustomerController extends ApiController
     }
 
     /**
-     * GET /customers/{id}/credit-history — the profile's Credit History tab: every loan, instalment performance, arrears,
+     * GET /customers/{id}/credit-history - the profile's Credit History tab: every loan, instalment performance, arrears,
      * defaults, penalties, interest and salary advances of the customer (read only; totals agree with the Debt Profile).
      */
     public function creditHistory(Customer $customer, CustomerCreditHistory $history): JsonResponse
@@ -259,7 +259,7 @@ class CustomerController extends ApiController
     }
 
     /**
-     * GET /customers/{id}/timeline — registration, KYC, document, note, face-scan and loan events, newest first.
+     * GET /customers/{id}/timeline - registration, KYC, document, note, face-scan and loan events, newest first.
      */
     public function timeline(Customer $customer): JsonResponse
     {
@@ -282,7 +282,7 @@ class CustomerController extends ApiController
     }
 
     /**
-     * GET /customers/{id}/audit-trail — audit entries of the customer record.
+     * GET /customers/{id}/audit-trail - audit entries of the customer record.
      */
     public function auditTrail(Customer $customer): JsonResponse
     {

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A "PENARTY REPORT" printed by the old system and imported as history (records only — no penalty, cash or ledger
+ * A "PENARTY REPORT" printed by the old system and imported as history (records only - no penalty, cash or ledger
  * entry stands behind it). printed_total keeps the TOTAL row as printed; it is not recomputed from the rows.
  */
 class HistoricalPenaltyReport extends Model

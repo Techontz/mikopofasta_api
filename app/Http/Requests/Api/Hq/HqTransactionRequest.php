@@ -12,7 +12,7 @@ use Illuminate\Validation\Validator;
 /**
  * Headquarters Transaction → Requested Transaction: Finance sends money from one of his own HQ Account List rows
  * ({@see HqFund::sources()}) to a shareholders' (Investment) account. RESERVE and DIVIDEND may go to one account only
- * ({@see HqFund::onlyDestination()}) — the reserve leaves HQ only towards the Investment RESERVE A/C (rule 3), and a
+ * ({@see HqFund::onlyDestination()}) - the reserve leaves HQ only towards the Investment RESERVE A/C (rule 3), and a
  * dividend row is the declared dividend itself, which sending to DIVIDEND A/C settles.
  */
 class HqTransactionRequest extends FormRequest

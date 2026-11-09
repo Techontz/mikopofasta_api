@@ -10,7 +10,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * PUT /customers/{customer} — the registration payload, partially: only the fields sent are validated and changed.
+ * PUT /customers/{customer} - the registration payload, partially: only the fields sent are validated and changed.
  * Requirement-profile, payment and customer-type rules evaluate the customer as it would be after the update.
  *
  * Staff who register customers (customers.manage) and staff who may only correct details (customers.edit) both

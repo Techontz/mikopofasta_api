@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * CUSTOMER_MODULE_IMPLEMENTATION.md §8.10 — error envelope { message, error_code, errors? } for every api/* error.
+ * CUSTOMER_MODULE_IMPLEMENTATION.md §8.10 - error envelope { message, error_code, errors? } for every api/* error.
  */
 class ApiErrorEnvelopeTest extends TestCase
 {

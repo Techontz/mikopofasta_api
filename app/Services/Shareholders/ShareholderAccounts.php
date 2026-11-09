@@ -39,7 +39,7 @@ class ShareholderAccounts
     public function __construct(private readonly AccessControl $access) {}
 
     /**
-     * Register a shareholder and its login in ONE database transaction ($afterCreate — e.g. storing the photo — runs inside
+     * Register a shareholder and its login in ONE database transaction ($afterCreate - e.g. storing the photo - runs inside
      * it too): any failure rolls back both rows.
      *
      * @param  array<string, mixed>  $holderData

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * SMS centre: message templates (automatic ones — payment receipt, repayment reminder, overdue reminder — and
+     * SMS centre: message templates (automatic ones - payment receipt, repayment reminder, overdue reminder - and
      * announcement drafts), contact groups of free phone numbers, and the category / status / reference of every SMS
      * so the log can be filtered and an automatic reminder is never sent twice. sms.manage goes to the Admin role
      * (Super Admin holds it through "*").

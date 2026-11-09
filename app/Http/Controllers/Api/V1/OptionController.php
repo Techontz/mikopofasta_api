@@ -17,7 +17,7 @@ class OptionController extends ApiController
 {
     public function branchOptions(Request $request): JsonResponse
     {
-        // branches_only: real branches, without Head Office (HQ is not a branch — e.g. branch expenses, petty cash).
+        // branches_only: real branches, without Head Office (HQ is not a branch - e.g. branch expenses, petty cash).
         // transfer_targets: every branch of the company, the destinations of a customer branch transfer.
         $transferTargets = $request->boolean('transfer_targets') && Gate::allows('customers.transfer');
         $branches = ($transferTargets ? Branch::where('company_id', $this->currentEmployee()->company_id)->orderBy('id')->get() : $this->visibleBranches())

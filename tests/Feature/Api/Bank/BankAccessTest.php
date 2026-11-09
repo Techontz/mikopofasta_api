@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 /**
  * Bank accounts and bank transfers are company money: only Super Admin, Admin or a shareholder of the company may reach
- * them — no other role, even when the role or a staff privilege grants bank.manage. The two HQ funds movements Finance owns
+ * them - no other role, even when the role or a staff privilege grants bank.manage. The two HQ funds movements Finance owns
  * (petty cash to a branch, HQ reserve to the Investment RESERVE A/C) sit behind funds.transfer instead and stay open to it.
  * funds.transfer is explicit-only: the owners approve those two requests, they never raise them, so the Super Admin does
  * not hold it and cannot send petty cash.

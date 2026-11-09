@@ -68,7 +68,7 @@ class HrDashboardApiTest extends TestCase
         $this->assertSame(1, $cards['pending_allowances']);
         $this->assertSame(1, $cards['pending_claims']);
 
-        // No payroll generated yet: the live preview — 400,000 less the 20% staff fund.
+        // No payroll generated yet: the live preview - 400,000 less the 20% staff fund.
         $this->assertSame('Not generated', $cards['payroll_status']);
         $this->assertSame(1, $cards['payroll_employees']);
         $this->assertEquals(320000, $cards['payroll_net']);

@@ -13,11 +13,11 @@ use Tests\TestCase;
 
 /**
  * Fixture (today 2026-09-13, weekly single-instalment loans of 100,000 + 30,000 interest, 5,000 fee):
- *  A  branch 1, female 30  — cashed out 20 days ago, due 13 days ago, paid in full 10 days ago (3 days late)  → CLOSED
- *  B  branch 1, male 50    — cashed out 14 days ago, due 7 days ago, paid in full 8 days ago (1 day early)    → CLOSED
- *  C  branch 1, male 22    — cashed out 60 days ago, due 53 days ago, DEFAULT, 20,000 recovered 5 days ago
- *  D  branch 1, female 40  — cashed out 2 days ago, 10,000 penalty, 105,000 paid today (→ P 100,000, Pen 5,000, I 0)
- *  E  branch 2, male 65    — 200,000 cashed out 3 days ago, nothing paid
+ *  A  branch 1, female 30  - cashed out 20 days ago, due 13 days ago, paid in full 10 days ago (3 days late)  → CLOSED
+ *  B  branch 1, male 50    - cashed out 14 days ago, due 7 days ago, paid in full 8 days ago (1 day early)    → CLOSED
+ *  C  branch 1, male 22    - cashed out 60 days ago, due 53 days ago, DEFAULT, 20,000 recovered 5 days ago
+ *  D  branch 1, female 40  - cashed out 2 days ago, 10,000 penalty, 105,000 paid today (→ P 100,000, Pen 5,000, I 0)
+ *  E  branch 2, male 65    - 200,000 cashed out 3 days ago, nothing paid
  */
 class PortfolioReportsApiTest extends TestCase
 {

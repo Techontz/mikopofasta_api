@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Repayment channels (Documents: REPAYMENT OVERVIEW) — teller cash awaiting verification,
+     * Repayment channels (Documents: REPAYMENT OVERVIEW) - teller cash awaiting verification,
      * teller bank deposit slips, direct/webhook payments and the suspense queue.
      */
     public function up(): void

@@ -25,10 +25,10 @@ class ShareTransaction extends Model
     /** Paid in cash/bank now: Dr Company Bank/Cash / Cr Share Capital through the capital contribution service. */
     public const TREATMENT_PAID = 'paid';
 
-    /** Linked to a capital contribution already recorded (and already posted) — no new journal. */
+    /** Linked to a capital contribution already recorded (and already posted) - no new journal. */
     public const TREATMENT_LINKED = 'linked_contribution';
 
-    /** No cash (bonus, founders' allocation without payment, adjustment) — no journal. */
+    /** No cash (bonus, founders' allocation without payment, adjustment) - no journal. */
     public const TREATMENT_NO_CASH = 'no_cash';
 
     /** Private disk holding supporting documents (served only through the authorised API). */

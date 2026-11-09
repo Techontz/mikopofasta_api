@@ -10,7 +10,7 @@ use BaconQrCode\Writer;
 
 /**
  * Server-side SVG QR codes (bacon/bacon-qr-code). The code encodes only the internal scan URL
- * {frontend_url}/capital/assets/scan/{qr_token} — no asset data — and the scan page requires a signed-in user with
+ * {frontend_url}/capital/assets/scan/{qr_token} - no asset data - and the scan page requires a signed-in user with
  * capital access.
  */
 class AssetQrCode

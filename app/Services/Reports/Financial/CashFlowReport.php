@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
  * Cash = every money-holding asset account (branch fund accounts, teller cash, agent, banks, HQ and
  * company accounts, staff fund cash). Receivables (loan portfolio, staff credit) are not cash.
  *
- * Inferred: money received but not yet matched (SUSPENSE ACCOUNT) is not available cash — the
+ * Inferred: money received but not yet matched (SUSPENSE ACCOUNT) is not available cash - the
  * suspense liability is netted against cash and treated as an HQ clearing account, so a receipt is
  * counted once, when it reaches a loan (or immediately, for receipts posted straight to a loan).
  * Movements between two cash accounts in scope (internal transfers) are not flows; with a single

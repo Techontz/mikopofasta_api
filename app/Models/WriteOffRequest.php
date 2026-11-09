@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Rule 6 (maker/checker) for write-offs ({@see LoanService::requestWriteOff()}): a write-off is requested as PENDING — nothing
- * posted, the loan status unchanged — and posted only when a different authorised user approves it; rejection keeps the row.
+ * Rule 6 (maker/checker) for write-offs ({@see LoanService::requestWriteOff()}): a write-off is requested as PENDING - nothing
+ * posted, the loan status unchanged - and posted only when a different authorised user approves it; rejection keeps the row.
  */
 class WriteOffRequest extends Model
 {

@@ -23,15 +23,15 @@ use Illuminate\Validation\ValidationException;
  *  - approval: Dr Salary Advance Receivable (branch) / Cr PRINCIPAL A/C. An advance is lent out of the same Operation
  *    Principal every loan is funded from, so the money leaves HQ's lending pool and nothing else (advances approved before
  *    this rule drew on the HQ SALARY ADVANCE account; they stay as booked). The category fee is NOT income at approval (C2);
- *  - fee collection ({@see collectFee()}): only when the fee is actually collected, once — Dr LOAN FEE A/C (branch) / Cr FEE
+ *  - fee collection ({@see collectFee()}): only when the fee is actually collected, once - Dr LOAN FEE A/C (branch) / Cr FEE
  *    INCOME (branch). Advances approved before C2 posted the fee with the approval journal; that stays as booked;
  *  - repayment (spec §8): principal returns to the Operation Principal it was lent from and the profit goes to the interest
- *    pool as its own income — Dr PRINCIPAL A/C (principal portion) + Dr HQ Interest (profit portion) / Cr Receivable
+ *    pool as its own income - Dr PRINCIPAL A/C (principal portion) + Dr HQ Interest (profit portion) / Cr Receivable
  *    (principal) / Cr Salary Advance Income (profit). Repayments posted before this rule debited HQ Salary Advance;
  *    they are not rewritten;
  *  - deposit reversal ({@see reversePayment()}, approved through Reversal Requests): the deposit's journal is mirrored and
- *    the deposit marked reversed — never deleted — so the amount is owed again and a finished advance is active again;
- *  - removal of an approved advance: reversal of every entry above — the fee journal only exists (and is mirrored) when the fee
+ *    the deposit marked reversed - never deleted - so the amount is owed again and a finished advance is active again;
+ *  - removal of an approved advance: reversal of every entry above - the fee journal only exists (and is mirrored) when the fee
  *    was collected (Documents: no delete, reversal only).
  */
 class SalaryAdvanceService
@@ -81,7 +81,7 @@ class SalaryAdvanceService
     }
 
     /**
-     * Record the ACTUAL collection of an approved advance's fee (C2): Dr LOAN FEE A/C / Cr FEE INCOME (branch), exactly once —
+     * Record the ACTUAL collection of an approved advance's fee (C2): Dr LOAN FEE A/C / Cr FEE INCOME (branch), exactly once -
      * the advance row is locked, and an advance that is not approved, reversed, has no fee, or whose fee was already collected
      * (now or, legacy, at approval) is rejected with 422.
      *

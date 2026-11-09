@@ -244,7 +244,7 @@ class LegacyImportController extends ApiController
     }
 
     /**
-     * Map All, step 2: map several rows at once — each to an existing customer (customer_id) or to a new customer
+     * Map All, step 2: map several rows at once - each to an existing customer (customer_id) or to a new customer
      * (create = true). One transaction: if one row cannot be mapped, none is.
      */
     public function mapAll(Request $request, LegacyImport $legacyImport): JsonResponse

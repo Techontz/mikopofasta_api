@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * HRM → Salary Sheet (live admin/salary_sheet) with the Documents' payroll workflow:
  * HR prepares and reviews (payroll.approve: generate, commission, settings) → Finance is the final approver and pays
- * (payroll.pay) — product owner ruling 2026-09-17 on specification §31; payslips.
+ * (payroll.pay) - product owner ruling 2026-09-17 on specification §31; payslips.
  */
 class PayrollController extends HrmController
 {

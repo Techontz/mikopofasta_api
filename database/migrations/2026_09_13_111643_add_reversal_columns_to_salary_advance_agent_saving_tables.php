@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Documents (ACCOUNT OVERVIEW): "no delete — reversal only". Money records of the salary advance,
+ * Documents (ACCOUNT OVERVIEW): "no delete - reversal only". Money records of the salary advance,
  * agent and insurance saving modules keep a reversal marker instead of being deleted. Savings also
  * record how a withdrawal was used (live "withdrawal by": TAKEN / CLEAR LOAN) and the loan it cleared.
  */

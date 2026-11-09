@@ -163,7 +163,7 @@ class SegregationOfDutiesTest extends TestCase
         $this->assertSame(500000.0, $this->ledger->balance($this->admin->company_id, Account::Bank, bankAccount: $bank->id));
 
         $admin->role->permissions()->create(['permission' => SegregationOfDuties::PERMISSION]);
-        // C6: the role grant alone is not enough — the company approval policy of the workflow must allow self-approval too.
+        // C6: the role grant alone is not enough - the company approval policy of the workflow must allow self-approval too.
         $this->actingAs($admin->fresh())->postJson("/api/v1/bank/transfers/{$id}/approve")->assertForbidden();
         $this->allowSelfApprovalPolicy($admin->company_id, [ApprovalPolicy::BANK_TRANSFERS]);
         $this->actingAs($admin->fresh())->postJson("/api/v1/bank/transfers/{$id}/approve")->assertOk();
@@ -266,7 +266,7 @@ class SegregationOfDutiesTest extends TestCase
         $this->ledger->openingBalance($this->admin->company_id, Account::HqReserve, 50000);
         $entries = JournalEntry::count();
 
-        // The RESERVE row of an HQ transaction is the one way out, and only towards the Investment RESERVE A/C — anywhere
+        // The RESERVE row of an HQ transaction is the one way out, and only towards the Investment RESERVE A/C - anywhere
         // else is refused, and the money moves only when an owner approves, never on Finance's word.
         $this->postJson('/api/v1/hq/transactions', ['from_account' => HqFund::Reserve->value, 'to_account' => Account::Company->value, 'amount' => 1000])
             ->assertUnprocessable()->assertJsonValidationErrors('to_account');
@@ -280,7 +280,7 @@ class SegregationOfDutiesTest extends TestCase
         $this->postJson("/api/v1/expenses/requests/{$expense->id}/accept", ['from_account' => Account::HqReserve->value])
             ->assertUnprocessable()->assertJsonPath('errors.from_account.0', ReserveProtection::MESSAGE);
 
-        // Legacy pending rows created before the rule are blocked at approval too — the float account → account flow no
+        // Legacy pending rows created before the rule are blocked at approval too - the float account → account flow no
         // longer has an endpoint, so its historic rows are the only way a reserve float can still be offered for posting.
         $legacyHq = HqTransaction::create(['company_id' => $this->admin->company_id, 'from_account' => Account::HqReserve->value, 'to_account' => Account::HqInterest->value, 'amount' => 1000, 'status' => 'pending']);
         $legacyFloat = FloatTransfer::create(['company_id' => $this->admin->company_id, 'type' => 'account_to_account', 'from_branch_id' => $this->admin->branch_id, 'to_branch_id' => $this->admin->branch_id, 'from_account' => Account::Reserve->value, 'to_account' => Account::Principal->value, 'amount' => 1000, 'status' => 'pending', 'transfer_date' => today()]);

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Spec §29/§30/§32/§49 — staff loans and staff salary advances move through
+     * Spec §29/§30/§32/§49 - staff loans and staff salary advances move through
      * submitted → hr_approved (or admin_approved for a request benefiting an HR user) → finance_approved → disbursed →
      * repaying → completed (or rejected). `approved_by`/`approved_at` keep recording the review stage (HR or Admin);
      * Finance approval, rejection and completion get their own who/when columns.

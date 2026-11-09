@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Close the previous month for every company and calculate that month's commission (specification §16 and §21: the period
- * closes automatically on the 1st day of the new month — on 1 August the system closes July — and staff then see their
+ * closes automatically on the 1st day of the new month - on 1 August the system closes July - and staff then see their
  * July commission as calculated and awaiting payment, whatever date it is eventually paid on).
  *
  * The scheduler runs this on the 1st; it is safe to run again by hand, because a period that is already closed is skipped
@@ -75,7 +75,7 @@ class CloseMonth extends Command
 
             return 0;
         } catch (ValidationException $exception) {
-            $this->warn("{$label} skipped — ".implode(' ', $exception->validator->errors()->all()));
+            $this->warn("{$label} skipped - ".implode(' ', $exception->validator->errors()->all()));
 
             return 1;
         }

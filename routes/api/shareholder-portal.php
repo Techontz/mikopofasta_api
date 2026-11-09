@@ -4,7 +4,7 @@ use App\Http\Controllers\Api\V1\ShareholderPortal\ShareholderPortalController;
 use Illuminate\Support\Facades\Route;
 
 /*
-| Shareholder Portal — the shareholder is always resolved from the signed-in account (never from a request id).
+| Shareholder Portal - the shareholder is always resolved from the signed-in account (never from a request id).
 */
 Route::controller(ShareholderPortalController::class)->prefix('portal/shareholder')->name('portal.shareholder.')->group(function (): void {
     Route::get('dashboard', 'dashboard')->name('dashboard');

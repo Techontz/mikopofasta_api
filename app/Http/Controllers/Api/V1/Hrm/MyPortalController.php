@@ -30,7 +30,7 @@ use Illuminate\Support\Collection;
 
 /**
  * Employee Portal (spec §60, with the staff-visible parts of §21, §24 and §26): what a signed-in staff member sees about
- * THEMSELVES — payslips, staff fund contributions and benefit claims, staff loan / salary advance repayments, commission,
+ * THEMSELVES - payslips, staff fund contributions and benefit claims, staff loan / salary advance repayments, commission,
  * allowances, other deductions and negligence recoveries.
  *
  * No permission is needed and every query is scoped to the signed-in employee; any employee id in the request is ignored.
@@ -125,7 +125,7 @@ class MyPortalController extends HrmController
     }
 
     /**
-     * Spec §26 (product owner ruling: the 20 % withheld from basic salary is the only contribution — there is no company
+     * Spec §26 (product owner ruling: the 20 % withheld from basic salary is the only contribution - there is no company
      * contribution) and §27: the employee's own contributions, benefit record and benefit claims. Never the fund cash balance.
      */
     public function staffFund(): JsonResponse
@@ -185,7 +185,7 @@ class MyPortalController extends HrmController
     }
 
     /**
-     * Spec §24: allowances (reason, amount, payroll period, status — "Approved / Awaiting Payroll") and other salary deductions.
+     * Spec §24: allowances (reason, amount, payroll period, status - "Approved / Awaiting Payroll") and other salary deductions.
      */
     public function allowances(): JsonResponse
     {

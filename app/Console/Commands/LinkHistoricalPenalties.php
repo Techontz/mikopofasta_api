@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\DB;
  * can open the person behind a row. Nothing is created: a row whose name matches no customer, or more than one, is
  * left unlinked and reported.
  *
- * The two printouts spell the same person differently — a Penalty report prints the middle name in full
- * ("SHABAN DAUD MASONJO") where a File report prints its initial ("SHABAN D. MASONJO") — so names are compared with
+ * The two printouts spell the same person differently - a Penalty report prints the middle name in full
+ * ("SHABAN DAUD MASONJO") where a File report prints its initial ("SHABAN D. MASONJO") - so names are compared with
  * {@see HistoricalNameMatcher}. Matching is company-wide, because one person may appear in more than one branch, but
  * a customer of the report's own branch wins: two people can share a name across branches (there is a FESTO E.
  * NYAGAWA at Makambako and another at Wanging'ombe), and a Makambako penalty belongs to the Makambako one.

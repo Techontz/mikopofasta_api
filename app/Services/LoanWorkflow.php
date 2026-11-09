@@ -41,8 +41,8 @@ use Illuminate\Validation\ValidationException;
  * disbursement succeeds; the posting itself is LoanService::withdraw().
  *
  * Disbursement source: Finance chooses where the money is paid from when preparing (and may change it before sending):
- * "cash" = the loan branch's PRINCIPAL A/C — the branch lending cash fund that the COMPANY ACCOUNT floats money into
- * (FloatService) and bank → branch transfers top up — or "bank" = a company bank account. The source is stored on the
+ * "cash" = the loan branch's PRINCIPAL A/C - the branch lending cash fund that the COMPANY ACCOUNT floats money into
+ * (FloatService) and bank → branch transfers top up - or "bank" = a company bank account. The source is stored on the
  * batch, its balance is checked before money is sent, and on success the batch keeps the journal entry
  * (Dr LOAN RECEIVABLE / Cr source). A loan is posted once: batch and loan rows are locked and a loan that already has
  * a successful batch is never posted again (duplicate callbacks, retries and double clicks create no second entry).
@@ -91,7 +91,7 @@ class LoanWorkflow
         // cleared first: a customer is never treated as debt-free because the debt was imported.
         $debt = app(CustomerDebt::class)->summary($customer);
         if ($debt['penalty_without_loan'] > 0.004) {
-            $reasons[] = 'Penalty outstanding without a loan: '.money($debt['penalty_without_loan']).' — clear it before a new loan';
+            $reasons[] = 'Penalty outstanding without a loan: '.money($debt['penalty_without_loan']).' - clear it before a new loan';
         }
 
         $eligibilityReasons = array_values(array_unique($reasons));
@@ -382,7 +382,7 @@ class LoanWorkflow
     }
 
     /**
-     * Credit officer: POST /vodacom/kyc-verify — the name registered on the customer's number must match.
+     * Credit officer: POST /vodacom/kyc-verify - the name registered on the customer's number must match.
      *
      * @return array{matched: bool, registered_name: string|null, message: string}
      */
@@ -469,7 +469,7 @@ class LoanWorkflow
     }
 
     /**
-     * Finance: POST /loans/{id}/prepare-disbursement — generates the batch id.
+     * Finance: POST /loans/{id}/prepare-disbursement - generates the batch id.
      */
     /**
      * @param  array{source_account?: string|null, source_bank_account_id?: int|null}|null  $source
@@ -728,7 +728,7 @@ class LoanWorkflow
     }
 
     /**
-     * POST /loans/{id}/close — only when nothing is outstanding.
+     * POST /loans/{id}/close - only when nothing is outstanding.
      */
     public function close(Loan $loan, Employee $employee): Loan
     {

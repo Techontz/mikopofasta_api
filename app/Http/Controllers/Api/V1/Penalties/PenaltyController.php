@@ -86,7 +86,7 @@ class PenaltyController extends ApiController
     }
 
     /**
-     * POST /penalties/payments/{penaltyPayment}/reverse — REQUEST the reversal of a direct penalty payment (maker/checker).
+     * POST /penalties/payments/{penaltyPayment}/reverse - REQUEST the reversal of a direct penalty payment (maker/checker).
      * Nothing is posted until another Finance user, an Admin or the Super Admin approves it under Reversal Requests.
      */
     public function reversePayment(Request $request, PenaltyPayment $penaltyPayment, ReversalRequests $reversals): JsonResponse

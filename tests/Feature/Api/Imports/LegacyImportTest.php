@@ -29,7 +29,7 @@ use Tests\TestCase;
 
 /**
  * Legacy loan data import & export: the old system's Loan File, Penalty List and Active Salary Advance list brought in as
- * opening balances — three separate debts, approved by someone other than the uploader, never counted twice.
+ * opening balances - three separate debts, approved by someone other than the uploader, never counted twice.
  */
 class LegacyImportTest extends TestCase
 {
@@ -111,7 +111,7 @@ class LegacyImportTest extends TestCase
         $this->assertSame(0.0, $ledger->balance($this->superAdmin->company_id, Account::Capital), 'Old-system receivables never show as capital.');
         $this->assertIntegrityPasses();
 
-        // A repayment here reduces the printed Remain Amount once — the old payments are not deducted again.
+        // A repayment here reduces the printed Remain Amount once - the old payments are not deducted again.
         $loans->deposit($johnLoan, 200000, CarbonImmutable::today());
         $this->assertSame(300000.0, $loans->outstanding($johnLoan->fresh())['principal']);
         $this->assertIntegrityPasses();
@@ -129,7 +129,7 @@ class LegacyImportTest extends TestCase
 
         $status = app(LoanWorkflow::class)->borrowingStatus($this->john->fresh());
         $this->assertFalse($status['eligible']);
-        $this->assertContains('Penalty outstanding without a loan: '.money(50000).' — clear it before a new loan', $status['eligibility_reasons']);
+        $this->assertContains('Penalty outstanding without a loan: '.money(50000).' - clear it before a new loan', $status['eligibility_reasons']);
     }
 
     public function test_principal_penalty_and_salary_advance_stay_three_separate_debts(): void

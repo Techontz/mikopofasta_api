@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Credit Department dashboard (role Credit Officer): the loan applications of a month and a year, the approval pipeline,
- * today's collections and the quality of the portfolio per loan officer, branch and customer type — for the whole company or
+ * today's collections and the quality of the portfolio per loan officer, branch and customer type - for the whole company or
  * one branch. Every figure comes from the records:
  *
  *  - applications: loans applied for in the period (any status). Each application is counted by what happened to it:

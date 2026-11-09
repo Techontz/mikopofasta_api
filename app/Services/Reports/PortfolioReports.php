@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * "Portfolio & Risk" reports (Documents: 🧠 OVERVIEW ALL REPORT — 2. LOAN & CUSTOMER REPORTS, SEGMENTATION,
+ * "Portfolio & Risk" reports (Documents: 🧠 OVERVIEW ALL REPORT - 2. LOAN & CUSTOMER REPORTS, SEGMENTATION,
  * AGE ANALYSIS, REPAYMENT BEHAVIOR). Outstanding balances always come from {@see LoanBalances}
  * (LoanService::outstanding() numbers, allocation Principal → Penalty → Interest).
  *
@@ -601,7 +601,7 @@ class PortfolioReports
 
     /**
      * Running loans (active, overdue, default) in scope with their balances (out_principal, out_total…), branch and
-     * `arrears` / `oldest_due` / `dpd` as of today — the loans the Default & Arrears report is built from.
+     * `arrears` / `oldest_due` / `dpd` as of today - the loans the Default & Arrears report is built from.
      *
      * @return Collection<int, object>
      */

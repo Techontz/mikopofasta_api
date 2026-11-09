@@ -11,7 +11,7 @@ use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 /**
- * CUSTOMER_MODULE_IMPLEMENTATION.md §8.2 — Region → District → Ward from the database, idempotent importer.
+ * CUSTOMER_MODULE_IMPLEMENTATION.md §8.2 - Region → District → Ward from the database, idempotent importer.
  */
 class GeographyApiTest extends TestCase
 {

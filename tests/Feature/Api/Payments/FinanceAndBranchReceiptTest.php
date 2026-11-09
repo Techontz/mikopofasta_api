@@ -173,7 +173,7 @@ class FinanceAndBranchReceiptTest extends TestCase
     {
         $loan = $this->fundedLoan();
         $url = '/api/v1/payments/branch-receipts';
-        // Entered by Finance, who may also approve: rule 6 — not a permission — blocks the initiator (the Super Admin is exempt).
+        // Entered by Finance, who may also approve: rule 6 - not a permission - blocks the initiator (the Super Admin is exempt).
         $initiator = $this->employeeWithRole($this->admin, 'finance');
         $this->actingAs($initiator);
         PaymentProvider::create(['company_id' => $this->admin->company_id, 'channel' => 'MNO', 'name' => 'HaloPesa']);
@@ -203,7 +203,7 @@ class FinanceAndBranchReceiptTest extends TestCase
     {
         $loan = $this->fundedLoan();
         $bank = BankAccount::create(['company_id' => $this->admin->company_id, 'name' => 'NMB']);
-        // Banked by a Teller who may also verify: rule 6 — not a permission — blocks the depositor (the Super Admin is exempt).
+        // Banked by a Teller who may also verify: rule 6 - not a permission - blocks the depositor (the Super Admin is exempt).
         $depositor = $this->employeeWithRole($this->admin, 'teller');
         $depositor->permissionOverrides()->create(['permission' => 'payments.verify', 'granted' => true]);
         $this->actingAs($depositor->fresh());

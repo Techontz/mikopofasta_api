@@ -13,7 +13,7 @@ use Throwable;
  *
  * The figures are taken as printed. Nothing is recalculated: the Remain Amount is the opening balance even when Loan Amount
  * − Paid Amount comes to something else (that is reported as a warning, never "corrected"), and the January–September
- * columns are history only — they never reduce the balance a second time.
+ * columns are history only - they never reduce the balance a second time.
  *
  * Errors keep a row out of the import; warnings let it in but ask for a second look.
  */
@@ -364,7 +364,7 @@ final class LegacyRowReader
 
     /**
      * The key of a row that says "this is the same old-system record": the same customer, branch and the figures that
-     * identify the loan, penalty or advance — not its balance, which changes between two exports of the same record.
+     * identify the loan, penalty or advance - not its balance, which changes between two exports of the same record.
      *
      * @param  array<string, mixed>  $attributes
      */

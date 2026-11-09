@@ -113,7 +113,7 @@ return [
 
     /*
     | Company money: bank accounts and bank transfers belong to the company owners. These permissions are effective only
-    | for a Super Admin / Admin staff login or a login linked to a shareholder of the company — never for any other role,
+    | for a Super Admin / Admin staff login or a login linked to a shareholder of the company - never for any other role,
     | whatever its role permissions or per-employee overrides say.
     */
     /*

@@ -13,7 +13,7 @@ use RuntimeException;
 /**
  * Imports a "PENARTY REPORT" printed by the old system (e.g. database/data/historical/kakonko-penalty-report.json) as
  * history: a historical_penalty_reports row and one historical_penalty_records row per printed row. Figures are stored
- * as printed — nothing is recalculated — and nothing is posted: no penalty, payment, receipt or journal entry is
+ * as printed - nothing is recalculated - and nothing is posted: no penalty, payment, receipt or journal entry is
  * created, and no customer's balance moves.
  *
  * The manifest names the report (code, title, branch, source document, print date, printed TOTAL) and its CSV of rows:
@@ -27,7 +27,7 @@ class ImportHistoricalPenaltyReport extends Command
         {manifest : Report manifest (JSON), relative to the API root}
         {--company= : Company id (defaults to the only company)}';
 
-    protected $description = 'Import a historical Penalty report (records only — no penalties, cash or ledger entries)';
+    protected $description = 'Import a historical Penalty report (records only - no penalties, cash or ledger entries)';
 
     public function handle(): int
     {

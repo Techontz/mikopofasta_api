@@ -65,7 +65,7 @@ class LoanMoneyRulesTest extends TestCase
         $this->getJson("/api/v1/loans/{$withFee->id}")->assertOk()
             ->assertJsonPath('data.loan_fee.amount', 5000)
             ->assertJsonPath('data.loan_fee.deducted', false)
-            ->assertJsonPath('data.loan_fee.note', 'Not deducted — not part of repayment')
+            ->assertJsonPath('data.loan_fee.note', 'Not deducted - not part of repayment')
             ->assertJsonMissingPath('data.outstanding.fee');
         $this->assertIntegrityPasses($this->admin);
     }

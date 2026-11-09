@@ -17,7 +17,7 @@ use Illuminate\Validation\ValidationException;
  *    or registered where no approval was required) → the
  *    change is held as a pending {@see CustomerUpdateRequest} with each field's old and new value, and nothing on the customer
  *    changes until CRM approves it; one change per customer waits at a time;
- *  - CRM and Admin (customers.approve_updates) change the customer at once — recorded as an approved request, so the Customer
+ *  - CRM and Admin (customers.approve_updates) change the customer at once - recorded as an approved request, so the Customer
  *    Updates list shows every change, whoever made it;
  *  - a registration still waiting for KYC approval, or returned, is edited directly: KYC approval reviews it as a whole;
  *  - approving re-checks that the fields still hold the old values recorded, so a change approved later never silently

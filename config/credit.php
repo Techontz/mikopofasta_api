@@ -17,8 +17,8 @@
 |      `excluded_factors` and as the final hard clamp in `product_limits`.
 | §39  Customer type performance is contextual: it may not replace individual
 |      history, so its weight is capped by `caps.customer_type_performance`.
-| §40  Branch performance is contextual — `caps.branch_performance`.
-| §41  Loan officer performance is contextual — `caps.officer_performance`.
+| §40  Branch performance is contextual - `caps.branch_performance`.
+| §41  Loan officer performance is contextual - `caps.officer_performance`.
 |      The three together may never move the score by more than
 |      `caps.contextual_total` (as a share of the 100-point score), and the
 |      engine never lets that joint cap exceed 0.20 whatever is set here

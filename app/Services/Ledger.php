@@ -21,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
- * Double-entry general ledger — the single source of truth for every balance
+ * Double-entry general ledger - the single source of truth for every balance
  * (Documents: "LEDGER NDIO CHANZO CHA UKWELI").
  *
  * Rules enforced here:

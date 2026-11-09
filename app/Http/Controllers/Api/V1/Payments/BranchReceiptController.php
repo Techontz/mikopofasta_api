@@ -19,15 +19,15 @@ use Illuminate\Validation\Rule;
 
 /**
  * Payments → Branch receipts (C6): non-cash money a branch / teller takes (mobile money, bank) is recorded PENDING_APPROVAL with
- * no posting; Finance (payments.verify) approves — received into suspense and allocated to the loan (repayment, or recovery for a
- * written-off loan) — or rejects. The employee who recorded a receipt cannot approve or reject it (rule 6).
+ * no posting; Finance (payments.verify) approves - received into suspense and allocated to the loan (repayment, or recovery for a
+ * written-off loan) - or rejects. The employee who recorded a receipt cannot approve or reject it (rule 6).
  */
 class BranchReceiptController extends ApiController
 {
     public function __construct(private readonly PaymentService $payments) {}
 
     /**
-     * GET /payments/branch-receipts?status=pending_approval|all|… — a teller without payments.verify sees their own receipts.
+     * GET /payments/branch-receipts?status=pending_approval|all|… - a teller without payments.verify sees their own receipts.
      */
     public function index(Request $request, SegregationOfDuties $duties): JsonResponse
     {
@@ -58,7 +58,7 @@ class BranchReceiptController extends ApiController
     }
 
     /**
-     * POST /payments/branch-receipts — teller records a non-cash receipt pending Finance approval.
+     * POST /payments/branch-receipts - teller records a non-cash receipt pending Finance approval.
      */
     public function store(BranchReceiptRequest $request): JsonResponse
     {
@@ -74,7 +74,7 @@ class BranchReceiptController extends ApiController
     }
 
     /**
-     * POST /payments/branch-receipts/{payment}/approve — optional bank_account_id (else the receipt's bank or bank clearing).
+     * POST /payments/branch-receipts/{payment}/approve - optional bank_account_id (else the receipt's bank or bank clearing).
      */
     public function approve(Request $request, Payment $payment): JsonResponse
     {
@@ -90,7 +90,7 @@ class BranchReceiptController extends ApiController
     }
 
     /**
-     * POST /payments/branch-receipts/{payment}/reject — nothing is posted.
+     * POST /payments/branch-receipts/{payment}/reject - nothing is posted.
      */
     public function reject(ReasonRequest $request, Payment $payment): JsonResponse
     {

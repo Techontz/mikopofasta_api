@@ -21,7 +21,7 @@ class ReversalRequestController extends ApiController
     public function __construct(private readonly ReversalRequests $requests) {}
 
     /**
-     * GET /reversal-requests?status=pending|approved|rejected|all&type= — requests in scope with the viewer's approval flags.
+     * GET /reversal-requests?status=pending|approved|rejected|all&type= - requests in scope with the viewer's approval flags.
      */
     public function index(Request $request): JsonResponse
     {
@@ -45,7 +45,7 @@ class ReversalRequestController extends ApiController
     }
 
     /**
-     * POST /reversal-requests/{reversalRequest}/approve — post the reversal now, as the approver.
+     * POST /reversal-requests/{reversalRequest}/approve - post the reversal now, as the approver.
      */
     public function approve(int $reversalRequest): JsonResponse
     {
@@ -66,7 +66,7 @@ class ReversalRequestController extends ApiController
     }
 
     /**
-     * POST /reversal-requests/{reversalRequest}/reject — nothing is posted. Approvers reject; the requester may withdraw.
+     * POST /reversal-requests/{reversalRequest}/reject - nothing is posted. Approvers reject; the requester may withdraw.
      */
     public function reject(LoanReasonRequest $request, int $reversalRequest): JsonResponse
     {

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * The offset settled in the period, per branch (specification §15): old debt cleared out of a top-up rather than paid in
  * cash. It is excluded from the commission base and added back before dividend and reinvestment, so it has to be stored
- * with the period it belongs to — a later top-up must not change a commission that has already been calculated.
+ * with the period it belongs to - a later top-up must not change a commission that has already been calculated.
  */
 return new class extends Migration
 {

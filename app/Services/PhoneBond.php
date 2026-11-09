@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
  * Phone Bond within M-KopaCredit (enhancement §5): the customer's phone, enrolled with Linda, secures the loan.
  *
  * - Only Traders/Entrepreneurs, Private Sector Employees and University/College Students may take it (never Public Servants
- *   or Retired Public Servants — `integrations.linda.excluded_customer_types`).
+ *   or Retired Public Servants - `integrations.linda.excluded_customer_types`).
  * - A loan whose due instalment is still unpaid after the grace day is locked through Linda automatically; once it has no
  *   arrears it is unlocked. Authorised staff may lock or unlock by hand, with a reason.
  * - Nothing is reported locked or unlocked before Linda confirms it: a request Linda only accepts stays pending, a refusal

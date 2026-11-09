@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * CUSTOMER_MODULE_IMPLEMENTATION.md §8.9 — the adapted customer role matrix.
+ * CUSTOMER_MODULE_IMPLEMENTATION.md §8.9 - the adapted customer role matrix.
  */
 class CustomerPermissionMatrixTest extends TestCase
 {

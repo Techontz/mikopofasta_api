@@ -65,7 +65,7 @@ class LoanMandateController extends LoanApiController
     }
 
     /**
-     * POST loans/mandates/collections — Finance uploads the bank's collection file (CSV with mandate_reference,
+     * POST loans/mandates/collections - Finance uploads the bank's collection file (CSV with mandate_reference,
      * payment_reference, amount, status, and optionally collection_date and remarks). Repeated references are ignored.
      */
     public function import(Request $request): JsonResponse
@@ -87,7 +87,7 @@ class LoanMandateController extends LoanApiController
     }
 
     /**
-     * POST loans/mandates/{mandate}/confirm-cancellation — Finance records the bank's confirmation reference.
+     * POST loans/mandates/{mandate}/confirm-cancellation - Finance records the bank's confirmation reference.
      */
     public function confirmCancellation(Request $request, LoanMandate $mandate): JsonResponse
     {

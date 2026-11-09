@@ -6,7 +6,7 @@ use App\Enums\Account;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Rule 3 — the interest reserve stays in the reserve account. Manual outflows from the branch RESERVE fund or the HQ
+ * Rule 3 - the interest reserve stays in the reserve account. Manual outflows from the branch RESERVE fund or the HQ
  * RESERVE account (float account-to-account, branch → bank, expense sources) are blocked until a reserve allocation is
  * configured; reserve accounts are left out of the source dropdowns.
  *

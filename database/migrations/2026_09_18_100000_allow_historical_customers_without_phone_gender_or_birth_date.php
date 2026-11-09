@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
  * Customers created from historical File reports (user ruling 2026-09-18). The old reports print only a name and a phone
  * number, so gender and date of birth become optional at the database level (registration still requires them) and phone
  * becomes optional for the customers whose printed number already belongs to another customer (it is kept in
- * alternative_phone). Such customers stay KYC "incomplete" — no phone fails the KYC checklist — so they cannot take a
+ * alternative_phone). Such customers stay KYC "incomplete" - no phone fails the KYC checklist - so they cannot take a
  * new loan until registration is completed. Each historical record is linked to the customer created from it.
  */
 return new class extends Migration

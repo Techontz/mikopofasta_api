@@ -38,8 +38,8 @@ class LiveReportController extends ReportApiController
     /**
      * Cash Transaction is where Finance raises a reversal REQUEST (maker/checker, see ReversalRequests): a deposit is a loan
      * repayment, a withdrawal is the loan's disbursement, and a top-up settlement deposit is undone by reversing its top-up
-     * loan's disbursement (target_loan_id). Eligibility — including "a reversal is already pending" and segregation of
-     * duties — comes from the same LoanService checks as the loan page, and is shown on the row, not only on hover.
+     * loan's disbursement (target_loan_id). Eligibility - including "a reversal is already pending" and segregation of
+     * duties - comes from the same LoanService checks as the loan page, and is shown on the row, not only on hover.
      *
      * @param  list<array<string, mixed>>  $rows
      * @return list<array<string, mixed>>
@@ -125,7 +125,7 @@ class LiveReportController extends ReportApiController
 
     /**
      * Penalty (the old system's "PENARTY REPORT"): penalties charged, live ones alongside the rows of imported
-     * historical Penalty reports (records only — no penalty, payment or ledger entry stands behind those).
+     * historical Penalty reports (records only - no penalty, payment or ledger entry stands behind those).
      */
     public function penalties(Request $request): JsonResponse
     {

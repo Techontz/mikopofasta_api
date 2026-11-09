@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Shareholder Portal API (portal/shareholder/*). The shareholder is resolved ONLY from the signed-in account's link
- * (`$request->user()->shareHolder`) — no endpoint accepts a shareholder id — and every endpoint also requires its
+ * (`$request->user()->shareHolder`) - no endpoint accepts a shareholder id - and every endpoint also requires its
  * shareholder.* permission. Own data only, except the directory (public holdings whitelist) and the share structure.
  *
  * Capital submitted here goes through the existing two-step flow ({@see CapitalContributions::requestContribution()}):
@@ -167,7 +167,7 @@ class ShareholderPortalController extends ApiController
             Capital::SOURCE_SHAREHOLDER_PORTAL,
         );
 
-        return $this->message('Capital contribution submitted — pending approval by the finance team', 201, [
+        return $this->message('Capital contribution submitted - pending approval by the finance team', 201, [
             'data' => $this->portal->presentContribution($result['capital']->refresh()->load(['bankAccount', 'journalEntry'])),
         ]);
     }

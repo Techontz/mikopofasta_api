@@ -41,10 +41,10 @@ class ShareTransactionResource extends JsonResource
             'total_amount' => $this->total_amount === null ? null : (float) $this->total_amount,
             'payment_treatment' => $this->payment_treatment,
             'payment_treatment_label' => match ($this->payment_treatment) {
-                ShareTransaction::TREATMENT_PAID => 'Paid — Dr Cash/Bank, Cr Share Capital',
+                ShareTransaction::TREATMENT_PAID => 'Paid - Dr Cash/Bank, Cr Share Capital',
                 ShareTransaction::TREATMENT_LINKED => 'Linked to a recorded capital contribution',
-                ShareTransaction::TREATMENT_NO_CASH => 'No cash — no journal entry',
-                default => $this->type === ShareTransactionType::Transfer ? 'Between shareholders — no company ledger entry' : null,
+                ShareTransaction::TREATMENT_NO_CASH => 'No cash - no journal entry',
+                default => $this->type === ShareTransactionType::Transfer ? 'Between shareholders - no company ledger entry' : null,
             },
             'transacted_at' => $this->transacted_at?->format('Y-m-d H:i:s'),
             'date' => $this->transacted_at?->toDateString(),

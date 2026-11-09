@@ -25,18 +25,18 @@ use Illuminate\Support\Collection;
  *                 overrides, then the product limit clamp.
  *
  * Rules this class enforces, all tunable in config/credit.php and all visible in the payload:
- *  §36  ADVISORY ONLY. Nothing here changes a status, an amount or an approval — it writes one loan_assessments row and
+ *  §36  ADVISORY ONLY. Nothing here changes a status, an amount or an approval - it writes one loan_assessments row and
  *       nothing else. `advisory` is always true in the payload.
  *  §37  Never a bare number: a recommendation always ships with its factors, its evidence and its explanation.
  *  §39  Customer type performance is capped (`credit.caps.customer_type_performance`) and, with §40 and §41, bound by
- *       `credit.caps.contextual_total` — group behaviour can never replace individual history.
+ *       `credit.caps.contextual_total` - group behaviour can never replace individual history.
  *  §40  Branch performance: capped, contribution shown.
  *  §41  Officer performance: capped, contribution shown.
  *  §42  Customer profitability carries ZERO weight and is forced to a zero contribution; it can never raise the
  *       recommended amount, only inform the officer.
  *  §44  The LOAN PRODUCT IS NOT A SCORING INPUT. It appears only in `excluded_factors` and in the final hard clamp to
  *       the product's amount_from / amount_to, applied after the score is already fixed. Repayment capacity is measured
- *       against the application's own instalment (loans.restoration) — what the customer would actually pay — never
+ *       against the application's own instalment (loans.restoration) - what the customer would actually pay - never
  *       against the product's identity, name or limits.
  *
  * Hard overrides (a frozen customer, incomplete KYC, a write-off history, a loan in default) cap or zero the
@@ -160,7 +160,7 @@ class CreditAssessment
     }
 
     /**
-     * §37 / §63: what a loan screen shows — the latest stored snapshot, or, for an application still awaiting a decision,
+     * §37 / §63: what a loan screen shows - the latest stored snapshot, or, for an application still awaiting a decision,
      * a fresh unstored preview. Read-only, and a failure to assess is reported and yields null: the advisory
      * recommendation can never break the loan screen.
      *
@@ -405,7 +405,7 @@ class CreditAssessment
             $dti = (float) ($capacity['debt_to_income'] ?? 0);
             $value = $maxDti > 0 ? 1.0 - ($dti / $maxDti) : 1.0;
             $summary = sprintf(
-                '%d other open loan(s) (%s outstanding), %s of salary advances and %s of unpaid penalties — %s of monthly income already committed (limit %s).',
+                '%d other open loan(s) (%s outstanding), %s of salary advances and %s of unpaid penalties - %s of monthly income already committed (limit %s).',
                 $obligations['other_open_loans'], $this->money($obligations['other_loans_outstanding']),
                 $this->money($obligations['salary_advance_outstanding']), $this->money($obligations['unpaid_penalties']),
                 $this->percent($dti), $this->percent($maxDti),
@@ -440,7 +440,7 @@ class CreditAssessment
     }
 
     /**
-     * §39: how the customer's TYPE has performed. Contextual — capped, and never a substitute for the customer's own
+     * §39: how the customer's TYPE has performed. Contextual - capped, and never a substitute for the customer's own
      * record.
      */
     private function customerTypeFactor(array $type): CreditFactor
@@ -465,7 +465,7 @@ class CreditAssessment
     }
 
     /**
-     * §40: branch collection quality. Contextual — capped, and its contribution is shown.
+     * §40: branch collection quality. Contextual - capped, and its contribution is shown.
      */
     private function branchFactor(array $branch): CreditFactor
     {
@@ -493,7 +493,7 @@ class CreditAssessment
     }
 
     /**
-     * §41: loan officer portfolio quality. Contextual — capped, and its contribution is shown.
+     * §41: loan officer portfolio quality. Contextual - capped, and its contribution is shown.
      */
     private function officerFactor(array $officer): CreditFactor
     {
@@ -522,7 +522,7 @@ class CreditAssessment
     }
 
     /**
-     * §42: what the customer has contributed to income. SUPPORTING EVIDENCE ONLY — zero weight, zero contribution, and
+     * §42: what the customer has contributed to income. SUPPORTING EVIDENCE ONLY - zero weight, zero contribution, and
      * it can never raise the recommended amount.
      */
     private function profitabilityFactor(array $profitability): CreditFactor
@@ -535,7 +535,7 @@ class CreditAssessment
                 $this->money($profitability['salary_advance_interest']), $this->money($profitability['salary_advance_fees'])),
             ['loan_transactions.interest + .penalty (deposits, reversals excluded)', 'loans.loan_fee where fee_deduct', 'salary_advance_payments beyond salary_advances.amount', 'salary_advances.fee where collected (fee_journal_entry_id)'],
             $profitability,
-            ['Supporting evidence only (§42): zero weight and zero contribution whatever config/credit.php says. More profit never means a larger loan — it is shown so the officer can weigh it against capacity and behaviour.', 'Salary advance fees posted at approval before fee collection existed are not identifiable per advance and are not counted.'],
+            ['Supporting evidence only (§42): zero weight and zero contribution whatever config/credit.php says. More profit never means a larger loan - it is shown so the officer can weigh it against capacity and behaviour.', 'Salary advance fees posted at approval before fee collection existed are not identifiable per advance and are not counted.'],
         );
     }
 
@@ -601,7 +601,7 @@ class CreditAssessment
 
     /**
      * Hard overrides. Each caps the recommendation at its ratio of the requested amount and states why; the lowest
-     * applicable ratio wins. The blocking rules themselves come from {@see CustomerEligibility} — they are not restated
+     * applicable ratio wins. The blocking rules themselves come from {@see CustomerEligibility} - they are not restated
      * here.
      *
      * @param  array<string, array<string, mixed>>  $readings
@@ -706,7 +706,7 @@ class CreditAssessment
     }
 
     /**
-     * §44: the ONLY place the loan product touches the recommendation — a hard clamp applied after the score is fixed,
+     * §44: the ONLY place the loan product touches the recommendation - a hard clamp applied after the score is fixed,
      * never an input to it. An amount above the product maximum is clamped down; an amount below the product minimum
      * cannot be disbursed on that product at all and is reported as nil with the reason stated.
      *
@@ -757,7 +757,7 @@ class CreditAssessment
     }
 
     /**
-     * §37A: the summary panel — requested, recommended and the headline risk reading.
+     * §37A: the summary panel - requested, recommended and the headline risk reading.
      *
      * @param  array<string, array<string, mixed>>  $readings
      * @param  array{key: string, label: string, min_score: float}  $band
@@ -790,7 +790,7 @@ class CreditAssessment
     }
 
     /**
-     * §36 / §43: the recommendation in plain language — what was asked, what is recommended, what is holding it back and
+     * §36 / §43: the recommendation in plain language - what was asked, what is recommended, what is holding it back and
      * which evidence said so. Never a bare number.
      *
      * @param  array{score_ratio: float, score_amount: float, capacity_amount: float|null, override_ratio: float|null, override_amount: float|null, before_rounding: float, rounded: float, final: float, limits: array<string, mixed>}  $steps
@@ -809,10 +809,10 @@ class CreditAssessment
         $negatives = $factors->where('direction', 'negative')->sortByDesc(fn (CreditFactor $factor): float => $factor->maxContribution - $factor->contribution)->take(2);
 
         foreach ($positives as $factor) {
-            $lines[] = sprintf('In favour — %s: %s (from %s).', $factor->label, $factor->summary, implode('; ', $factor->evidence['sources']));
+            $lines[] = sprintf('In favour - %s: %s (from %s).', $factor->label, $factor->summary, implode('; ', $factor->evidence['sources']));
         }
         foreach ($negatives as $factor) {
-            $lines[] = sprintf('Against — %s: %s (from %s).', $factor->label, $factor->summary, implode('; ', $factor->evidence['sources']));
+            $lines[] = sprintf('Against - %s: %s (from %s).', $factor->label, $factor->summary, implode('; ', $factor->evidence['sources']));
         }
 
         if ($steps['capacity_amount'] !== null && $steps['capacity_amount'] < $steps['score_amount']) {
@@ -824,11 +824,11 @@ class CreditAssessment
         }
 
         foreach ($overrides as $override) {
-            $lines[] = sprintf('Override (%s) — the recommendation is capped at %s of the request: %s', str_replace('_', ' ', $override['key']), $this->percent($override['ratio']), $override['reason']);
+            $lines[] = sprintf('Override (%s) - the recommendation is capped at %s of the request: %s', str_replace('_', ' ', $override['key']), $this->percent($override['ratio']), $override['reason']);
         }
 
         if ($steps['limits']['clamped']) {
-            $lines[] = 'Product limit — '.$steps['limits']['clamp_reason'].' The product itself was not scored (§44).';
+            $lines[] = 'Product limit - '.$steps['limits']['clamp_reason'].' The product itself was not scored (§44).';
         }
 
         $lines[] = sprintf('Customer profitability of %s was recorded as supporting evidence only and carried no weight in this recommendation (§42).', $this->money($readings['profitability']['total_contribution']));
@@ -848,7 +848,7 @@ class CreditAssessment
         return $capacity + [
             'expected_monthly_instalment' => $expectedInstalment,
             'capacity_cover' => $expectedInstalment > 0 ? round($capacity['sustainable_monthly_instalment'] / $expectedInstalment, 4) : null,
-            'external_lender_data' => 'Not available — this system holds no external-lender obligation register.',
+            'external_lender_data' => 'Not available - this system holds no external-lender obligation register.',
         ];
     }
 

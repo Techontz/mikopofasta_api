@@ -116,7 +116,7 @@ class SavingService
 
     /**
      * Reverse a saving transaction. A CLEAR LOAN withdrawal already applied to a loan cannot be reversed
-     * here — the loan repayment must be reversed from the loan/accounting module first.
+     * here - the loan repayment must be reversed from the loan/accounting module first.
      */
     public function reverse(Saving $saving, string $reason, Employee $employee): void
     {

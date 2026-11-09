@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * Maker/checker for money reversals ({@see ReversalRequests}): Finance requests the reversal of a loan repayment, a loan
- * disbursement, a direct penalty payment or a salary advance deposit as PENDING — nothing posted — and it is posted only when another authorised user
+ * disbursement, a direct penalty payment or a salary advance deposit as PENDING - nothing posted - and it is posted only when another authorised user
  * (Finance, Admin or Super Admin, permission reversals.approve) approves it; a rejection keeps the row with the reason.
  */
 class ReversalRequest extends Model

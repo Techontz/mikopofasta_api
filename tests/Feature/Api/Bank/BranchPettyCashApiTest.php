@@ -41,7 +41,7 @@ class BranchPettyCashApiTest extends TestCase
         $this->otherBranch = Branch::factory()->create(['company_id' => $this->admin->company_id]);
         $this->finance = $this->secondApprover($this->admin, 'finance');
 
-        // OPERATION INCOME earned by the two branches — what petty cash is funded from: interest, loan fee and penalty.
+        // OPERATION INCOME earned by the two branches - what petty cash is funded from: interest, loan fee and penalty.
         $this->ledger->openingBalance($this->admin->company_id, Account::Interest, 200000, branch: $this->admin->branch_id);
         $this->ledger->openingBalance($this->admin->company_id, Account::LoanFee, 100000, branch: $this->admin->branch_id);
         $this->ledger->openingBalance($this->admin->company_id, Account::Penalty, 100000, branch: $this->otherBranch);

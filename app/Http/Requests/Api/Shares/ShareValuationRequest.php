@@ -5,7 +5,7 @@ namespace App\Http\Requests\Api\Shares;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
- * Record a new share value (memorandum only — no ledger entry).
+ * Record a new share value (memorandum only - no ledger entry).
  */
 class ShareValuationRequest extends SharesRequest
 {

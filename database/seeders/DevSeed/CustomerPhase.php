@@ -323,7 +323,7 @@ final class CustomerPhase
             'centeringScore' => 85 + $index % 11,
             'eyesOpenScore' => 90 + $index % 9,
             'checks' => array_fill_keys(FaceScan::CHECKS, 'true'),
-            'captureDevice' => 'DevelopmentTestDataSeeder (no camera — placeholder capture)',
+            'captureDevice' => 'DevelopmentTestDataSeeder (no camera - placeholder capture)',
             'captureResolution' => '640x480',
             'captureDurationMs' => 4200 + $index * 10,
         ];

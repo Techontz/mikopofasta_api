@@ -8,7 +8,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
 /**
- * Live loan category form plus the Documents additions: requires_mandate (E-MANDATE vs NORMAL flow) and Freeze Time (Days) —
+ * Live loan category form plus the Documents additions: requires_mandate (E-MANDATE vs NORMAL flow) and Freeze Time (Days) -
  * the re-borrowing freeze. Each loan category belongs to exactly one customer type, sent as `customer_type_id` (the canonical
  * key; main_category_id, main_id, customer_category_id and customer_category_ids are refused).
  */

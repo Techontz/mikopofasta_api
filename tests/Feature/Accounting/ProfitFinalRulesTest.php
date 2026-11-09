@@ -138,7 +138,7 @@ class ProfitFinalRulesTest extends TestCase
             [10234081.63, 520000, 50000, 20000, 10304081.63, 100000, 10204081.63, 0, 10204081.63, 204081.63, 10000000],
             [(float) $result->interest_income, (float) $result->reserve_amount, (float) $result->fee_income, (float) $result->penalty_income, (float) $result->total_income, (float) $result->expenses, (float) $result->gross_profit, (float) $result->loss_brought_forward, (float) $result->net_profit, (float) $result->hq_hold_amount, (float) $result->distributable_profit],
         );
-        // Rule 3: the close keeps the reserve out of profit — legacy reserve is reclassified to INTEREST RESERVE (equity side only),
+        // Rule 3: the close keeps the reserve out of profit - legacy reserve is reclassified to INTEREST RESERVE (equity side only),
         // the RESERVE A/C money is untouched.
         $this->assertBalance($reserveFundBefore, Account::Reserve, $a, 'rule 3: close does not move the RESERVE A/C');
         $this->assertBalance(520000, Account::InterestReserve, $a, 'rule 3: legacy reserve reclassified out of income, never to profit');
@@ -286,7 +286,7 @@ class ProfitFinalRulesTest extends TestCase
         $close->close($close->calculate($companyId, $this->july()), $this->admin);
 
         app(CommissionEngine::class)->calculate($companyId, $this->july(), $this->admin);
-        // A later setting change makes more commission "expected" than calculated — it must not reduce the base.
+        // A later setting change makes more commission "expected" than calculated - it must not reduce the base.
         HrmSetting::forCompany($companyId)->update(['commission_pool_percent' => 15]);
 
         // Pool 1,000,000: staff 950,000, the 5 % without a zone manager (50,000) stays in profit (C4).

@@ -16,7 +16,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
- * POST /customers — the registration wizard's payload (CUSTOMER_MODULE_IMPLEMENTATION.md §4–5.4).
+ * POST /customers - the registration wizard's payload (CUSTOMER_MODULE_IMPLEMENTATION.md §4–5.4).
  * Authorization (customers.manage + branch scope) runs before validation.
  */
 class StoreCustomerRequest extends FormRequest
@@ -319,7 +319,7 @@ class StoreCustomerRequest extends FormRequest
         if ($profile['requires_identity_document']
             && ! ($filled('idTypeId') && $filled('idNumber'))
             && ! $filled('nidaNumber', 'nationalIdNumber', 'voterIdNumber', 'driverLicenceNumber', 'passportNumber', 'workIdNumber')) {
-            $add('idTypeId', 'An identity document is required — choose the ID type and enter the number shown on it.');
+            $add('idTypeId', 'An identity document is required - choose the ID type and enter the number shown on it.');
         }
 
         if ($profile['requires_marital_status'] && ! $filled('maritalStatusId', 'maritalStatus')) {
@@ -327,7 +327,7 @@ class StoreCustomerRequest extends FormRequest
         }
 
         if ($profile['requires_customer_category'] && ! $filled('customerCategoryId')) {
-            $add('customerCategoryId', 'A customer type is required for this account type — it decides which loan products the customer may take.');
+            $add('customerCategoryId', 'A customer type is required for this account type - it decides which loan products the customer may take.');
         }
 
         if ($profile['requires_employment_details']) {

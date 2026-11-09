@@ -5,9 +5,9 @@ namespace App\Services\Credit;
 /**
  * One line of the "Why this recommendation?" breakdown (§37B): Data → Analysis → Recommendation.
  *
- *  - DATA      `evidence` — the raw figures and the tables / services they were read from.
- *  - ANALYSIS  `value` — those figures normalised to 0 – 1, where 1 is the healthiest reading.
- *  - EFFECT    `contribution` — the points this factor adds to the 100-point score
+ *  - DATA      `evidence` - the raw figures and the tables / services they were read from.
+ *  - ANALYSIS  `value` - those figures normalised to 0 – 1, where 1 is the healthiest reading.
+ *  - EFFECT    `contribution` - the points this factor adds to the 100-point score
  *              (`weight` × `value` × 100, never above `max_contribution`).
  *
  * A factor never carries a bare number: `summary` says in words what the figures mean and
@@ -110,7 +110,7 @@ final readonly class CreditFactor
     }
 
     /**
-     * Same factor with its contribution reduced — used to hold the contextual signals inside
+     * Same factor with its contribution reduced - used to hold the contextual signals inside
      * `credit.caps.contextual_total` (§39 – §41).
      */
     public function withContribution(float $contribution): self

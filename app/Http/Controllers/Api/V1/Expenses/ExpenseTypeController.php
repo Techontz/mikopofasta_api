@@ -21,7 +21,7 @@ class ExpenseTypeController extends ApiController
 {
     /**
      * Permission keys that manage each register. The HQ register is a company setting: only Super Admin and Admin
-     * (settings.manage) register HQ expense categories — HQ/Finance request against them but never add or change them.
+     * (settings.manage) register HQ expense categories - HQ/Finance request against them but never add or change them.
      *
      * @var array<string, list<string>>
      */

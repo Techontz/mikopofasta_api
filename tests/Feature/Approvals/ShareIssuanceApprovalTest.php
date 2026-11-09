@@ -21,7 +21,7 @@ use Tests\Concerns\UsesSecondApprover;
 use Tests\TestCase;
 
 /**
- * C6 maker/checker for paid share issuances: request (pending — no contribution, journal or share movement) → a different
+ * C6 maker/checker for paid share issuances: request (pending - no contribution, journal or share movement) → a different
  * authorised user approves (posted, dated the approval date) or rejects.
  */
 class ShareIssuanceApprovalTest extends TestCase

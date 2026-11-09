@@ -25,7 +25,7 @@ use Illuminate\Validation\ValidationException;
  * Shares, which link the share transaction to the contribution this service records).
  *
  * Each contribution is its own `capitals` row and one balanced journal entry:
- *   Dr the company account that received the money — COMPANY ACCOUNT for CASH, the selected bank account for BANK —
+ *   Dr the company account that received the money - COMPANY ACCOUNT for CASH, the selected bank account for BANK -
  *   Cr CAPITAL ACCOUNT (equity; never revenue).
  * Row and entry are written in one database transaction. A request carrying an idempotency key that was already
  * recorded returns the original contribution instead of posting again. A wrongly recorded CASH / BANK contribution is
@@ -48,7 +48,7 @@ class CapitalContributions
     ) {}
 
     /**
-     * Record a CASH / BANK contribution as PENDING approval: the row (with receipt) only — no journal, no balance change.
+     * Record a CASH / BANK contribution as PENDING approval: the row (with receipt) only - no journal, no balance change.
      * A repeated idempotency key returns the original row.
      *
      * @param  Closure(Capital): void|null  $afterCreate  runs inside the transaction for a new contribution (e.g. storing the receipt file)
@@ -203,7 +203,7 @@ class CapitalContributions
 
     /**
      * Employees who may not approve this contribution (rule 6): the employee who recorded it and the login account of the
-     * shareholder it belongs to — nobody approves capital added to their own shareholding, even through a linked staff
+     * shareholder it belongs to - nobody approves capital added to their own shareholding, even through a linked staff
      * account holding capital.manage, unless self-approval is explicitly granted.
      *
      * @return list<int|null>
@@ -323,7 +323,7 @@ class CapitalContributions
      * An asset contributed as capital, recorded PENDING approval (C6): one `capitals` row (pay method ASSET, receiving account =
      * the fixed-asset account, status pending) and no journal. The asset row itself is written by `$afterCreate` inside the same
      * transaction. On approval ({@see self::approve()}) one balanced journal Dr the fixed-asset account / Cr CAPITAL ACCOUNT is
-     * posted — cash and bank never move.
+     * posted - cash and bank never move.
      *
      * @param  Closure(Capital): void  $afterCreate
      * @return array{capital: Capital, created: bool}

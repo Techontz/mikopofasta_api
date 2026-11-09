@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
  *
  *  - OWNERSHIP comes only from the share register ({@see ShareRegister}): shareholder shares ÷ total issued shares × 100.
  *  - CONTRIBUTIONS stay financial transactions: a shareholder's contributed capital is the sum of their own (not reversed)
- *    `capitals` rows — cash, bank and asset contributions alike. Their ratio is never used as ownership, and an asset's
+ *    `capitals` rows - cash, bank and asset contributions alike. Their ratio is never used as ownership, and an asset's
  *    later market value never changes it.
  *
  * Cash or bank balances, the CAPITAL ACCOUNT ledger balance, profit, loans, dividends and expenses never move ownership.
@@ -47,7 +47,7 @@ class ShareholderOwnership
     }
 
     /**
-     * Contributed capital split by how it was contributed — CASH, BANK, ASSET — per shareholder id (reversed
+     * Contributed capital split by how it was contributed - CASH, BANK, ASSET - per shareholder id (reversed
      * contributions excluded).
      *
      * @return Collection<int, array{cash: float, bank: float, asset: float, total: float}>

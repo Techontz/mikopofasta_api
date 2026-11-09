@@ -18,7 +18,7 @@ use Tests\Concerns\UsesSecondApprover;
 use Tests\TestCase;
 
 /**
- * Spec §29/§30/§32/§49/§56 — staff credit requests: self-service, stage chain, conflict of interest and the Fund Account.
+ * Spec §29/§30/§32/§49/§56 - staff credit requests: self-service, stage chain, conflict of interest and the Fund Account.
  */
 class StaffCreditWorkflowApiTest extends TestCase
 {

@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\DB;
  * branch. Receipts recorded before that rule sit on branch-level suspense accounts; this moves each such balance to the
  * central account with an explicit, dated adjustment journal (§65: identified, traceable, nothing rewritten):
  *
- *     Dr SUSPENSE (branch) / Cr SUSPENSE (HQ)   — recorded for that branch, so its attribution is kept.
+ *     Dr SUSPENSE (branch) / Cr SUSPENSE (HQ)   - recorded for that branch, so its attribution is kept.
  *
- * Nothing about the receipts themselves changes: payments keep their branch, status and amounts. Safe to run again —
+ * Nothing about the receipts themselves changes: payments keep their branch, status and amounts. Safe to run again -
  * a branch account already at zero is skipped.
  */
 class CentralisePendingReceipts extends Command

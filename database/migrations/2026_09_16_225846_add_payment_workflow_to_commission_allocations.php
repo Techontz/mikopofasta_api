@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Spec §21 / §22 / §49 — commission is paid through its own flow instead of riding inside the monthly payroll:
+     * Spec §21 / §22 / §49 - commission is paid through its own flow instead of riding inside the monthly payroll:
      * calculated → awaiting_request (HR finalised the figures) → requested (HR payment request) → finance_approved → paid,
      * on any date, from a chosen paying account. Negligence (§23 / §57) is recovered from the commission when it is paid, so
      * negligence_recoveries point at the commission allocation they were taken from.

@@ -10,7 +10,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Employee Portal (spec §60) payslip row of the signed-in employee: a paid salary payment, or their line on a Finance-approved
- * payroll that is not paid yet. Only the employee's own figures — never the paying account or payroll totals.
+ * payroll that is not paid yet. Only the employee's own figures - never the paying account or payroll totals.
  *
  * @property SalaryPayment|PayrollItem $resource
  */

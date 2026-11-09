@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
-     * Data backfill for the partial-payment dividend flow (idempotent — safe to run again):
+     * Data backfill for the partial-payment dividend flow (idempotent - safe to run again):
      *
      *  - declarations: declared_at = created_at, as_of_date = declaration day, total_shares from the allocations,
      *    profit_source "manual" (the old form accepted a typed profit amount);

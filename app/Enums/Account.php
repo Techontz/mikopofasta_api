@@ -12,7 +12,7 @@ namespace App\Enums;
  */
 enum Account: string
 {
-    // Assets — money and receivables
+    // Assets - money and receivables
     case Company = 'company_cash';
     case Bank = 'bank';
     /** Investment RESERVE A/C: interest reserve HQ has sent to the company Investment (company level, no branch). */
@@ -48,7 +48,7 @@ enum Account: string
     /** Penalties charged on overdue loans and not yet paid (accrued income, user decision D9). Not money. */
     case PenaltyReceivable = 'penalty_receivable';
 
-    // Assets — fixed (non-cash) assets, e.g. contributed as capital (config/assets.php maps asset types to these)
+    // Assets - fixed (non-cash) assets, e.g. contributed as capital (config/assets.php maps asset types to these)
     case MotorVehicles = 'motor_vehicles';
     case Equipment = 'equipment';
     case FurnitureFixtures = 'furniture_fixtures';
@@ -68,7 +68,7 @@ enum Account: string
     // Equity
     case Capital = 'capital';
     case RetainedProfit = 'retained_profit';
-    /** Profit reinvested into branch principal by a dividend declaration — not stakeholder capital (spec §15, Rule 13, D4). */
+    /** Profit reinvested into branch principal by a dividend declaration - not stakeholder capital (spec §15, Rule 13, D4). */
     case ReinvestedProfit = 'reinvested_profit';
     /** Reserve cut from loan interest (spec §6, D6): equity, never income. */
     case InterestReserve = 'interest_reserve';
@@ -221,8 +221,8 @@ enum Account: string
     }
 
     /**
-     * The accounts HQ itself holds money in. HQ runs no loan book of its own — customers borrow at a branch and HQ funds the
-     * disbursement — so the penalty and loan fee a loan produces belong to the branch-tagged {@see self::Penalty} and
+     * The accounts HQ itself holds money in. HQ runs no loan book of its own - customers borrow at a branch and HQ funds the
+     * disbursement - so the penalty and loan fee a loan produces belong to the branch-tagged {@see self::Penalty} and
      * {@see self::LoanFee} pools, and HQ has no account of its own for either.
      *
      * @return array<int, self>

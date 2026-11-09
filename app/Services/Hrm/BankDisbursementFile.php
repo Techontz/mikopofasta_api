@@ -8,7 +8,7 @@ use App\Services\MobileDisbursementFile;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * The bank's bulk payment upload file (Documents: bank_disbursement_file.xlsx) for money paid to staff — salaries, commission,
+ * The bank's bulk payment upload file (Documents: bank_disbursement_file.xlsx) for money paid to staff - salaries, commission,
  * staff salary advances and staff loans: one row per employee with their name, salary account bank and number, phone, the
  * amount to pay and what it is for. Finance downloads it, uploads it to the bank, then records the payment in the system.
  * The staff counterpart of {@see MobileDisbursementFile} (customer loans by mobile money).

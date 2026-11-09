@@ -124,7 +124,7 @@ class DevelopmentTestDataSeeder extends Seeder
         ];
 
         $this->command?->newLine();
-        $this->command?->info('DEVELOPMENT TEST DATA — '.$company->name);
+        $this->command?->info('DEVELOPMENT TEST DATA - '.$company->name);
         $this->command?->table(['Item', 'Total', 'Added this run'], array_map(fn (array $row): array => [$row[0], number_format($after[$row[1]]), number_format($after[$row[1]] - $before[$row[1]])], $rows));
         $this->command?->table(['Commission test', 'Value'], [
             ['COMMISSION TEST PERIOD', 'June 2026'],

@@ -9,7 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Settings → Payment Channels: the company's own short list of banks and networks it receives payments through — kept apart
+ * Settings → Payment Channels: the company's own short list of banks and networks it receives payments through - kept apart
  * from the Master Data bank list (customers' banks) and from the company's fund bank accounts.
  */
 class PaymentProviderApiTest extends TestCase

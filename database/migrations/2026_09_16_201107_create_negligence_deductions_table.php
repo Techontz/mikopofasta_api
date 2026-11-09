@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Spec §23 + §57 — staff negligence / loss deductions. HR creates the claim, FINANCE approves it and the
+     * Spec §23 + §57 - staff negligence / loss deductions. HR creates the claim, FINANCE approves it and the
      * system recovers it from the employee's COMMISSION only (never from salary, never from the staff fund).
      * What is recovered goes to the PRINCIPAL A/C (operational capital); whatever the period's commission could
      * not cover stays outstanding and carries forward to the next commission automatically.

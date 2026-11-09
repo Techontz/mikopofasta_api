@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * One row of an uploaded legacy file, kept exactly as it arrived (`raw`) beside the values read from it, the customer
- * it matched and how, whatever was wrong with it, and — once the import is approved — the record it became.
+ * it matched and how, whatever was wrong with it, and - once the import is approved - the record it became.
  */
 class LegacyImportRow extends Model
 {

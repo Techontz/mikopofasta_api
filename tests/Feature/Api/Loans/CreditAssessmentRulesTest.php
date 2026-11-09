@@ -76,7 +76,7 @@ class CreditAssessmentRulesTest extends TestCase
         $this->assertSame('negative', $factors['lateness']['direction']);
         $this->assertSame(12, $factors['lateness']['evidence']['data']['late']);
         $this->assertSame(1, $factors['default_history']['evidence']['data']['closed_loans_with_default_grade_delay']);
-        $this->assertStringContainsString('Against — Payment punctuality', $assessment['explanation']);
+        $this->assertStringContainsString('Against - Payment punctuality', $assessment['explanation']);
     }
 
     public function test_write_off_history_zeroes_the_recommendation_with_its_reason(): void
@@ -149,7 +149,7 @@ class CreditAssessmentRulesTest extends TestCase
         $assessment = $this->assess($this->application($customer));
         $obligations = collect($assessment['factors'])->firstWhere('key', 'existing_obligations')['evidence'];
 
-        // 110,000 payable less two payments of 5,000 each — not double-counted per payment row.
+        // 110,000 payable less two payments of 5,000 each - not double-counted per payment row.
         $this->assertSame(100000.0, $obligations['data']['salary_advance_outstanding']);
         $this->assertSame(100000.0, $assessment['capacity']['existing_monthly_obligation']);
         $this->assertSame(120000.0, $assessment['capacity']['sustainable_monthly_instalment']);

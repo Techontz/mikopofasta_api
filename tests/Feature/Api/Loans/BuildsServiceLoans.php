@@ -18,7 +18,7 @@ use Carbon\CarbonImmutable;
  * and a loan fee (5,000 by default), deducted or not.
  *
  * New loans carry no insurance any more (specification §47), but loans issued before that rule still do and are collected
- * exactly as issued, so these fixtures keep a 1,000 insurance on the loan by default — a legacy insured loan — to keep that
+ * exactly as issued, so these fixtures keep a 1,000 insurance on the loan by default - a legacy insured loan - to keep that
  * path covered. Pass `legacyInsurance: 0` for a loan priced under the current rule.
  */
 trait BuildsServiceLoans
@@ -51,7 +51,7 @@ trait BuildsServiceLoans
 
     /**
      * Balances of the given accounts for one branch. PRINCIPAL A/C is the exception: the lending cash is company level
-     * (HQ, no branch), so it is always read without a branch — a branch holds no lending money, only its PETTY CASH A/C.
+     * (HQ, no branch), so it is always read without a branch - a branch holds no lending money, only its PETTY CASH A/C.
      * SUSPENSE likewise: pending / unverified receipts live in one central HQ account (specification §11).
      *
      * @param  list<Account>  $accounts

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Numbers are unique per company (unique index employees.company_id + employee_number). The next sequence is
  * one above the highest ever issued: the per-company counter row (employee_number_sequences), which is never
- * lowered, so deleting, rejecting or blocking staff never frees a number — or the highest sequence found on
+ * lowered, so deleting, rejecting or blocking staff never frees a number - or the highest sequence found on
  * existing staff when that is higher (numbers written outside the generator). The counter row is locked FOR
  * UPDATE until the surrounding transaction commits, so concurrent registrations queue instead of colliding;
  * a number that already exists (same sequence and year) is skipped.

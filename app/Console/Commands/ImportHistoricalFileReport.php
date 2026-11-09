@@ -13,7 +13,7 @@ use RuntimeException;
 /**
  * Imports a File report printed by the old system (e.g. database/data/historical/kakonko-2022-file-report.json) as
  * history: a historical_file_reports row, one historical_file_records row per printed row and one
- * historical_file_payments row per non-zero month column. Figures are stored as printed — nothing is recalculated —
+ * historical_file_payments row per non-zero month column. Figures are stored as printed - nothing is recalculated -
  * and nothing is posted: no loan, loan transaction, payment or journal entry is created.
  *
  * The manifest names the report (code, title, branch, year, source document, printed TOTAL row) and its CSV of rows:
@@ -28,7 +28,7 @@ class ImportHistoricalFileReport extends Command
         {manifest=database/data/historical/kakonko-2022-file-report.json : Report manifest (JSON), relative to the API root}
         {--company= : Company id (defaults to the only company)}';
 
-    protected $description = 'Import a historical File report (records only — no cash, loans or ledger entries)';
+    protected $description = 'Import a historical File report (records only - no cash, loans or ledger entries)';
 
     public function handle(): int
     {

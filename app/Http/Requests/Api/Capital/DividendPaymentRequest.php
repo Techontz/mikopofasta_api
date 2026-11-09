@@ -10,7 +10,7 @@ use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
- * Dividend payment (full or partial): the handwritten note gives the Dividend (Gawio) account two ways of withdrawing —
+ * Dividend payment (full or partial): the handwritten note gives the Dividend (Gawio) account two ways of withdrawing -
  * CASH (Company account) or BANK (a company bank account). The outstanding balance is checked again under a row lock
  * in {@see DividendService::pay()}.
  */
