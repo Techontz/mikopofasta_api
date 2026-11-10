@@ -379,7 +379,7 @@ class CustomerController extends ApiController
 
     public function destroy(Customer $customer): JsonResponse
     {
-        $this->authorizeAny('customers.manage');
+        $this->authorizeAny('customers.delete');
         $this->assertAccessible($customer);
 
         if ($customer->loans()->whereNotIn('status', [LoanStatus::Rejected->value, LoanStatus::Cancelled->value])->exists()) {
