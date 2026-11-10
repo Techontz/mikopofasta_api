@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * A Headquarters Transaction now sends money from an HQ fund row to a shareholders' (Investment) account, and that
- * account can be one of several bank accounts — which share one ledger account key, so the row must name the bank.
+ * account can be one of several bank accounts - which share one ledger account key, so the row must name the bank.
  */
 return new class extends Migration
 {

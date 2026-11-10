@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Recovery after write-off — C3 Option B (spec §9 income sources, §20–22 traceability and reversal, §30 idempotency).
+ * Recovery after write-off - C3 Option B (spec §9 income sources, §20–22 traceability and reversal, §30 idempotency).
  *
  * A later payment on a written-off loan is a NEW recovery transaction. It never reopens the loan, never changes its outstanding
  * balance, never creates a loan and never changes the write-off (its WriteOff row, its journal and the loan status stay as
@@ -33,7 +33,7 @@ use Illuminate\Validation\ValidationException;
  *    standing recoveries of that component ({@see components()}). A write-off whose split cannot be established reliably is
  *    AMBIGUOUS and takes no recovery until a controlled adjustment sets its snapshot.
  *  - Posting, one balanced journal per recovery on the loan's branch, transaction type LoanRecovery (r = company reserve_percent):
- *      principal P: Dr PRINCIPAL A/C / Cr WRITE-OFF EXPENSE (contra expense — never RECOVERED LOANS income)
+ *      principal P: Dr PRINCIPAL A/C / Cr WRITE-OFF EXPENSE (contra expense - never RECOVERED LOANS income)
  *      penalty N:   Dr PENALTY A/C / Cr PENALTY INCOME
  *      interest I:  Dr INTEREST A/C I·(1−r) + Dr RESERVE A/C I·r / Cr INTEREST INCOME I·(1−r) + Cr INTEREST RESERVE I·r
  *      insurance S: Dr INSURANCE A/C / Cr INSURANCE RESERVE
@@ -337,7 +337,7 @@ class LoanRecoveryService
 
     /**
      * Why the viewer cannot reverse this recovery now, or null when they can: the business blockers
-     * ({@see reversalBlocker()}) and rule 6 — the employee who posted the recovery journal does not reverse it.
+     * ({@see reversalBlocker()}) and rule 6 - the employee who posted the recovery journal does not reverse it.
      */
     public function reverseBlockedReason(LoanRecovery $recovery, ?Employee $viewer): ?string
     {

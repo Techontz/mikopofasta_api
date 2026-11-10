@@ -22,12 +22,12 @@ use Illuminate\Validation\ValidationException;
  *  could not cover stays outstanding and is carried forward automatically to the next commission.
  *
  * The money recovered goes to the PRINCIPAL A/C (operational capital), never to the Staff Fund: the commission payment journal
- * posts Dr COMMISSION PAYABLE / Cr WRITE-OFF EXPENSE (loss recovered — a contra-expense, never income, like the principal part of
+ * posts Dr COMMISSION PAYABLE / Cr WRITE-OFF EXPENSE (loss recovered - a contra-expense, never income, like the principal part of
  * a written-off loan recovery) and Dr PRINCIPAL A/C / Cr paying account ({@see CommissionPayments}). Payroll runs that still
  * carry commission (legacy, before the commission payment flow) recover it the same way through {@see PayrollEngine}.
  *
  * Segregation of duties: the HR employee who created the deduction, and the employee it is charged to, cannot approve it
- * (the Super Admin may — {@see SegregationOfDuties}).
+ * (the Super Admin may - {@see SegregationOfDuties}).
  */
 class NegligenceDeductions
 {

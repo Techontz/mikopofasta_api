@@ -51,7 +51,7 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * Reject with reason — branch manager at approval, credit officer at credit review.
+     * Reject with reason - branch manager at approval, credit officer at credit review.
      */
     public function reject(LoanReasonRequest $request, Loan $loan): JsonResponse
     {
@@ -184,7 +184,7 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * POST loans/{loan}/return-to-previous-stage — Ready to Pay Out → Reverse / Return to Previous Stage (enhancement §7.1).
+     * POST loans/{loan}/return-to-previous-stage - Ready to Pay Out → Reverse / Return to Previous Stage (enhancement §7.1).
      */
     public function returnToPreviousStage(Request $request, Loan $loan): JsonResponse
     {
@@ -233,8 +233,8 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * Live wright_off_loan (Documents: "Mikopo isiyolipika → Write-Off"), maker/checker (rule 6): the request is PENDING — nothing
-     * posted, the loan status unchanged — until a different user with loans.write_off approves it.
+     * Live wright_off_loan (Documents: "Mikopo isiyolipika → Write-Off"), maker/checker (rule 6): the request is PENDING - nothing
+     * posted, the loan status unchanged - until a different user with loans.write_off approves it.
      */
     public function writeOff(Request $request, Loan $loan, LoanService $loans): JsonResponse
     {
@@ -254,7 +254,7 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * GET /loans/write-off-requests?status=pending|approved|rejected|all — write-off requests in scope, with approval flags.
+     * GET /loans/write-off-requests?status=pending|approved|rejected|all - write-off requests in scope, with approval flags.
      */
     public function writeOffRequests(Request $request, LoanService $loans, SegregationOfDuties $duties): JsonResponse
     {
@@ -290,7 +290,7 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * POST /loans/write-off-requests/{writeOffRequest}/approve — post the write-off (another authorised user).
+     * POST /loans/write-off-requests/{writeOffRequest}/approve - post the write-off (another authorised user).
      */
     public function approveWriteOff(WriteOffRequest $writeOffRequest, LoanService $loans): JsonResponse
     {
@@ -311,7 +311,7 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * POST /loans/write-off-requests/{writeOffRequest}/reject — nothing is posted.
+     * POST /loans/write-off-requests/{writeOffRequest}/reject - nothing is posted.
      */
     public function rejectWriteOff(LoanReasonRequest $request, WriteOffRequest $writeOffRequest, LoanService $loans): JsonResponse
     {
@@ -325,7 +325,7 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * POST /loans/{loan}/transactions/{loanTransaction}/reverse — REQUEST the reversal of a repayment (maker/checker). Nothing
+     * POST /loans/{loan}/transactions/{loanTransaction}/reverse - REQUEST the reversal of a repayment (maker/checker). Nothing
      * is posted until another Finance user, an Admin or the Super Admin approves it under Reversal Requests; the approval runs
      * LoanService::reverseRepayment() and the money then returns to suspense unallocated.
      */
@@ -340,7 +340,7 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * POST /loans/{loan}/reverse-disbursement — REQUEST the reversal of a disbursement (maker/checker, see reverseRepayment()).
+     * POST /loans/{loan}/reverse-disbursement - REQUEST the reversal of a disbursement (maker/checker, see reverseRepayment()).
      */
     public function reverseDisbursement(ReverseDisbursementRequest $request, Loan $loan, ReversalRequests $reversals): JsonResponse
     {
@@ -404,7 +404,7 @@ class LoanWorkflowController extends LoanApiController
     }
 
     /**
-     * Documents: "Cron Job POST /loans/overdue/process" — also runs daily via loans:process-overdue.
+     * Documents: "Cron Job POST /loans/overdue/process" - also runs daily via loans:process-overdue.
      */
     public function processOverdue(LoanService $loans): JsonResponse
     {

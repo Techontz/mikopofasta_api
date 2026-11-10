@@ -29,7 +29,7 @@ use Illuminate\Validation\ValidationException;
  *  Staff loan disbursement: Dr Staff Loan         Cr Staff Fund A/C
  *  Salary advance (fund):   Dr Staff Advance      Cr Staff Fund A/C
  *  Repayment:               Dr Staff Fund A/C     Cr Staff Loan / Staff Advance (interest → Cr Staff Fund)
- *  Benefit payment (§27):   Dr Staff Fund(emp)    Cr Staff Fund A/C   — only when Finance pays an approved claim
+ *  Benefit payment (§27):   Dr Staff Fund(emp)    Cr Staff Fund A/C   - only when Finance pays an approved claim
  *
  * Spec §25–26, as ruled by the product owner (2026-09-17): the 20 % withheld from basic salary is the only contribution. It
  * is part of the salary expense, not an extra company expense, and it enters the STAFF FUND A/C as real cash, so an
@@ -95,7 +95,7 @@ class StaffFund
 
     /**
      * Spec §27 step 1–2: HR prepares a benefit claim; the system records the employee's benefit entitlement at that moment. The
-     * claim cannot exceed what is still claimable. Available fund CASH is not checked here — only at payment.
+     * claim cannot exceed what is still claimable. Available fund CASH is not checked here - only at payment.
      *
      * @throws ValidationException
      */
@@ -196,7 +196,7 @@ class StaffFund
 
     /**
      * Lock the claim, check its status, enforce rule 6 (the HR preparer and the claimant cannot review, approve, reject or pay
-     * it — the Super Admin may) and apply the change in one transaction. Status changes are audited by the model.
+     * it - the Super Admin may) and apply the change in one transaction. Status changes are audited by the model.
      *
      * @param  list<string>  $from
      * @param  callable(StaffFundWithdrawal): mixed  $apply

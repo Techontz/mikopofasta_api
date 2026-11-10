@@ -14,8 +14,8 @@ use Tests\TestCase;
 
 /**
  * The second leg of the reserve chain. Finance sends HQ reserve to the Investment RESERVE A/C; the owners then send it on to
- * the OPERATION PRINCIPAL. The owners can only send what Finance has already sent them — reserve still held at HQ is out of
- * reach — and a second authorised user (Super Admin, Admin or a shareholder) must approve.
+ * the OPERATION PRINCIPAL. The owners can only send what Finance has already sent them - reserve still held at HQ is out of
+ * reach - and a second authorised user (Super Admin, Admin or a shareholder) must approve.
  */
 class ReserveToPrincipalApiTest extends TestCase
 {
@@ -39,7 +39,7 @@ class ReserveToPrincipalApiTest extends TestCase
     {
         $companyId = $this->admin->company_id;
 
-        // Nothing has been sent to the Investment yet, so nothing can leave it — even though HQ holds 500,000.
+        // Nothing has been sent to the Investment yet, so nothing can leave it - even though HQ holds 500,000.
         $this->postJson('/api/v1/bank/reserve-to-principal', ['amount' => 1])->assertUnprocessable()->assertJsonValidationErrors('amount');
 
         $this->sendToInvestment(200000);

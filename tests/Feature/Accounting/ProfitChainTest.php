@@ -93,7 +93,7 @@ class ProfitChainTest extends TestCase
         $this->assertBalance(10000000, Account::Capital);
         $this->assertBalance(5000000, Account::Company);
 
-        // 2. Loans disbursed (fee 5,000 deducted, insurance 1,000) — both out of the one HQ PRINCIPAL A/C.
+        // 2. Loans disbursed (fee 5,000 deducted, insurance 1,000) - both out of the one HQ PRINCIPAL A/C.
         $loanA = $this->loan($this->branchA, 1000000);
         $loanB = $this->loan($this->branchB, 500000);
         $this->assertBalance(3500000, Account::Principal, message: 'HQ paid both loans: 5,000,000 − 1,000,000 − 500,000');

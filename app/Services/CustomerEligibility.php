@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
  * before registration approvals existed are `not_required`). A newly registered customer cannot be applied for until
  * the registration is approved. Used by the Loans module.
  *
- * A customer may take only the ACTIVE loan categories (LoanCategory::scopeActive — customer type active, category assigned
+ * A customer may take only the ACTIVE loan categories (LoanCategory::scopeActive - customer type active, category assigned
  * to the customer's branch) whose customer_category_id is the customer's customer type; the amount limits are the loan
  * category's amount_from / amount_to. Customer types hold no loan rules.
  *

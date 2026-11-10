@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * Rule 6 (segregation of duties): internal money movements and capital contributions are initiated as PENDING and
-     * posted only when a different authorised user approves them. Additive, nullable columns only — existing rows keep
+     * posted only when a different authorised user approves them. Additive, nullable columns only - existing rows keep
      * their values (legacy rows without an initiator stay approvable by anyone authorised). `capitals.status` is a new
      * metadata column whose default marks every existing contribution as posted (they all carry their journal).
      */

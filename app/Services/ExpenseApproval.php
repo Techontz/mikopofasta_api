@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  *    (expenses.approve_hq). Finance can never get under the Admin threshold by approving a smaller amount than requested.
  *  - Branch expenses are paid from the branch PETTY CASH A/C; bank expenses from the chosen bank account.
  *  - HQ expenses are paid from OPERATION INCOME (user ruling 2026-10-18: "Matumizi yanayofanywa HQ yanatakiwa kutoka kwenye
- *    Operation Income") — the pool of interest, loan fee and penalty, branch and HQ ({@see HqFund::OperationIncome}), drawn
+ *    Operation Income") - the pool of interest, loan fee and penalty, branch and HQ ({@see HqFund::OperationIncome}), drawn
  *    in proportion to what each account holds, exactly as petty cash is ({@see CashAccounts::drawLines()}). Never a reserve.
  *  - Every expense is posted Dr EXPENSES (tagged with branch + expense type) / Cr source account(s).
  */

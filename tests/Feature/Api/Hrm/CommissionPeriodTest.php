@@ -256,7 +256,7 @@ class CommissionPeriodTest extends TestCase
         $this->assertTrue($row['eligible']);
         $this->assertNull($row['blocked_reason']);
         $this->assertEquals(100000, $row['pool_amount']);
-        // C4: the branch has no zone manager — staff share 95 % (95,000) by salary and 5,000 returns to profit.
+        // C4: the branch has no zone manager - staff share 95 % (95,000) by salary and 5,000 returns to profit.
         $this->assertEquals(71250, collect($row['staff'])->firstWhere('employee_id', $a->id)['amount']);
         $this->assertEquals(23750, collect($row['staff'])->firstWhere('employee_id', $b->id)['amount']);
         $this->assertEquals([5000, 5000, 0], [$row['returned_to_profit_amount'], $row['returned_no_zone_manager_amount'], $row['returned_no_staff_amount']]);

@@ -17,7 +17,7 @@ use RuntimeException;
  *
  * Extension point: after a successful reset the {@see StaffPasswordWasReset} event is dispatched with the employee and
  * the acting administrator. To deliver a notice by SMS or e-mail, add a listener for that event (app/Listeners, which
- * Laravel discovers automatically) or a Notification sent from such a listener — the reset logic here does not change.
+ * Laravel discovers automatically) or a Notification sent from such a listener - the reset logic here does not change.
  */
 class StaffPasswordReset
 {

@@ -646,7 +646,7 @@ class LedgerIntegrity
     }
 
     /**
-     * PENALTY RECEIVABLE per branch = Σ unpaid, not waived penalties that were ACCRUED when charged (legacy D9 rows only — rule 14
+     * PENALTY RECEIVABLE per branch = Σ unpaid, not waived penalties that were ACCRUED when charged (legacy D9 rows only - rule 14
      * charges no new accruals) of loans that are not written off.
      *
      * @return Check
@@ -919,7 +919,7 @@ class LedgerIntegrity
     /**
      * Rule 3: the interest reserve is never moved by the profit chain. No month-end closing, HQ hold, commission allocation,
      * payroll, dividend declaration, profit reinvestment or dividend payment entry (nor a reversal of one) touches the branch/HQ
-     * RESERVE A/C, and none moves INTEREST RESERVE — except the month-end reclassification that credits legacy reserve still inside
+     * RESERVE A/C, and none moves INTEREST RESERVE - except the month-end reclassification that credits legacy reserve still inside
      * interest income to INTEREST RESERVE (income → reserve equity; keeps it out of profit).
      *
      * @return Check
@@ -956,7 +956,7 @@ class LedgerIntegrity
 
     /**
      * Rule 15: INSURANCE RESERVE only receives insurance. Every entry that moves INSURANCE RESERVE either collects insurance (the
-     * same entry moves the INSURANCE A/C by the same amount — new collections, their reversals) or is a month-end closing that
+     * same entry moves the INSURANCE A/C by the same amount - new collections, their reversals) or is a month-end closing that
      * moves legacy INSURANCE INCOME into it by the same amount. Legacy closings that closed insurance income to the Profit Account
      * (before insurance reserve existed) are reported for information.
      *

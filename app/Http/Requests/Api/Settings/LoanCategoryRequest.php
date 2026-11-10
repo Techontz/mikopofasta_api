@@ -8,7 +8,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
 /**
- * Live loan category form plus the Documents additions: requires_mandate (E-MANDATE vs NORMAL flow) and Freeze Time (Days) —
+ * Live loan category form plus the Documents additions: requires_mandate (E-MANDATE vs NORMAL flow) and Freeze Time (Days) -
  * the re-borrowing freeze. Each loan category belongs to exactly one customer type, sent as `customer_type_id` (the canonical
  * key; main_category_id, main_id, customer_category_id and customer_category_ids are refused).
  */
@@ -21,8 +21,8 @@ class LoanCategoryRequest extends BaseLoanCategoryRequest
     {
         return array_merge(parent::rules(), [
             'formular' => ['required', Rule::in(InterestFormula::where('is_enabled', true)->pluck('code')->all())],
-            'requires_mandate' => ['required', 'in:YES,NO'],
-            // Enhancement §4–5: the loan method; E-Mandate keeps requires_mandate, Phone Bond is for eligible customer types.
+            // No longer decides anything: the loan method is chosen on each loan application. Kept for older clients.
+            'requires_mandate' => ['nullable', 'in:YES,NO'],
             'loan_method' => ['nullable', Rule::in(['normal', 'e_mandate', 'phone_bond'])],
             'freeze_time_days' => ['nullable', 'integer', 'min:0', 'max:365'],
         ]);

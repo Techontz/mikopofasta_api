@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * The share register — the single source of shareholder OWNERSHIP.
+ * The share register - the single source of shareholder OWNERSHIP.
  *
  *  - SHARES are ownership units; each movement is an immutable `share_transactions` row.
  *  - OWNERSHIP % = shareholder shares ÷ total issued shares × 100 (computed on read, never stored or typed in).
@@ -153,7 +153,7 @@ class ShareRegister
     }
 
     /**
-     * Every shareholder of the company with shares, ownership %, share value and holding value — now or as of a date.
+     * Every shareholder of the company with shares, ownership %, share value and holding value - now or as of a date.
      *
      * @return Collection<int, array{share_holder: ShareHolder, shares: int, total_shares: int, ownership_percent: float, share_value: float, holding_value: float, date_acquired: ?string, status: string}>
      */

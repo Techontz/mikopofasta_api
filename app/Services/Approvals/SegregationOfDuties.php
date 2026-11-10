@@ -9,8 +9,8 @@ use App\Services\AccessControl;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
- * Rule 6 — segregation of duties: the employee who initiated a financial transaction must not approve (post) it, even
- * when they hold the approval permission — Admin, Finance and Manager included. Another authorised user approves.
+ * Rule 6 - segregation of duties: the employee who initiated a financial transaction must not approve (post) it, even
+ * when they hold the approval permission - Admin, Finance and Manager included. Another authorised user approves.
  * Exception (user decision 2026-09-16): the Super Admin may approve anything, including what they requested themselves.
  * Anyone else may self-approve only when the company EXPLICITLY grants `approvals.self_approve` (role permission or
  * employee override, {@see AccessControl::explicitlyGranted()}). Reversals keep the rule for everyone.
@@ -39,7 +39,7 @@ class SegregationOfDuties
     ) {}
 
     /**
-     * Whether the employee may approve an item they initiated: the explicit permission, and — for a workflow key — the company
+     * Whether the employee may approve an item they initiated: the explicit permission, and - for a workflow key - the company
      * policy of that workflow allowing self-approval.
      */
     public function canSelfApprove(Employee $employee, ?string $workflow = null): bool

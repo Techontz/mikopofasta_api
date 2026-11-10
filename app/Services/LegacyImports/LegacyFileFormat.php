@@ -119,7 +119,7 @@ final class LegacyFileFormat
     }
 
     /**
-     * The column layout an uploaded header row follows — the current one or an accepted earlier one — or null.
+     * The column layout an uploaded header row follows - the current one or an accepted earlier one - or null.
      *
      * @param  list<string>  $uploaded
      * @return list<string>|null

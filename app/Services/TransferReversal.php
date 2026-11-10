@@ -24,7 +24,7 @@ use Illuminate\Validation\ValidationException;
  * float company → branch, branch → branch, account → account; bank → branch, bank → HQ, branch → bank;
  * HQ ↔ HQ transactions; company cash ↔ bank.
  *
- * A reversal mirrors the original journal exactly ({@see Ledger::reverse()}, posted today — charges included), keeps the
+ * A reversal mirrors the original journal exactly ({@see Ledger::reverse()}, posted today - charges included), keeps the
  * original row with status "reversed" and links the reversal entry, operator, time and reason. It is blocked (never
  * partial) when the receiving account no longer holds the money, or when the entry touched profit (bank charges) in a
  * closed period whose profit was already distributed. The shared checks are also used by expense reversals.
@@ -156,7 +156,7 @@ class TransferReversal
 
     /**
      * Every money (asset) account the original entry increased must still hold that increase, or the reversal would
-     * drive it negative (spec §31) — the money has already been used.
+     * drive it negative (spec §31) - the money has already been used.
      */
     public function receivingShortfall(JournalEntry $entry): ?string
     {

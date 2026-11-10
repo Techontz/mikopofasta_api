@@ -24,7 +24,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * CUSTOMER_MODULE_IMPLEMENTATION.md §8.1 — seeded customer types and Step 2 composition.
+ * CUSTOMER_MODULE_IMPLEMENTATION.md §8.1 - seeded customer types and Step 2 composition.
  */
 class CustomerModuleSeederTest extends TestCase
 {

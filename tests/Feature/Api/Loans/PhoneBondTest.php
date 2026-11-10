@@ -6,7 +6,6 @@ use App\Enums\LoanStatus;
 use App\Models\CustomerCategory;
 use App\Models\Employee;
 use App\Models\Loan;
-use App\Models\LoanCategory;
 use App\Models\PhoneBondDevice;
 use App\Models\PhoneBondLockRequest;
 use App\Services\PhoneBond;
@@ -35,13 +34,20 @@ class PhoneBondTest extends TestCase
         $this->loan = $this->phoneBondLoan('WAJASIRIAMALI');
     }
 
-    public function test_public_servants_and_retired_public_servants_cannot_take_phone_bond(): void
+    public function test_any_customer_type_can_take_phone_bond(): void
     {
         foreach (['WATUMISHI_WA_UMMA', 'MSTAAFU_UMMA'] as $code) {
             $loan = $this->phoneBondLoan($code);
-            $this->postJson('/api/v1/phone-bond/devices', ['loan_id' => $loan->id, 'imei' => '35'.random_int(100000000000, 999999999999)])->assertUnprocessable()->assertJsonValidationErrors('category_id');
+            $this->postJson('/api/v1/phone-bond/devices', ['loan_id' => $loan->id, 'imei' => '35'.random_int(100000000000, 999999999999)])->assertCreated();
         }
-        $this->assertSame(0, PhoneBondDevice::count());
+        $this->assertSame(2, PhoneBondDevice::count());
+    }
+
+    public function test_only_a_loan_with_the_phone_bond_method_takes_a_device(): void
+    {
+        $this->loan->forceFill(['loan_method' => 'normal'])->save();
+
+        $this->postJson('/api/v1/phone-bond/devices', ['loan_id' => $this->loan->id, 'imei' => '351234567890999'])->assertUnprocessable()->assertJsonValidationErrors('loan_id');
     }
 
     public function test_an_unpaid_instalment_after_the_grace_day_locks_and_payment_unlocks_on_lindas_confirmation(): void
@@ -133,8 +139,7 @@ class PhoneBondTest extends TestCase
         $type = CustomerCategory::where('company_id', $this->admin->company_id)->where('code', $customerType)->first()
             ?? tap(CustomerCategory::factory()->create(['company_id' => $this->admin->company_id]), fn (CustomerCategory $created) => $created->forceFill(['code' => $customerType])->saveQuietly());
         $loan = $this->activeLoan($this->admin, customer: ['customer_category_id' => $type->id]);
-        $category = LoanCategory::factory()->forCustomerType($type)->create(['loan_method' => 'phone_bond']);
-        $loan->forceFill(['loan_category_id' => $category->id])->save();
+        $loan->forceFill(['loan_method' => 'phone_bond'])->save();
 
         return $loan->fresh();
     }

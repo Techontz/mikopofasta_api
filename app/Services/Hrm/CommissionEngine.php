@@ -34,16 +34,16 @@ use Illuminate\Validation\ValidationException;
  *  3. Zone manager share (C4): the configured override % (5) OF THAT BRANCH POOL is ALWAYS carved out of it. The eligible
  *     zone manager(s) of the branch's zone receive it (several zone managers of one zone share it by salary); when the zone
  *     has no eligible zone manager (or the branch has no zone) that 5 % is returned to profit.
- *  4. Branch staff share the remaining 95 % — never more, even without a zone manager — by salary:
+ *  4. Branch staff share the remaining 95 % - never more, even without a zone manager - by salary:
  *     (staff base salary ÷ total branch commission-eligible salary) × staff pool; the last line takes the cent remainder.
  *  5. A branch with no eligible staff allocates NOTHING: the ENTIRE pool (including the zone manager's 5 %) is returned to
  *     profit. A branch with zero (or negative) distributable profit has no pool and allocates nothing.
  *
  * Commission is a PROFIT ALLOCATION, not an expense (user decision D1). Calculating a closed month posts, per branch, a
- * journal dated today: Dr PROFIT ACCOUNT (branch) / Cr COMMISSION PAYABLE (branch, employee) — source: the branch period
+ * journal dated today: Dr PROFIT ACCOUNT (branch) / Cr COMMISSION PAYABLE (branch, employee) - source: the branch period
  * result; every allocation row links its journal. Recalculating (while unlocked) reverses the previous allocation journals
  * and posts new ones. The commission is then paid through its own flow (spec §21 / §22, {@see CommissionPayments}): HR finalises
- * and requests payment, Finance approves and pays — Dr COMMISSION PAYABLE / Cr paying account, less recovered negligence.
+ * and requests payment, Finance approves and pays - Dr COMMISSION PAYABLE / Cr paying account, less recovered negligence.
  * LEGACY: allocations carried by a payroll run before that flow were moved to STAFF PAYABLE by the payroll approval; allocations
  * without a journal (June 2026) keep their stored figures and are recognised as COMMISSION EXPENSE.
  *
@@ -52,7 +52,7 @@ use Illuminate\Validation\ValidationException;
  * commission can no longer change). Legacy declarations made without calculated commission keep locking the month as booked.
  *
  * Returned to profit (no eligible zone manager: the 5 %; no eligible staff: the whole pool) is NOT allocated: no allocation row,
- * no journal, not an expense, suspense or reserve — it stays in the branch PROFIT ACCOUNT and therefore in the dividend base.
+ * no journal, not an expense, suspense or reserve - it stays in the branch PROFIT ACCOUNT and therefore in the dividend base.
  * Report rows show both reasons: `returned_no_zone_manager_amount` and `returned_no_staff_amount`.
  *
  * HQ staff (salary type "hq") never receive commission.
@@ -103,7 +103,7 @@ class CommissionEngine
 
     /**
      * The accounting period of a month when it is CLOSED by the month-end close (Accounting → Month End &
-     * Profit), or null when it is still open — even if its profit has already been calculated.
+     * Profit), or null when it is still open - even if its profit has already been calculated.
      */
     public function closedPeriod(int $companyId, CarbonImmutable $month): ?AccountingPeriod
     {
@@ -331,7 +331,7 @@ class CommissionEngine
      * Why the commission of a closed period can no longer be (re)calculated: its allocations are in an approved payroll, a
      * dividend declaration request of the month awaits approval, dividends were declared for the month (C1: after commission
      * was calculated; a LEGACY declaration without calculated commission locks it too), or HR finalised the commission for
-     * payment (spec §21 / §22 — staff were shown the final figure, requests, approvals and payments refer to it). Null when
+     * payment (spec §21 / §22 - staff were shown the final figure, requests, approvals and payments refer to it). Null when
      * unlocked.
      */
     public function lockReason(AccountingPeriod $period): ?string
@@ -375,7 +375,7 @@ class CommissionEngine
     /**
      * CALCULATED commission of a closed period per branch, as used by the dividend base and cap (rule 5): standing allocation
      * journals when calculated under the profit-allocation rule, stored rows for a legacy calculation (zone manager rows counted
-     * at the manager's branch). Commission that is not calculated — expected, previewed or uncalculated — is never subtracted:
+     * at the manager's branch). Commission that is not calculated - expected, previewed or uncalculated - is never subtracted:
      * total 0. A pool with no eligible staff has no stored allocation and is therefore not subtracted either (rule 4).
      *
      * @return array{calculated: bool, total: float, branches: array<int, float>}
@@ -442,7 +442,7 @@ class CommissionEngine
     }
 
     /**
-     * LEGACY display only: dividends were declared (before C1) while commission was not calculated — no commission will ever be
+     * LEGACY display only: dividends were declared (before C1) while commission was not calculated - no commission will ever be
      * allocated for the month, so the report shows no commission and every pool as left in the (already distributed) profit.
      *
      * @param  array{pool_percent: float, zone_override_percent: float, branches: list<array<string, mixed>>, zone_managers: list<array<string, mixed>>, total_commission: float}  $computed
@@ -696,7 +696,7 @@ class CommissionEngine
 
     /**
      * LEGACY calculation (allocations without a journal): overlay stored allocations on the computed branch figures (stored
-     * amounts win) exactly as they were reported when calculated — the zone manager override on top of the pools.
+     * amounts win) exactly as they were reported when calculated - the zone manager override on top of the pools.
      *
      * @param  Collection<int, CommissionAllocation>  $stored
      * @param  array{pool_percent: float, zone_override_percent: float, branches: list<array<string, mixed>>, zone_managers: list<array<string, mixed>>, total_commission: float}  $computed

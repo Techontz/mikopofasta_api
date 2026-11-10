@@ -42,7 +42,7 @@ class ShareHolderController extends ApiController
 
     /**
      * Registers the shareholder and its login account in one transaction ({@see ShareholderAccounts::register()}). A new
-     * portal login's temporary password is returned ONCE in `credentials` — never stored, logged or replayed.
+     * portal login's temporary password is returned ONCE in `credentials` - never stored, logged or replayed.
      */
     public function store(ShareHolderRequest $request): JsonResponse
     {

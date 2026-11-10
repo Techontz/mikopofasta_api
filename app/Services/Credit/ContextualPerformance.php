@@ -15,15 +15,15 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The three CONTEXTUAL credit signals of the specification — customer type (§39), branch (§40) and loan officer (§41).
+ * The three CONTEXTUAL credit signals of the specification - customer type (§39), branch (§40) and loan officer (§41).
  *
  *  - customer type  the disbursed loans of every customer of the same customer type (customers.customer_category_id),
  *                   replayed by {@see InstalmentBehaviour}: repayment rate, late-payment rate, default rate and average
- *                   delay — the same definitions {@see PortfolioReports::segmentation()} uses, plus the late-payment
+ *                   delay - the same definitions {@see PortfolioReports::segmentation()} uses, plus the late-payment
  *                   rate §39 asks for, read by customer type id instead of computing every segmentation dimension.
  *  - branch         {@see PortfolioReports::arrears()} (PAR 30, default rate) and {@see PortfolioReports::collections()}
  *                   (collection rate) for the application's own branch, plus the latest closed branch_period_results row.
- *  - officer        {@see PerformanceMetrics::forEmployees()} — collections against expected, and portfolio at risk.
+ *  - officer        {@see PerformanceMetrics::forEmployees()} - collections against expected, and portfolio at risk.
  *
  * None of these is individual evidence: they describe the population a customer sits in. Every signal is read over
  * `credit.context.lookback_months` (which also bounds the queries), is `matched` only with at least

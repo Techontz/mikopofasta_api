@@ -11,7 +11,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
  * Salary Advance → Salary advance Category (live admin/perifelar_setting). Categories are company settings: only Super Admin and
- * Admin (settings.manage) register, edit or delete them — HQ/Finance never. Staff who handle salary advances may still list them
+ * Admin (settings.manage) register, edit or delete them - HQ/Finance never. Staff who handle salary advances may still list them
  * to pick one on a request.
  */
 class SalaryAdvanceCategoryController extends ApiController

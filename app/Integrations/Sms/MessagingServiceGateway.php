@@ -10,7 +10,7 @@ use RuntimeException;
 /**
  * messaging-service.co.tz HTTP API (SMS_DRIVER=messaging_service): Basic auth with the account username and password,
  * JSON in and out. POST /api/sms/v1/text/single sends one message ({from, to, text}); with SMS_TEST_MODE=true the
- * provider's free test endpoint (/api/sms/v1/test/text/single) is used instead — dummy responses, no credits used.
+ * provider's free test endpoint (/api/sms/v1/test/text/single) is used instead - dummy responses, no credits used.
  * A message the provider rejects (status group REJECTED: no credits, unregistered sender ID, invalid number…) throws,
  * so {@see SmsSender} records it as failed with the provider's reason.
  */

@@ -238,11 +238,11 @@ class ReversalRequests
         $subject = $row->subject;
 
         return match (true) {
-            $subject instanceof LoanTransaction => 'Repayment of '.money($subject->amount).' on '.$subject->transaction_date?->toDateString().' — loan '.$row->loan?->loan_number,
-            $subject instanceof Loan && $subject->topup_of_loan_id !== null => 'Top-up disbursement of '.money($subject->amount_approved).' — loan '.$subject->loan_number
-                .' (settled loan '.($subject->topupOf?->loan_number ?? '—').')',
-            $subject instanceof Loan => 'Disbursement of '.money($subject->amount_approved).' — loan '.$subject->loan_number,
-            $subject instanceof PenaltyPayment => 'Penalty payment of '.money($subject->amount).' on '.$subject->paid_on?->toDateString().($row->loan ? ' — loan '.$row->loan->loan_number : ''),
+            $subject instanceof LoanTransaction => 'Repayment of '.money($subject->amount).' on '.$subject->transaction_date?->toDateString().' - loan '.$row->loan?->loan_number,
+            $subject instanceof Loan && $subject->topup_of_loan_id !== null => 'Top-up disbursement of '.money($subject->amount_approved).' - loan '.$subject->loan_number
+                .' (settled loan '.($subject->topupOf?->loan_number ?? '-').')',
+            $subject instanceof Loan => 'Disbursement of '.money($subject->amount_approved).' - loan '.$subject->loan_number,
+            $subject instanceof PenaltyPayment => 'Penalty payment of '.money($subject->amount).' on '.$subject->paid_on?->toDateString().($row->loan ? ' - loan '.$row->loan->loan_number : ''),
             $subject instanceof SalaryAdvancePayment => 'Salary advance deposit of '.money($subject->amount).' on '.$subject->created_at?->format('Y-m-d H:i'),
             default => $row->typeLabel(),
         };
@@ -258,7 +258,7 @@ class ReversalRequests
         return match (true) {
             $subject instanceof LoanTransaction => 'Principal, penalty, interest and insurance of the repayment are mirrored out exactly; the money returns to SUSPENSE (unallocated) for re-allocation or refund and a loan closed by it reopens.',
             $subject instanceof Loan && $subject->topup_of_loan_id !== null => 'The disbursement is mirrored back to the PRINCIPAL A/C and the loan is cancelled; the settlement it made on loan '
-                .($subject->topupOf?->loan_number ?? '—').' is reversed too, so that loan reopens with its balance owed again.',
+                .($subject->topupOf?->loan_number ?? '-').' is reversed too, so that loan reopens with its balance owed again.',
             $subject instanceof Loan => 'The disbursement is mirrored back to the PRINCIPAL A/C (a deducted fee out of FEE INCOME) and the loan is cancelled.',
             $subject instanceof PenaltyPayment => 'The penalty payment is mirrored out of PENALTY INCOME and the amount is owed on the penalty again.',
             $subject instanceof SalaryAdvancePayment => 'The deposit is mirrored out of the ledger (principal back to the receivable, profit out of SALARY ADVANCE INCOME) and the amount is owed on the salary advance again; a finished advance becomes active again.',

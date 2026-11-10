@@ -22,7 +22,7 @@ use Tests\TestCase;
  * Explicit tests for already-implemented profit decisions (the closed-month declaration rule and the legacy reserve closing are
  * covered by ProfitChainTest::test_declarations_need_a_closed_month and
  * ::test_closing_moves_legacy_reserve_to_interest_reserve_and_insurance_to_insurance_reserve):
- *  (c) C4: a commission pool with no eligible staff is not allocated at all — not even the zone manager's 5 % — no journal, the
+ *  (c) C4: a commission pool with no eligible staff is not allocated at all - not even the zone manager's 5 % - no journal, the
  *      Profit Account keeps it and the dividend base subtracts only the commission actually allocated; without a zone manager
  *      staff receive only 95 %;
  *  (d) rule 5: while commission is not yet calculated nothing is subtracted from the dividend base or cap; only calculated

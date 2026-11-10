@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 class CustomerCategoryController extends ApiController
 {
     /**
-     * GET /customer-categories — every type of the company (Settings); `activeOnly=1` limits it to the selectable ones.
+     * GET /customer-categories - every type of the company (Settings); `activeOnly=1` limits it to the selectable ones.
      */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -28,7 +28,7 @@ class CustomerCategoryController extends ApiController
     }
 
     /**
-     * GET /customer-types — read-only alias listing only the selectable (active) customer types in display order:
+     * GET /customer-types - read-only alias listing only the selectable (active) customer types in display order:
      * the options for registration, customer filters, loans and reports.
      */
     public function types(): AnonymousResourceCollection

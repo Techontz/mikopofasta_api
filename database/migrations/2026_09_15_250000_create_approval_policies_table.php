@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * C6 company approval policy: one row per company and two-step workflow (App\Models\ApprovalPolicy::WORKFLOWS). A missing row
- * means the defaults — approval required, self-approval NOT allowed. `allow_self_approval` lets an initiator who ALSO holds the
+ * means the defaults - approval required, self-approval NOT allowed. `allow_self_approval` lets an initiator who ALSO holds the
  * explicit `approvals.self_approve` permission approve their own item in that workflow. `requires_approval` is stored for
  * future use only and is ignored (maker/checker stays mandatory).
  */

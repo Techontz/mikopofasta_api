@@ -20,7 +20,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 /**
  * Commission payment flow (spec §21 / §22 / §23 / §49 / §57). Commission is no longer a payroll column: payroll pays salary +
  * allowances − salary deductions, and each employee's commission of a closed period is paid on its own, on whatever date
- * Finance pays it — the payment date never changes the commission period.
+ * Finance pays it - the payment date never changes the commission period.
  *
  *   Month closes → CALCULATED ({@see CommissionEngine::calculate()}; staff can see it)
  *   → HR finalises the figures: AWAITING PAYMENT REQUEST (the period's commission can no longer be recalculated)
@@ -29,7 +29,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *   → Finance pays: PAID.
  *
  * HR = `payroll.approve`, Finance = `payroll.pay` (Finance is the final approver). Rule 6: the HR employee who requested the
- * payment — and the employee receiving the commission — can neither approve nor pay it; the Super Admin may
+ * payment - and the employee receiving the commission - can neither approve nor pay it; the Super Admin may
  * ({@see SegregationOfDuties}, workflow {@see ApprovalPolicy::PAYROLL}).
  *
  * Payment journal (one per employee commission, dated the payment date, source = the allocation):
@@ -39,8 +39,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * so the employee receives gross − recovered and the recovered part goes to the PRINCIPAL A/C, exactly as the payroll did before.
  * Allocations without a profit-allocation journal (legacy June 2026 rule) are recognised as COMMISSION EXPENSE instead.
  *
- * Profit is untouched by the payment (the allocation already moved it to COMMISSION PAYABLE), so the dividend base — which
- * subtracts calculated commission — is the same before and after payment.
+ * Profit is untouched by the payment (the allocation already moved it to COMMISSION PAYABLE), so the dividend base - which
+ * subtracts calculated commission - is the same before and after payment.
  *
  * Allocations carried by a payroll run (status `payroll`, legacy) never enter this flow.
  */
@@ -410,7 +410,7 @@ class CommissionPayments
 
     /**
      * Branch INTEREST A/C of the allocation (where branch profit money sits, as the payroll paid commission before), or the
-     * COMPANY ACCOUNT — always the company account when the allocation has no branch.
+     * COMPANY ACCOUNT - always the company account when the allocation has no branch.
      *
      * @return array{account: Account, branch: int|null}
      */

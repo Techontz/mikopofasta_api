@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Customer module (CUSTOMER_MODULE_IMPLEMENTATION.md §1). Additive only — existing columns used by loans,
+     * Customer module (CUSTOMER_MODULE_IMPLEMENTATION.md §1). Additive only - existing columns used by loans,
      * payments and reports stay. Adaptations to this project's existing columns:
      *  - `date_of_birth` is the spec's `dob`; `dependents` is `dependents_count`; `customer_documents.size` is
      *    `size_bytes`; `customer_bank_details.phone` is `phone_number`.

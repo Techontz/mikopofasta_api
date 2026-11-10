@@ -12,7 +12,7 @@ return new class extends Migration
      * Explicit business-event type on every journal entry (Fund Flow Specification §28, §32).
      *
      * Existing entries are backfilled from their source model, description prefix and debited/credited accounts
-     * ({@see TransactionType::infer()}); unknown mappings stay null. Only this new metadata column is written —
+     * ({@see TransactionType::infer()}); unknown mappings stay null. Only this new metadata column is written -
      * amounts, lines and every other column are untouched.
      */
     public function up(): void

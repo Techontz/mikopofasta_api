@@ -28,7 +28,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *  - OPERATION INCOME → branch PETTY CASH A/C (petty_cash_to_branch): the only money a branch holds, spent only on expenses HQ approves.
  *
  * Rule 6 (segregation of duties): every movement is created PENDING (no journal) with its initiator in employee_id and
- * posted by {@see approve()} — a different authorised user, company and transfer rows locked, balance re-checked — or
+ * posted by {@see approve()} - a different authorised user, company and transfer rows locked, balance re-checked - or
  * rejected by {@see reject()}. Rule 3: nothing leaves a RESERVE account.
  */
 class CompanyFunds
@@ -160,7 +160,7 @@ class CompanyFunds
     {
         $available = $this->ledger->balance($companyId, Account::InvestmentReserve) + 0.0;
         if ($available + 0.001 < $amount) {
-            throw ValidationException::withMessages(['amount' => 'The Investment RESERVE A/C holds '.money($available).' — only reserve Finance has already sent can be moved to the OPERATION PRINCIPAL.']);
+            throw ValidationException::withMessages(['amount' => 'The Investment RESERVE A/C holds '.money($available).' - only reserve Finance has already sent can be moved to the OPERATION PRINCIPAL.']);
         }
 
         return $available;
@@ -168,7 +168,7 @@ class CompanyFunds
 
     /**
      * Request OPERATION INCOME → a branch PETTY CASH A/C (pending approval). Petty cash is funded from the OPERATION INCOME
-     * pool — interest, loan fee and penalty, branch and HQ ({@see HqFund::OperationIncome}) — the same row Finance sees on
+     * pool - interest, loan fee and penalty, branch and HQ ({@see HqFund::OperationIncome}) - the same row Finance sees on
      * the HQ Account List; the branch then spends it only on expenses HQ approves.
      */
     public function requestPettyCash(int $companyId, int $branchId, float $amount, Employee $employee): BankTransfer

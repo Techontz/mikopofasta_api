@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Bank e-mandates (mandate products) and Vodacom disbursement batches — one row per attempt,
+     * Bank e-mandates (mandate products) and Vodacom disbursement batches - one row per attempt,
      * each with its own batch id (Documents: "Old Batch: VODA123 / New Batch: VODA124").
      */
     public function up(): void

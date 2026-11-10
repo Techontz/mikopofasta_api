@@ -32,8 +32,8 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
-     * Put money in the accounts payroll is paid from — the branch INTEREST A/C (branch staff) and the COMPANY ACCOUNT
-     * (HQ staff) — because a payroll that would leave either, or Operation Income, below zero is refused.
+     * Put money in the accounts payroll is paid from - the branch INTEREST A/C (branch staff) and the COMPANY ACCOUNT
+     * (HQ staff) - because a payroll that would leave either, or Operation Income, below zero is refused.
      */
     protected function fundPayroll(Employee $admin, float $interest = 10000000, float $company = 10000000): void
     {

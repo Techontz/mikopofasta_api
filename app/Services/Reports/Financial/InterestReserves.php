@@ -15,7 +15,7 @@ use Illuminate\Contracts\Database\Query\Builder;
  *    reserve: interest income is already net, nothing is subtracted.
  *
  * Reversals mirror their originals line for line, so a reversed legacy entry subtracts a negative reserve and a reversed new
- * entry debits INTEREST RESERVE back — both net out automatically.
+ * entry debits INTEREST RESERVE back - both net out automatically.
  */
 final class InterestReserves
 {

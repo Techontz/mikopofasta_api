@@ -219,7 +219,7 @@ class OperationalReports
     }
 
     /**
-     * The monthly amounts behind the historical rows of the File report, one line per record and month — the
+     * The monthly amounts behind the historical rows of the File report, one line per record and month - the
      * payment history as printed, kept apart from real repayments (no receipt, transaction or journal entry).
      *
      * @return array{rows: list<array<string, mixed>>, totals: array{amount: float}}
@@ -328,7 +328,7 @@ class OperationalReports
      * "Penalty" (the old system's "PENARTY REPORT"): every penalty charged, live and historical, newest first.
      *
      * Live rows come from the penalties table (a waived penalty is shown with its printed amount and flagged), and
-     * historical rows from imported Penalty reports — records only, with no penalty, payment or journal entry behind
+     * historical rows from imported Penalty reports - records only, with no penalty, payment or journal entry behind
      * them. Both are listed in the printed shape: S/No., Customer Name, Branch Name, Loan Amount, Penalty Amount, Date.
      *
      * @return array{rows: list<array<string, mixed>>, totals: array{loan_amount: float, penalty_amount: float, paid_amount: float}, historical: list<array<string, mixed>>}
@@ -555,7 +555,7 @@ class OperationalReports
             default => [LoanStatus::Active, LoanStatus::Overdue, LoanStatus::Default, LoanStatus::Closed],
         };
 
-        // Enhancement §10.6: with a period (the page opens on this month), loans paid out in it — or, before pay-out, applied in it.
+        // Enhancement §10.6: with a period (the page opens on this month), loans paid out in it - or, before pay-out, applied in it.
         $dated = in_array($status, ['PENDING', 'APROVED', 'DISBURSED'], true) ? 'loans.created_at' : 'loans.withdrawn_at';
         $rows = $this->loanRows($scope->between($this->loans($scope, $statuses), $dated), fn (Loan $loan): array => [
             'remain' => round((float) $loan->out_total - (float) $loan->out_penalty, 2),
@@ -605,9 +605,9 @@ class OperationalReports
     /**
      * Today Received: every loan payment in the range with its status.
      *  - COMPLETED: posted repayments (the loan is reduced) with their Principal / Interest split and reserve;
-     *  - REVERSED: posted repayments later reversed — listed for history, never counted;
-     *  - PENDING VERIFICATION / BANKED — AWAITING FINANCE / PENDING APPROVAL: money received but not posted yet (teller receipts not
-     *    yet banked or verified, branch receipts waiting for Finance). Not split, and not in the received totals — `pending` totals them.
+     *  - REVERSED: posted repayments later reversed - listed for history, never counted;
+     *  - PENDING VERIFICATION / BANKED - AWAITING FINANCE / PENDING APPROVAL: money received but not posted yet (teller receipts not
+     *    yet banked or verified, branch receipts waiting for Finance). Not split, and not in the received totals - `pending` totals them.
      *
      * @return array{rows: list<array<string, mixed>>, totals: array<string, float>}
      */
@@ -664,7 +664,7 @@ class OperationalReports
                 'date' => $payment->paid_on?->toDateString(),
                 'status' => $payment->status->value,
                 'status_label' => match ($payment->status) {
-                    PaymentStatus::Deposited => 'BANKED — AWAITING FINANCE',
+                    PaymentStatus::Deposited => 'BANKED - AWAITING FINANCE',
                     PaymentStatus::PendingApproval => 'PENDING APPROVAL',
                     default => 'PENDING VERIFICATION',
                 },

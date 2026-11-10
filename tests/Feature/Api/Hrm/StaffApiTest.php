@@ -120,7 +120,7 @@ class StaffApiTest extends TestCase
         $admin = $staff('admin', ['phone' => '0711000002']);
         $self = fn (array $overrides): array => $this->payload($superAdmin, $overrides + ['empl_no' => '0711000001', 'role_id' => $this->roleId($superAdmin, 'hr')]);
 
-        // HR can not make themselves Finance or Admin, nor move their branch or position — but may still edit their own details.
+        // HR can not make themselves Finance or Admin, nor move their branch or position - but may still edit their own details.
         $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['role_id' => $this->roleId($superAdmin, 'finance')]))->assertForbidden();
         $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['role_id' => $this->roleId($superAdmin, 'admin')]))->assertForbidden();
         $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$hr->id}", $self(['position_id' => 'admin']))->assertForbidden();

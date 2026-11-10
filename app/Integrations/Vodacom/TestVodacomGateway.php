@@ -8,7 +8,7 @@ use App\Models\LoanDisbursement;
  * Deterministic test driver.
  * KYC: the registered name equals the name on file, except phones ending in "0000" (registered to
  * "UNKNOWN SUBSCRIBER" → name mismatch) and "9999" (not registered).
- * Disbursement: config('integrations.vodacom.test_outcome') — "success" (default) and "failed" simulate the
+ * Disbursement: config('integrations.vodacom.test_outcome') - "success" (default) and "failed" simulate the
  * callback immediately, "callback" leaves the batch waiting for a signed callback. Phones ending in "1111"
  * always fail ("Salio halitoshi").
  * Callbacks: HMAC like the real driver, with the fixed secret "test-vodacom-secret" when none is configured.

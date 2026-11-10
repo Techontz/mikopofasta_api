@@ -49,8 +49,8 @@ class ReconciliationController extends ApiController
     }
 
     /**
-     * Finance checks the slip against the bank statement. A matching slip is posted at once — the money reaches the loans and
-     * the bank — because the teller made the deposit and Finance is the checker: there is no separate Confirm click to forget.
+     * Finance checks the slip against the bank statement. A matching slip is posted at once - the money reaches the loans and
+     * the bank - because the teller made the deposit and Finance is the checker: there is no separate Confirm click to forget.
      * A mismatch stays unposted for investigation. Rule 6: the teller who recorded the deposit cannot verify it.
      */
     public function verify(VerifyDepositRequest $request, TellerDeposit $tellerDeposit, SegregationOfDuties $duties): JsonResponse
@@ -102,8 +102,8 @@ class ReconciliationController extends ApiController
     }
 
     /**
-     * Posting a slip is a full repayment per receipt — lock the loan, allocate it across the instalments reached, journal it,
-     * settle penalties — so a slip carrying a hundred receipts is a hundred times the work of a short one and runs past the
+     * Posting a slip is a full repayment per receipt - lock the loan, allocate it across the instalments reached, journal it,
+     * settle penalties - so a slip carrying a hundred receipts is a hundred times the work of a short one and runs past the
      * default web time limit. A request cut off halfway rolls the whole slip back and answers 500, which is what a long slip
      * used to do, so the limit is lifted for the two actions that post one.
      */
@@ -115,7 +115,7 @@ class ReconciliationController extends ApiController
     }
 
     /**
-     * GET payments/reconciliation/{tellerDeposit}/receipt — the bank receipt the teller attached (enhancement §8.4), streamed
+     * GET payments/reconciliation/{tellerDeposit}/receipt - the bank receipt the teller attached (enhancement §8.4), streamed
      * from private storage to Finance or the branch teller. A deposit without one says so; nothing is generated.
      */
     public function receipt(TellerDeposit $tellerDeposit): StreamedResponse|JsonResponse

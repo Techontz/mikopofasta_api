@@ -106,7 +106,7 @@ class ShareTransactionController extends SharesController
             );
 
             return $this->message(
-                $pending['created'] ? 'Share Issuance Requested successfully — awaiting approval by another authorised user' : 'The share issuance was already requested',
+                $pending['created'] ? 'Share Issuance Requested successfully - awaiting approval by another authorised user' : 'The share issuance was already requested',
                 $pending['created'] ? 202 : 200,
                 ['data' => $this->presentIssuanceRequest($pending['request']->load(['shareHolder', 'requester', 'bankAccount']))],
             );

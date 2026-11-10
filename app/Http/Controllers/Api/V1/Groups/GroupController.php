@@ -58,7 +58,7 @@ class GroupController extends ApiController
 
     public function destroy(Group $group): JsonResponse
     {
-        $this->authorizeAny('groups.manage');
+        $this->authorizeAny('groups.delete');
 
         $group->delete();
 

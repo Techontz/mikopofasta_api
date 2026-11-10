@@ -10,12 +10,12 @@ use Illuminate\Support\Collection;
 /**
  * Finds the existing customer an old-system row belongs to, using the strongest information the file has:
  *
- *  1. the phone number (Loan File only) — the customer holding that number, provided the name agrees;
- *  2. the name within the row's branch — the same name exactly, or the same person written with initials
+ *  1. the phone number (Loan File only) - the customer holding that number, provided the name agrees;
+ *  2. the name within the row's branch - the same name exactly, or the same person written with initials
  *     ("SHABAN D. MASONJO" = "SHABAN DAUD MASONJO", {@see HistoricalNameMatcher}), which is flagged for a second look.
  *
  * It never guesses. Two candidates, a phone held by someone with another name, the same name with a different phone, or
- * a name found only in another branch all leave the row unmatched with the reason, for an Admin to map by hand — so a
+ * a name found only in another branch all leave the row unmatched with the reason, for an Admin to map by hand - so a
  * duplicate customer is never created, and a balance never lands on the wrong person.
  */
 final class LegacyCustomerMatcher

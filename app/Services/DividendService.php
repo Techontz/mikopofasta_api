@@ -126,7 +126,7 @@ class DividendService
 
     /**
      * Profit Available for a period (see class docs). For a closed month: Σ branch distributable profit − CALCULATED commission
-     * of the month (stored allocations; 0 when not calculated, and then nothing can be declared — C1), capped by the
+     * of the month (stored allocations; 0 when not calculated, and then nothing can be declared - C1), capped by the
      * undistributed Profit Account balance.
      *
      * @return array{period: string, period_label: string, profit_available: float, source: string, period_closed: bool, period_profit: ?float, profit_account_balance: float, note: string, distributable_profit: ?float, commission_amount: ?float, commission_calculated: bool, base_amount: ?float}
@@ -151,7 +151,7 @@ class DividendService
             $base = round(max(0.0, $closed - $commission['total']), 2);
             $available = max(0.0, min($base, round($balance, 2)));
             $note = "Distributable profit from the {$label} month-end close less the commission already calculated"
-                .($commission['calculated'] ? '' : ' (none — commission not calculated)')
+                .($commission['calculated'] ? '' : ' (none - commission not calculated)')
                 .($available < $base ? ', limited to the undistributed Profit Account balance.' : '.');
         } else {
             $available = max(0.0, $balance);
@@ -299,11 +299,11 @@ class DividendService
      * APPROVE a pending declaration request (rule 6: not by its initiator unless `approvals.self_approve` is explicitly granted).
      * Inside one transaction with the company, request and period rows locked, every rule is re-validated (period closed,
      * commission calculated, profit cap, shareholders, branch pools) and the recomputed profit, pool and reinvestment must equal
-     * the request — otherwise 422 (reject it and request again). Then, dated the approval date (Fund Flow Specification §13–16):
+     * the request - otherwise 422 (reject it and request again). Then, dated the approval date (Fund Flow Specification §13–16):
      *
      *  1. declaration + shareholder allocations (`declared_by` = the initiator);
      *  2. DIVIDEND DECLARATION journal: Dr PROFIT ACCOUNT (per branch, by its share of the base) / Cr DIVIDEND ACCOUNT (pool)
-     *     / Cr REINVESTED PROFIT (reinvestment) — never Capital (Rule 13);
+     *     / Cr REINVESTED PROFIT (reinvestment) - never Capital (Rule 13);
      *  3. PROFIT REINVESTMENT journal (fund movement, spec §15): per branch Dr PRINCIPAL A/C / Cr INTEREST A/C, then LOAN FEE A/C,
      *     then PENALTY A/C. A branch whose three pools hold less than its reinvestment share blocks the approval (422).
      *
@@ -671,7 +671,7 @@ class DividendService
 
     /**
      * What PAY ALL OUTSTANDING would pay for a declaration right now: every allocation with a balance, its balance and
-     * the total — read from the posted payments.
+     * the total - read from the posted payments.
      *
      * @return array{declaration_id: int, period: string, period_label: string, shareholders: int, paid_shareholders: int, total_entitlement: float, total_paid: float, total_outstanding: float, rows: list<array{allocation_id: int, share_holder_id: int, share_holder: ?string, entitlement: float, paid_amount: float, balance: float}>}
      */
@@ -726,7 +726,7 @@ class DividendService
                     throw ValidationException::withMessages(['expected_total' => "All dividends for {$summary['period_label']} are already paid; there is no outstanding balance."]);
                 }
                 if ($expectedTotal === null || DividendMath::toCents(is_float($expectedTotal) ? $expectedTotal : (string) $expectedTotal) !== $totalCents) {
-                    throw ValidationException::withMessages(['expected_total' => 'Outstanding balances changed — review and try again.']);
+                    throw ValidationException::withMessages(['expected_total' => 'Outstanding balances changed - review and try again.']);
                 }
 
                 $total = DividendMath::centsToFloat($totalCents);

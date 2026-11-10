@@ -132,7 +132,7 @@ class PayrollApiTest extends TestCase
         $this->actingAs($hr)->postJson("/api/v1/hrm/payroll/{$run->id}/pay", ['ac_id' => 'interest'])->assertForbidden();
         $this->actingAs($finance)->postJson("/api/v1/hrm/payroll/{$run->id}/pay", ['ac_id' => 'interest'])->assertUnprocessable();
 
-        // §31 ruling: HR prepares and reviews, Finance gives the final approval — no HR user can approve, not even another one.
+        // §31 ruling: HR prepares and reviews, Finance gives the final approval - no HR user can approve, not even another one.
         $this->actingAs($hr)->postJson("/api/v1/hrm/payroll/{$run->id}/approve")->assertForbidden();
         $this->actingAs($this->secondApprover($hr, 'hr'))->postJson("/api/v1/hrm/payroll/{$run->id}/approve")->assertForbidden();
         $this->actingAs($finance)->postJson("/api/v1/hrm/payroll/{$run->id}/approve")->assertOk();
@@ -141,7 +141,7 @@ class PayrollApiTest extends TestCase
         $this->assertEquals(0, $this->balance(Account::CommissionExpense, $branchId));
         $this->assertEquals(0, $this->balance(Account::CommissionPayable, $branchId, $staff->id));
         $this->assertEquals(0, $this->balance(Account::RetainedProfit, $branchId));
-        // Spec §26 (ruling 2026-09-17): salary expense is the basic salary only — no extra company 20 % on top.
+        // Spec §26 (ruling 2026-09-17): salary expense is the basic salary only - no extra company 20 % on top.
         $this->assertEquals(200000, $this->balance(Account::SalaryExpense));
         $this->actingAs($hr)->postJson('/api/v1/hrm/payroll/generate', ['period' => $period])->assertUnprocessable();
         $this->actingAs($hr)->putJson("/api/v1/hrm/staff/{$staff->id}/salary", ['salary' => 500000, 'account_name' => 'NMB', 'account_number' => '1', 'fee_salary' => 0, 'salary_type' => 'branch', 'commission_eligible' => true, 'payment_method' => 'bank'])->assertUnprocessable();
@@ -214,7 +214,7 @@ class PayrollApiTest extends TestCase
         $finance = Employee::factory()->create(['company_id' => $companyId, 'branch_id' => $branchId, 'role_id' => $this->admin->company->roles()->where('key', 'finance')->value('id')]);
         $hr = Employee::factory()->create(['company_id' => $companyId, 'branch_id' => $branchId, 'role_id' => $this->admin->company->roles()->where('key', 'hr')->value('id')]);
 
-        // The pool holds 100,000 in total, but only 20,000 of it is this branch's INTEREST A/C — the old rule refused the run.
+        // The pool holds 100,000 in total, but only 20,000 of it is this branch's INTEREST A/C - the old rule refused the run.
         $ledger->openingBalance($companyId, Account::Interest, 20000, branch: $branchId);
         $ledger->openingBalance($companyId, Account::LoanFee, 30000, branch: $branchId);
         $ledger->openingBalance($companyId, Account::Penalty, 10000, branch: $branchId);

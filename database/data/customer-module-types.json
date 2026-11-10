@@ -13,11 +13,11 @@
       "boolean"
     ],
     "required": "boolean",
-    "options": "array of strings — fixed options for a select; the chosen string is stored",
+    "options": "array of strings - fixed options for a select; the chosen string is stored",
     "dataSource": "master-data list slug for a select; the chosen row ID is stored",
     "dependsOn": "key of the parent field (cascading select); options filtered by parent id; changing parent clears this field",
-    "requiredWhen": "{ field: <key>, equals: [values or master-data codes] } — conditionally required",
-    "storesIn": "allowlisted customer column (camelCase payload name) — answer stored in that column instead of dynamicFormData",
+    "requiredWhen": "{ field: <key>, equals: [values or master-data codes] } - conditionally required",
+    "storesIn": "allowlisted customer column (camelCase payload name) - answer stored in that column instead of dynamicFormData",
     "fullWidth": "display hint (reference renderer only spans textarea across both columns)",
     "placeholder": "optional string",
     "helpText": "optional string"
@@ -240,7 +240,7 @@
       "sb_tarehe_ajira (Tarehe ya Kuajiriwa)"
     ],
     "WAJASIRIAMALI": [
-      "tin (Namba ya TIN) — the standard 'TIN Number (Optional)' is used instead"
+      "tin (Namba ya TIN) - the standard 'TIN Number (Optional)' is used instead"
     ],
     "MSTAAFU_UMMA": [
       "mstaafu_check (Check Namba)"

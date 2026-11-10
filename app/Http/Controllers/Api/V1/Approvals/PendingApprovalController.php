@@ -8,7 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * Pending Approvals (C6): every item waiting for a checker across the two-step workflows the signed-in user may see, grouped
- * by workflow with counts. Read-only — approvals happen on the module page each row links to.
+ * by workflow with counts. Read-only - approvals happen on the module page each row links to.
  */
 class PendingApprovalController extends ApiController
 {

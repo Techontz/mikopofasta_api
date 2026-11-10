@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Loan Discount / Waiver (enhancement §6): a request to reduce an issued loan's outstanding debt waits `pending` until an
- * approver (another user) approves it — only then is the balance reduced (a `discount` loan transaction) and the principal
+ * approver (another user) approves it - only then is the balance reduced (a `discount` loan transaction) and the principal
  * part posted Dr LOAN DISCOUNT / WAIVER EXPENSE / Cr LOAN RECEIVABLE. New permissions: loans.discount_request (Admin,
  * Finance, Branch Manager) and loans.discount_approve (Admin, Finance).
  */

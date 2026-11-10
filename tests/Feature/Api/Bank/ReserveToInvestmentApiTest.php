@@ -55,7 +55,7 @@ class ReserveToInvestmentApiTest extends TestCase
         $this->actAs($this->finance);
         $id = $this->postJson('/api/v1/bank/reserve-to-investment', ['amount' => 200000])->assertCreated()->assertJsonPath('data.status', 'pending')->json('data.id');
         $this->assertSame(0.0, $this->ledger->balance($companyId, Account::InvestmentReserve), 'a pending transfer moves nothing');
-        // Finance raises and stops there: deciding — and even the approvals queue — belongs to the owners.
+        // Finance raises and stops there: deciding - and even the approvals queue - belongs to the owners.
         $this->postJson("/api/v1/bank/transfers/{$id}/approve")->assertForbidden();
 
         $this->actAs($this->admin);
@@ -100,7 +100,7 @@ class ReserveToInvestmentApiTest extends TestCase
         $first = $this->postJson('/api/v1/bank/reserve-to-investment', ['amount' => 100000])->assertCreated()->json('data.id');
         $second = $this->postJson('/api/v1/bank/reserve-to-investment', ['amount' => 50000])->assertCreated()->json('data.id');
 
-        // Finance owns this leg: it sends the HQ reserve to the Investment, but decides nothing — and never touches the
+        // Finance owns this leg: it sends the HQ reserve to the Investment, but decides nothing - and never touches the
         // owners' second leg (Investment → OPERATION PRINCIPAL).
         $this->getJson('/api/v1/bank/reserve-to-investment')->assertOk();
         $this->postJson('/api/v1/bank/reserve-to-investment', ['amount' => 1000])->assertCreated();

@@ -8,7 +8,7 @@ return new class extends Migration
     /**
      * `funds.transfer` is Finance's own leg of the HQ money chain: Send Petty Cash To Branch and Send Reserve To
      * Investment Reserve. It is explicit-only (never implied by the Super Admin role), so the stored Finance role must
-     * carry it; any other system role that picked it up while it was an Admin default loses it again — the owners
+     * carry it; any other system role that picked it up while it was an Admin default loses it again - the owners
      * approve those requests from Pending Approvals, they never raise them.
      * Idempotent: inserted only where missing; custom (non-system) roles a company granted it to are left alone.
      */

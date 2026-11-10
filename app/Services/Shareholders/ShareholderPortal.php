@@ -15,8 +15,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 /**
- * Read models of the Shareholder Portal. Every figure is derived from the authoritative records — capital contributions
- * (`capitals`, posted and not reversed), the share register (ownership) and dividend allocations / posted payments — no
+ * Read models of the Shareholder Portal. Every figure is derived from the authoritative records - capital contributions
+ * (`capitals`, posted and not reversed), the share register (ownership) and dividend allocations / posted payments - no
  * balance is stored here. Methods taking a {@see ShareHolder} return only that shareholder's data; {@see directory()}
  * returns the public holdings of every shareholder through a strict field whitelist.
  */
@@ -227,7 +227,7 @@ class ShareholderPortal
         $payments = DividendPayment::where('company_id', $holder->company_id)->where('share_holder_id', $holder->id)->with('allocation.declaration')->get();
         foreach ($payments as $payment) {
             if ($payment->paid_at !== null && CarbonImmutable::parse($payment->paid_at)->between($start, $end)) {
-                $lines->push(['date' => $payment->paid_at->format('Y-m-d H:i:s'), 'type' => 'dividend', 'description' => 'Dividend paid'.($payment->allocation?->declaration ? ' — '.$payment->allocation->declaration->periodLabel() : ''), 'reference' => $payment->reference, 'capital_in' => 0.0, 'capital_out' => 0.0, 'dividend_paid' => (float) $payment->amount, 'shares' => 0]);
+                $lines->push(['date' => $payment->paid_at->format('Y-m-d H:i:s'), 'type' => 'dividend', 'description' => 'Dividend paid'.($payment->allocation?->declaration ? ' - '.$payment->allocation->declaration->periodLabel() : ''), 'reference' => $payment->reference, 'capital_in' => 0.0, 'capital_out' => 0.0, 'dividend_paid' => (float) $payment->amount, 'shares' => 0]);
             }
             if ($payment->reversed_at !== null && CarbonImmutable::parse($payment->reversed_at)->between($start, $end)) {
                 $lines->push(['date' => $payment->reversed_at->format('Y-m-d H:i:s'), 'type' => 'dividend_reversal', 'description' => 'Dividend payment reversed', 'reference' => $payment->reference, 'capital_in' => 0.0, 'capital_out' => 0.0, 'dividend_paid' => -(float) $payment->amount, 'shares' => 0]);
@@ -326,7 +326,7 @@ class ShareholderPortal
     }
 
     /**
-     * Company bank accounts a contribution may be paid into — names only.
+     * Company bank accounts a contribution may be paid into - names only.
      *
      * @return Collection<int, array{id: int, name: string}>
      */

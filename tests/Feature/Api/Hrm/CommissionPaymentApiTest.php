@@ -23,8 +23,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Spec §21 / §22 / §49: commission of a closed month is paid through its own flow — Calculated → Awaiting Payment Request →
- * Payment Requested → Finance Approved → Paid — on a variable date, never as a payroll column.
+ * Spec §21 / §22 / §49: commission of a closed month is paid through its own flow - Calculated → Awaiting Payment Request →
+ * Payment Requested → Finance Approved → Paid - on a variable date, never as a payroll column.
  */
 class CommissionPaymentApiTest extends TestCase
 {
@@ -71,7 +71,7 @@ class CommissionPaymentApiTest extends TestCase
     }
 
     /**
-     * A closed month with 1,000,000 distributable profit: pool 100,000 shared by salary — A 75,000, B 25,000.
+     * A closed month with 1,000,000 distributable profit: pool 100,000 shared by salary - A 75,000, B 25,000.
      */
     private function closeAndCalculate(string $month, float $distributable = 1000000): AccountingPeriod
     {

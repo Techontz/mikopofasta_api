@@ -142,10 +142,26 @@ class LoanLifecycleApiTest extends TestCase
         $this->putJson(route('api.v1.loans.update', $loan), $this->form())->assertUnprocessable();
     }
 
+    public function test_the_loan_method_is_chosen_per_loan_for_any_category_and_defaults_to_normal(): void
+    {
+        $this->postJson(route('api.v1.loans.store'), $this->form(['loan_method' => 'cheque']))->assertUnprocessable()->assertJsonValidationErrors('loan_method');
+
+        $this->postJson(route('api.v1.loans.store'), $this->form())->assertCreated();
+        $loan = Loan::latest('id')->firstOrFail();
+        $this->assertSame('normal', $loan->loan_method->value);
+
+        $this->putJson(route('api.v1.loans.update', $loan), $this->form(['loan_method' => 'phone_bond']))->assertOk();
+        $loan->refresh();
+        $this->assertSame('phone_bond', $loan->loan_method->value);
+        $this->assertSame($this->category->id, $loan->loan_category_id);
+        $this->getJson(route('api.v1.loans.show', $loan))->assertOk()->assertJsonPath('data.loan.loan_method', 'phone_bond');
+    }
+
     public function test_mandate_product_requires_otp_before_credit_review(): void
     {
-        $this->category->update(['requires_mandate' => true]);
-        $loan = $this->applyLoan();
+        $this->postJson(route('api.v1.loans.store'), $this->form(['loan_method' => 'e_mandate']))->assertCreated();
+        $loan = Loan::latest('id')->firstOrFail();
+        $this->assertSame('e_mandate', $loan->loan_method->value);
         $this->postJson(route('api.v1.loans.approve-manager', $loan), ['loan_aprove' => 100000])->assertOk();
         $this->assertSame(LoanStatus::MandatePendingOtp, $loan->fresh()->status);
 

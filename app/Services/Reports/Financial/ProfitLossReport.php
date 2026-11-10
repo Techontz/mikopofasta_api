@@ -26,7 +26,7 @@ class ProfitLossReport
     /** Income that belongs to profit. Insurance income is shown apart: it is not distributable (user decision D7). */
     public const INCOME_ACCOUNTS = [Account::InterestIncome, Account::SalaryAdvanceIncome, Account::FeeIncome, Account::PenaltyIncome, Account::RecoveryIncome];
 
-    /** Raw figure key: insurance collected straight into INSURANCE RESERVE (rule 15, new collections — never income). */
+    /** Raw figure key: insurance collected straight into INSURANCE RESERVE (rule 15, new collections - never income). */
     public const INSURANCE_RESERVE_COLLECTED = 'insurance_reserve_collected';
 
     /**
@@ -178,9 +178,9 @@ class ProfitLossReport
      * Consolidated P&L: income by account, expenses by account (operating expenses by expense type), monthly trend.
      *
      * Interest is shown before the reserve (ledger interest income + reserve credited to INTEREST RESERVE by new entries), less
-     * the whole reserve. Insurance collections are listed below the net profit as "not distributable" (rule 15) — both kinds:
+     * the whole reserve. Insurance collections are listed below the net profit as "not distributable" (rule 15) - both kinds:
      * legacy INSURANCE INCOME (closed to INSURANCE RESERVE at month end) and new collections credited straight to INSURANCE
-     * RESERVE — so the consolidated net profit follows the branch result definition (month-end close) and excludes insurance.
+     * RESERVE - so the consolidated net profit follows the branch result definition (month-end close) and excludes insurance.
      * The HQ 2 % hold is not applied here (it is applied once, in the branch results / distributable profit, rule 16).
      *
      * @return array<string, mixed>

@@ -18,7 +18,7 @@ use Tests\TestCase;
 
 /**
  * Credit assessment endpoints (§36 / §37 / §63): the snapshot recorded when a loan is applied for, permission and branch
- * scoping, re-assessment, the audit trail and the credit review queue — all advisory, none changing the loan.
+ * scoping, re-assessment, the audit trail and the credit review queue - all advisory, none changing the loan.
  */
 class CreditAssessmentApiTest extends TestCase
 {

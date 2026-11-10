@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Staff negligence / loss deduction (spec §23, §57). HR creates it, Finance approves it and payroll recovers it from the
- * employee's COMMISSION only — never from salary and never as a Staff Fund repayment. What the commission of a period cannot
+ * employee's COMMISSION only - never from salary and never as a Staff Fund repayment. What the commission of a period cannot
  * cover stays outstanding and is carried forward to the next commission until it is fully recovered.
  *
  * pending → approved → recovering → recovered, or pending → rejected.

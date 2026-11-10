@@ -11,7 +11,7 @@ use Tests\Concerns\UsesSecondApprover;
 use Tests\TestCase;
 
 /**
- * Spec §32 — a salary change is a request approved by Finance, or by Admin for an HR user's / the proposer's own salary.
+ * Spec §32 - a salary change is a request approved by Finance, or by Admin for an HR user's / the proposer's own salary.
  */
 class SalaryChangeApiTest extends TestCase
 {
@@ -100,7 +100,7 @@ class SalaryChangeApiTest extends TestCase
         $this->actingAs($adminUser)->postJson("/api/v1/hrm/salary-changes/{$change->id}/approve")->assertOk();
         $this->assertEquals(900000, $hr->salaryInfo()->value('salary'));
 
-        // HR setting their own salary — even their first one — is always a request for Admin.
+        // HR setting their own salary - even their first one - is always a request for Admin.
         $otherHr->refresh();
         $this->actingAs($otherHr)->putJson("/api/v1/hrm/staff/{$otherHr->id}/salary", $this->payload(1000000))->assertStatus(202)->assertJsonPath('data.approval_stage', 'admin');
         $own = SalaryChangeRequest::where('employee_id', $otherHr->id)->sole();

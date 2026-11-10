@@ -34,8 +34,8 @@ class AccessControl
     /**
      * Effective permissions: the role's permissions plus the employee's granted overrides minus the revoked ones.
      * The system Super Admin always holds every permission except the explicit-only ones (other overrides do not apply). An
-     * explicit-only permission counts for a Super Admin only when it is granted visibly — stored on the Super Admin role or
-     * granted by an employee override (and not revoked by one) — so it always shows in this list and
+     * explicit-only permission counts for a Super Admin only when it is granted visibly - stored on the Super Admin role or
+     * granted by an employee override (and not revoked by one) - so it always shows in this list and
      * {@see self::explicitlyGranted()} never honours anything this list does not show. Unknown keys are ignored.
      *
      * @return list<string>
@@ -132,7 +132,7 @@ class AccessControl
 
     /**
      * Portal permissions come only from the link to a shareholder record: every portal key for a linked account (minus
-     * the ones revoked by an employee override), none otherwise — whatever the role or overrides grant.
+     * the ones revoked by an employee override), none otherwise - whatever the role or overrides grant.
      *
      * @return list<string>
      */
@@ -193,7 +193,7 @@ class AccessControl
     }
 
     /**
-     * Whether the permission was configured for this employee explicitly — an employee override granting it, or the
+     * Whether the permission was configured for this employee explicitly - an employee override granting it, or the
      * employee's role storing it (and no override revoking it). Never implied by the Super Admin role; used for
      * explicit-only permissions such as approvals.self_approve. Only a permission the employee effectively holds
      * ({@see self::permissionsFor()}) can count, so the Super Admin gets nothing that its permission list does not show.

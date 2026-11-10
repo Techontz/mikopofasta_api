@@ -121,7 +121,7 @@ class AuthController extends Controller
     }
 
     /**
-     * GET auth/roles — the roles the signed-in employee may switch to, and the one this session acts as.
+     * GET auth/roles - the roles the signed-in employee may switch to, and the one this session acts as.
      */
     public function roles(Request $request): JsonResponse
     {
@@ -135,7 +135,7 @@ class AuthController extends Controller
     }
 
     /**
-     * POST auth/switch-role — act as another of the employee's assigned roles without signing out (enhancement §13). Only
+     * POST auth/switch-role - act as another of the employee's assigned roles without signing out (enhancement §13). Only
      * a role the employee is assigned can be chosen; the choice is kept on this session's token, revalidated on every
      * request, and audit-logged. Nothing else changes.
      */

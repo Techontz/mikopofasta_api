@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
  * Empty every transaction table so the system starts from zero, keeping setup data: companies, branches, zones, employees
  * and their HR records, customers and their documents, shareholders, banks, categories, formulas and all reference data.
  *
- * Irreversible — take a database backup first (storage/app/backups). Local/demo use only.
+ * Irreversible - take a database backup first (storage/app/backups). Local/demo use only.
  */
 class ClearTransactions extends Command
 {

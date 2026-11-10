@@ -246,7 +246,7 @@ class ControlReports
             'deposits_total' => round($depositRows->sum('amount'), 2),
             'open_total' => $open,
             'awaiting_approval_total' => $awaitingTotal,
-            // §11: money a branch says it received that Finance has not verified — never income or repayment yet.
+            // §11: money a branch says it received that Finance has not verified - never income or repayment yet.
             'unverified_total' => round($rows->where('type', 'PENDING ALLOCATION')->sum('unallocated') + $awaitingTotal, 2),
             'unverified_by_branch' => $byBranch->sortKeys()->map(fn (float $amount, string $branch): array => ['branch' => $branch, 'amount' => $amount])->values()->all(),
             'ledger_balance' => $ledgerBalance,

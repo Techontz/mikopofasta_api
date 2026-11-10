@@ -35,7 +35,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * Teller (live admin/teller_dashboard + admin/data_with_depost/{customer}).
  *
- * Documents: the teller handles the cash channel — cash is recorded as PENDING_VERIFICATION in the Teller Cash account with
+ * Documents: the teller handles the cash channel - cash is recorded as PENDING_VERIFICATION in the Teller Cash account with
  * a receipt, the teller banks it (deposit slip) and Finance verifies/confirms. Non-cash receipts a branch takes (mobile money /
  * bank) are recorded PENDING_APPROVAL through {@see BranchReceiptController} and posted only when Finance approves them.
  * Cash-out of approved loans belongs to the Loans module (Loan Withdrawal).
@@ -254,7 +254,7 @@ class TellerController extends ApiController
      * is left out together with its reversal (they cancel). Teller cash that Finance has not confirmed yet is not in the
      * ledger principal and is returned apart as `pending_cash`.
      *
-     * The lending cash itself is HQ's — a branch holds no principal — so a branch teller's cashbook is scoped by the
+     * The lending cash itself is HQ's - a branch holds no principal - so a branch teller's cashbook is scoped by the
      * BRANCH OF THE ENTRY (the loans their branch disbursed and collected), not by the branch of the account.
      *
      * @return array{opening: float, deposit: float, withdrawal: float, closing: float, pending_cash: float}

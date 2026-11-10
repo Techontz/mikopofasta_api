@@ -21,8 +21,8 @@ use Tests\Feature\Api\Loans\BuildsServiceLoans;
 use Tests\TestCase;
 
 /**
- * Finance Dashboard (GET /dashboard/finance): every figure comes from the records — loans disbursed and repaid through the
- * loan service, payments with their bank, the ledger — and agrees with the existing reports.
+ * Finance Dashboard (GET /dashboard/finance): every figure comes from the records - loans disbursed and repaid through the
+ * loan service, payments with their bank, the ledger - and agrees with the existing reports.
  */
 class FinanceDashboardApiTest extends TestCase
 {

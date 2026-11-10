@@ -162,7 +162,7 @@ class NegligenceDeductionApiTest extends TestCase
         $this->assertEquals([180000, 180000, 0], [$row['calculated_amount'], $row['negligence_deduction'], $row['net_commission']]);
         $this->assertTrue($row['negligence_expected']);
 
-        // Salary is not touched: the July payroll has no commission and no negligence — take home = 500,000 − 100,000 fund.
+        // Salary is not touched: the July payroll has no commission and no negligence - take home = 500,000 − 100,000 fund.
         $july = $this->runPayroll('2026-07');
         $item = $july->items()->where('employee_id', $staff->id)->sole();
         $this->assertEquals([0, 0, 400000], [(float) $item->commission, (float) $item->negligence, (float) $item->take_home]);

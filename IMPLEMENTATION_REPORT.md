@@ -1,6 +1,6 @@
 # M-KopaCredit enhancements: implementation report
 
-This report covers the requirements in the "Master Implementation Prompt — M-KopaCredit System Enhancements". The work lives on stacked branches in both repositories (`mikopofasta_api`, `mikopofasta_web`). Each branch builds on the one before it, so they must be merged in this order:
+This report covers the requirements in the "Master Implementation Prompt - M-KopaCredit System Enhancements". The work lives on stacked branches in both repositories (`mikopofasta_api`, `mikopofasta_web`). Each branch builds on the one before it, so they must be merged in this order:
 
 | Order | Branch | Scope |
 |---|---|---|
@@ -104,7 +104,7 @@ Every new rule is enforced on the backend, not only hidden in the interface. A r
 
 | Integration | State | Needed to finish |
 |---|---|---|
-| E-Mandate creation and OTP | Unchanged; the server's existing driver | — |
+| E-Mandate creation and OTP | Unchanged; the server's existing driver | - |
 | E-Mandate collections | Working from bank collection files (CSV) uploaded by Finance; idempotent; Full/Partial based on the amount allocated | The bank's notification format and secret, to turn on `webhooks/bank-mandate/collections` (`integrations.bank_mandate.collection_fields`, `webhook_secret`, `company_id`) |
 | E-Mandate cancellation | Requested automatically when a top-up is approved by Credit; confirmed only with the bank's reference | The bank's cancellation API, if one exists |
 | Linda (Phone Bond) | Devices, statuses, the arrears plus grace-day rule, lock/unlock requests, history and reports all work. The `none` driver refuses every call, so nothing is reported as locked or unlocked without confirmation; staff can record Linda's portal reference | Linda's API documentation and credentials, to write an HTTP driver for `LindaGateway` (lock, unlock, update debt). No endpoint has been guessed |

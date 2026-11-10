@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\Customers;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\CustomerCategory;
+use App\Models\Group;
 use App\Models\Loan;
 use App\Models\LoanCategory;
 use App\Models\SmsLog;
@@ -323,5 +324,53 @@ class CustomerApiTest extends TestCase
         $this->deleteJson("/api/v1/customers/{$free->id}")->assertOk();
         $this->assertSoftDeleted($free);
         $this->getJson("/api/v1/customers/{$free->id}")->assertOk()->assertJsonPath('data.deletedAt', fn ($value) => $value !== null);
+    }
+
+    public function test_customer_delete_works_for_any_staff_given_the_permission(): void
+    {
+        $admin = $this->signInAdmin();
+        $first = Customer::factory()->create(['branch_id' => $admin->branch_id]);
+        $second = Customer::factory()->create(['branch_id' => $admin->branch_id]);
+
+        $admin->company->roles()->where('key', 'branch_manager')->firstOrFail()->permissions()->firstOrCreate(['permission' => 'customers.delete']);
+        $this->actingAs($this->employeeWithRole($admin, 'branch_manager'))->deleteJson("/api/v1/customers/{$first->id}")->assertOk();
+        $this->assertSoftDeleted($first);
+
+        $officer = $this->employeeWithRole($admin, 'loan_officer');
+        $this->actingAs($officer)->deleteJson("/api/v1/customers/{$second->id}")->assertForbidden();
+        $officer->permissionOverrides()->create(['permission' => 'customers.delete', 'granted' => true]);
+        $this->actingAs($officer->fresh())->deleteJson("/api/v1/customers/{$second->id}")->assertOk();
+        $this->assertSoftDeleted($second);
+    }
+
+    public function test_group_delete_is_separate_from_group_manage(): void
+    {
+        $admin = $this->signInAdmin();
+        $group = Group::create(['company_id' => $admin->company_id, 'name' => 'wazuri']);
+        $officer = $this->employeeWithRole($admin, 'loan_officer');
+
+        $this->actingAs($officer)->putJson("/api/v1/groups/{$group->id}", ['group_name' => 'WAZURI'])->assertOk();
+        $this->actingAs($officer)->deleteJson("/api/v1/groups/{$group->id}")->assertForbidden();
+        $this->assertModelExists($group);
+
+        $this->actingAs($this->employeeWithRole($admin, 'admin'))->deleteJson("/api/v1/groups/{$group->id}")->assertOk();
+        $this->assertModelMissing($group);
+    }
+
+    public function test_only_admin_and_super_admin_can_delete_a_customer(): void
+    {
+        $admin = $this->signInAdmin();
+
+        foreach (['branch_manager', 'loan_officer', 'zone_manager', 'crm', 'finance', 'credit_officer', 'hr', 'teller'] as $role) {
+            $customer = Customer::factory()->create(['branch_id' => $admin->branch_id]);
+            $this->actingAs($this->employeeWithRole($admin, $role))->deleteJson("/api/v1/customers/{$customer->id}")->assertForbidden();
+            $this->assertNotSoftDeleted($customer);
+        }
+
+        foreach (['admin', 'super_admin'] as $role) {
+            $customer = Customer::factory()->create(['branch_id' => $admin->branch_id]);
+            $this->actingAs($this->employeeWithRole($admin, $role))->deleteJson("/api/v1/customers/{$customer->id}")->assertOk();
+            $this->assertSoftDeleted($customer);
+        }
     }
 }

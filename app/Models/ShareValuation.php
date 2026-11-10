@@ -11,7 +11,7 @@ use LogicException;
 /**
  * One share value event. History is never overwritten: a new value is a new row, and a wrong entry is marked reversed
  * (its figures stay as recorded). The value effective on a date is the latest effective valuation dated on or before it.
- * A valuation is a memorandum record only — it never posts to the ledger and is not cash.
+ * A valuation is a memorandum record only - it never posts to the ledger and is not cash.
  */
 class ShareValuation extends Model
 {

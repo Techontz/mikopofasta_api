@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 class FinanceDashboardController extends ApiController
 {
     /**
-     * GET /dashboard/finance?month=YYYY-MM&branch_id= — the Finance Dashboard ({@see FinanceDashboard}): a month of the
+     * GET /dashboard/finance?month=YYYY-MM&branch_id= - the Finance Dashboard ({@see FinanceDashboard}): a month of the
      * company's cash, collections, portfolio, income and expenses, for the whole company or one branch. Company money is
      * only for employees whose role covers the whole company and who may view the accounts. branch_accounts is the
      * "Branch List" popup ({@see DashboardStatistics::branchAccounts()}) for the chosen month: always every branch.

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Spec §32 — a change of an existing salary is a request: HR proposes, Finance approves (Admin when the salary is the
+     * Spec §32 - a change of an existing salary is a request: HR proposes, Finance approves (Admin when the salary is the
      * proposer's own or belongs to an HR user). The salary record changes only on approval.
      */
     public function up(): void

@@ -75,7 +75,7 @@ class BankTransferController extends ApiController
     /**
      * Request HQ reserve → Investment RESERVE A/C (pending). Posted only when another authorised user approves.
      * Sending is Finance's own leg (funds.transfer): the owners approve the request, they never raise it, so bank.manage
-     * alone (Super Admin, Admin) opens the list above but not this — the same split as petty cash.
+     * alone (Super Admin, Admin) opens the list above but not this - the same split as petty cash.
      */
     public function reserveToInvestmentStore(Request $request, CompanyFunds $funds): JsonResponse
     {
@@ -84,7 +84,7 @@ class BankTransferController extends ApiController
 
         $transfer = $funds->requestReserveToInvestment($this->currentEmployee()->company_id, (float) $validated['amount'], $this->currentEmployee());
 
-        return $this->message('Transaction Requested successfully — awaiting approval by another authorised user', 201, ['data' => new BankTransferResource($transfer->load(['employee']))]);
+        return $this->message('Transaction Requested successfully - awaiting approval by another authorised user', 201, ['data' => new BankTransferResource($transfer->load(['employee']))]);
     }
 
     /**
@@ -112,7 +112,7 @@ class BankTransferController extends ApiController
 
         $transfer = $funds->requestReserveToPrincipal($this->currentEmployee()->company_id, (float) $validated['amount'], $this->currentEmployee());
 
-        return $this->message('Transaction Requested successfully — awaiting approval by another authorised user', 201, ['data' => new BankTransferResource($transfer->load(['employee']))]);
+        return $this->message('Transaction Requested successfully - awaiting approval by another authorised user', 201, ['data' => new BankTransferResource($transfer->load(['employee']))]);
     }
 
     /**
@@ -128,7 +128,7 @@ class BankTransferController extends ApiController
             $this->applyFilters($this->transfers(CompanyFunds::PETTY_CASH_TO_BRANCH), $request, 'transfer_date'),
             [
                 'operation_income_balance' => round(array_sum(array_column($cash->fundHoldings($companyId, HqFund::OperationIncome), 'balance')), 2) + 0.0,
-                // HQ is not a branch — it is the sender of petty cash, never a recipient.
+                // HQ is not a branch - it is the sender of petty cash, never a recipient.
                 'branches' => $this->visibleBranches()->reject(fn ($branch): bool => (bool) $branch->is_head_office)->map(fn ($branch): array => [
                     'id' => (int) $branch->id,
                     'name' => $branch->name,
@@ -153,7 +153,7 @@ class BankTransferController extends ApiController
 
         $transfer = $funds->requestPettyCash($this->currentEmployee()->company_id, (int) $validated['branch_id'], (float) $validated['amount'], $this->currentEmployee());
 
-        return $this->message('Petty cash Requested successfully — awaiting approval by another authorised user', 201, ['data' => new BankTransferResource($transfer->load(['branch', 'employee']))]);
+        return $this->message('Petty cash Requested successfully - awaiting approval by another authorised user', 201, ['data' => new BankTransferResource($transfer->load(['branch', 'employee']))]);
     }
 
     /**
@@ -197,7 +197,7 @@ class BankTransferController extends ApiController
         );
 
         return $this->message(
-            $result['created'] ? 'Transfer Requested successfully — awaiting approval by another authorised user' : 'Transfer was already recorded',
+            $result['created'] ? 'Transfer Requested successfully - awaiting approval by another authorised user' : 'Transfer was already recorded',
             $result['created'] ? 201 : 200,
             ['data' => new BankTransferResource($result['transfer']->load(['bankAccount', 'employee', 'journalEntry']))],
         );

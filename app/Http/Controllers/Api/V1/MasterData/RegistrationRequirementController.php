@@ -7,7 +7,7 @@ use App\Services\Customers\RequirementProfiles;
 use Illuminate\Http\JsonResponse;
 
 /**
- * GET /registration/requirements — the company's requirement profiles (CUSTOMER_MODULE_IMPLEMENTATION.md §3.3).
+ * GET /registration/requirements - the company's requirement profiles (CUSTOMER_MODULE_IMPLEMENTATION.md §3.3).
  */
 class RegistrationRequirementController extends ApiController
 {

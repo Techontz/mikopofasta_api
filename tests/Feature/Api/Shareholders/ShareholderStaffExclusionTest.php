@@ -37,7 +37,7 @@ class ShareholderStaffExclusionTest extends TestCase
         $holder = ShareHolder::create(['company_id' => $this->admin->company_id, 'first_name' => 'PORTAL', 'last_name' => 'ONLY', 'mobile' => '0768999301', 'email' => 'portal@example.com', 'date_of_birth' => '1990-01-01']);
         $this->account = app(ShareholderAccounts::class)->provision($holder, $this->admin)['account'];
 
-        // Worst case: bad data places the portal login in a branch with an eligible salary — it must still be excluded.
+        // Worst case: bad data places the portal login in a branch with an eligible salary - it must still be excluded.
         $this->account->forceFill(['branch_id' => $this->admin->branch_id, 'must_change_password' => false])->save();
         $this->account->salaryInfo()->create(['salary' => 900000, 'salary_type' => 'branch', 'commission_eligible' => true, 'payment_method' => 'bank', 'account_name' => 'NMB', 'account_number' => '1', 'fee' => 0]);
     }

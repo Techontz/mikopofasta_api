@@ -36,19 +36,19 @@ class CashAccounts
      * @var array<string, array{0: string, 1: list<Account>}>
      */
     public const GROUPS = [
-        'company_cash' => ['Company Cash — COMPANY ACCOUNT', [Account::Company]],
+        'company_cash' => ['Company Cash - COMPANY ACCOUNT', [Account::Company]],
         'bank' => ['Bank accounts', [Account::Bank]],
-        'investment_reserve' => ['Investment RESERVE A/C — reserve sent by HQ', [Account::InvestmentReserve]],
+        'investment_reserve' => ['Investment RESERVE A/C - reserve sent by HQ', [Account::InvestmentReserve]],
         // HqPenalty and HqLoanFee are legacy: HQ runs no loan book of its own, so nothing posts to them any more
         // ({@see Account::hqAccounts()}). They stay in the group so any historical balance is still counted as money.
         'hq_accounts' => ['HQ accounts (salary advance, disbursement, interest, reserve, saving)', [
             Account::HqSalaryAdvance, Account::HqDisbursement, Account::HqPenalty, Account::HqInterest, Account::HqReserve, Account::HqLoanFee, Account::HqSaving,
         ]],
-        'lending_cash' => ['Lending cash — PRINCIPAL A/C (HQ funds every loan)', [Account::Principal]],
-        'branch_income_funds' => ['Branch income funds — INTEREST, LOAN FEE, PENALTY, RESERVE, INSURANCE A/C', [
+        'lending_cash' => ['Lending cash - PRINCIPAL A/C (HQ funds every loan)', [Account::Principal]],
+        'branch_income_funds' => ['Branch income funds - INTEREST, LOAN FEE, PENALTY, RESERVE, INSURANCE A/C', [
             Account::Interest, Account::LoanFee, Account::Penalty, Account::Reserve, Account::Insurance,
         ]],
-        'branch_petty_cash' => ['Branch PETTY CASH A/C — petty cash sent by HQ', [Account::PettyCash]],
+        'branch_petty_cash' => ['Branch PETTY CASH A/C - petty cash sent by HQ', [Account::PettyCash]],
         'teller_and_agent' => ['Teller cash and agent accounts', [Account::TellerCash, Account::Agent]],
         'staff_fund_cash' => ['Staff fund cash', [Account::StaffFundCash]],
     ];
@@ -131,7 +131,7 @@ class CashAccounts
     }
 
     /**
-     * Where an HQ Account List row is held in the ledger, largest first — one row can be a pool of branch accounts plus
+     * Where an HQ Account List row is held in the ledger, largest first - one row can be a pool of branch accounts plus
      * HQ's own ({@see HqFund}), and money is drawn from each in proportion to what it holds.
      *
      * @return list<array{account: Account, branch: int|null, balance: float}>
@@ -143,7 +143,7 @@ class CashAccounts
 
     /**
      * Credit lines that draw an amount from a pool ({@see fundHoldings()}), each account in proportion to what it holds, rounded
-     * to the cent with the remainder placed on the accounts that still have room — so the lines add up to the amount exactly
+     * to the cent with the remainder placed on the accounts that still have room - so the lines add up to the amount exactly
      * and no account goes below zero. The caller has checked that the pool covers the amount.
      *
      * @param  list<array{account: Account, branch: int|null, balance: float}>  $holdings

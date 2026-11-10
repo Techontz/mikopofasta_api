@@ -277,6 +277,8 @@ class CustomerRegistrar
             'after' => $after ?: null,
             'ip_address' => request()?->ip(),
         ]);
+
+        app(CustomerActivityNotifier::class)->afterAudit($customer, $action, $after, $actor instanceof Employee ? $actor : null);
     }
 
     /**

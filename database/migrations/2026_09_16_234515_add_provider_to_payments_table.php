@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * Finance-entered payments name the channel (BANK or MNO) and the provider it came through: a bank or network from the
-     * company's own list (Settings → Payment Channels). These are only names — never the company's own bank
+     * company's own list (Settings → Payment Channels). These are only names - never the company's own bank
      * accounts, which hold company funds. A transaction ID is unique per channel and provider; older rows keep an empty provider.
      */
     public function up(): void

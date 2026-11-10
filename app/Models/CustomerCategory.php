@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Customer type (shown as "Customer Type" everywhere in the UI; the table keeps its historical name): who the customer is —
+ * Customer type (shown as "Customer Type" everywhere in the UI; the table keeps its historical name): who the customer is -
  * required documents, risk level and the dynamic registration form. It holds NO loan configuration: its loan products are the
  * loan categories that reference it (loan_categories.customer_category_id, one customer type → many loan categories).
  */

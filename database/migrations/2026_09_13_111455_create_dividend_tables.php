@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Monthly profit distribution (Documents: ACCOUNT OVERVIEW "Dividend Account" — Profit → Dividend,
+     * Monthly profit distribution (Documents: ACCOUNT OVERVIEW "Dividend Account" - Profit → Dividend,
      * 70% → Principal (reinvestment), 30% → shareholders split by share percentage).
      */
     public function up(): void

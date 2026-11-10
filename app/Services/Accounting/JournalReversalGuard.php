@@ -44,7 +44,7 @@ class JournalReversalGuard
 
     /**
      * Full check before posting: the entry must be reversible and every money account the original entry debited must
-     * still hold that money (a reversal may not drive a fund account negative — spec §31).
+     * still hold that money (a reversal may not drive a fund account negative - spec §31).
      *
      * @throws ValidationException
      */

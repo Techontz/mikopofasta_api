@@ -287,7 +287,7 @@ final class LoanPhase
     }
 
     /**
-     * Instalment (restoration), the whole outstanding balance, or a fixed amount — never more than what is still owed.
+     * Instalment (restoration), the whole outstanding balance, or a fixed amount - never more than what is still owed.
      */
     private function amount(Loan $loan, string|float $spec): float
     {

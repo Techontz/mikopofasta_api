@@ -13,7 +13,7 @@ use App\Services\Reports\LoanBalances;
  * Everything a customer owes, as three separate debts that are never folded into one another:
  *
  *  - loan: outstanding principal (plus the interest and insurance of this system's loans) of every running loan;
- *  - penalty: every unpaid, unwaived penalty — on a running loan, or standing on its own (carried over from the old
+ *  - penalty: every unpaid, unwaived penalty - on a running loan, or standing on its own (carried over from the old
  *    system with no loan behind it);
  *  - salary advance: what is left on every active salary advance.
  *

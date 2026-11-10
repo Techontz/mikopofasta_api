@@ -16,10 +16,10 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * E-Mandate collections (enhancement §4.2–4.3). Every debit the bank reports — from an uploaded collection file or a
- * provider notification — is recorded once per provider payment reference (a repeat returns the first record, so nothing is
+ * E-Mandate collections (enhancement §4.2–4.3). Every debit the bank reports - from an uploaded collection file or a
+ * provider notification - is recorded once per provider payment reference (a repeat returns the first record, so nothing is
  * allocated twice). Money received goes through the normal payment intake ({@see PaymentService::receive()}) and therefore
- * the existing allocation order (what is due first — previous arrears, then the current instalment — then the rest);
+ * the existing allocation order (what is due first - previous arrears, then the current instalment - then the rest);
  * anything beyond the debt is held in suspense as usual.
  *
  * The payment status is never the provider's word alone: Full when the amount allocated covers what was due on the
@@ -192,7 +192,7 @@ class MandateCollections
     }
 
     /**
-     * Ask for the cancellation of a mandate replaced by a top-up (enhancement §3.4). It stays requested — never cancelled —
+     * Ask for the cancellation of a mandate replaced by a top-up (enhancement §3.4). It stays requested - never cancelled -
      * until the bank's confirmation reference is recorded; the mandate's history is kept.
      */
     public function requestCancellation(LoanMandate $mandate, ?Employee $actor): LoanMandate

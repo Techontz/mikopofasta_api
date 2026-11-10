@@ -88,7 +88,7 @@ class LoanOffset extends Model
     }
 
     /**
-     * Offset settled in a period, company-wide or for one branch — the figure the commission base excludes and the
+     * Offset settled in a period, company-wide or for one branch - the figure the commission base excludes and the
      * distribution base adds back (§15).
      *
      * @param  list<int>|null  $branchIds  null = the whole company

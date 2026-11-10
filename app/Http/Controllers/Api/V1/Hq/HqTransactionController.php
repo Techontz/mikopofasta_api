@@ -40,11 +40,11 @@ class HqTransactionController extends ApiController
     ) {}
 
     /**
-     * "Hq Account balance": exactly the rows Finance sees behind the green card on the dashboard — the HQ Account List
+     * "Hq Account balance": exactly the rows Finance sees behind the green card on the dashboard - the HQ Account List
      * ({@see DashboardStatistics::hqFunds()}), so the two screens can never disagree. UNMATCHED, SAVINGS, PROFIT and
      * DIVIDENDS are listed but not in the total ({@see DashboardStatistics::HQ_CLAIM_ROWS}): unmatched money is not HQ's
      * until it is allocated, savings belong to the customers, and profit and dividends still sit in OPERATION INCOME.
-     * Real-time only, exactly like the card — these rows are balances now, not an as-at ledger listing.
+     * Real-time only, exactly like the card - these rows are balances now, not an as-at ledger listing.
      */
     public function balances(DashboardStatistics $statistics): JsonResponse
     {
@@ -175,7 +175,7 @@ class HqTransactionController extends ApiController
 
     /**
      * The Request Transaction dropdowns. direction=to lists the shareholders' (Investment) accounts money can be sent to,
-     * by name only — HQ never sees the Investment, so no balance is published. Anything else lists Finance's own money:
+     * by name only - HQ never sees the Investment, so no balance is published. Anything else lists Finance's own money:
      * the HQ Account List rows behind the green card, each with its balance, and the shareholders' account of the same
      * name in pairs_with, which the form fills the TO box with. DIVIDEND shows what is owed rather than the pool it is
      * held in ({@see HqFund::claim()}); a row with locked=true may be sent to its pair and nowhere else, so the form
@@ -215,7 +215,7 @@ class HqTransactionController extends ApiController
      * Dr the shareholders' account (and BANK CHARGES for the charge) / Cr the accounts the HQ row is held in, each in
      * proportion to its balance. Must run inside {@see approve()}'s transaction with the company row locked.
      * DIVIDEND is held in the OPERATION INCOME accounts and its destination is DIVIDEND A/C, so paying it is the one
-     * entry: Dr DIVIDEND PAYABLE / Cr the income pool — the money leaves HQ and the dividend owed falls with it, never
+     * entry: Dr DIVIDEND PAYABLE / Cr the income pool - the money leaves HQ and the dividend owed falls with it, never
      * by more than was declared.
      */
     private function post(HqTransaction $transaction): JournalEntry

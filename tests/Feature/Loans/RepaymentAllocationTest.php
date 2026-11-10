@@ -91,7 +91,7 @@ class RepaymentAllocationTest extends TestCase
 
     /**
      * The specification's own example (§10): an instalment of principal 100,000, penalty 10,000 and interest 20,000 paid
-     * with 150,000 settles all three and puts the last 20,000 against principal — 120,000 of principal paid in total.
+     * with 150,000 settles all three and puts the last 20,000 against principal - 120,000 of principal paid in total.
      * Before this rule the whole 150,000 went to principal and neither the penalty nor the interest was collected.
      */
     public function test_a_payment_covers_the_instalment_due_then_penalty_then_interest_then_principal(): void

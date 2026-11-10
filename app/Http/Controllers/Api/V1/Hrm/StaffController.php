@@ -368,7 +368,7 @@ class StaffController extends HrmController
     }
 
     /**
-     * Staff with money history (payroll, loans, advances, ledger) can not be deleted — reject them instead.
+     * Staff with money history (payroll, loans, advances, ledger) can not be deleted - reject them instead.
      */
     public function destroy(Employee $employee): JsonResponse
     {
@@ -445,7 +445,7 @@ class StaffController extends HrmController
     }
 
     /**
-     * POST hrm/staff/{employee}/kyc/approve — an HR user approves the employee's registered details (enhancement §12.2).
+     * POST hrm/staff/{employee}/kyc/approve - an HR user approves the employee's registered details (enhancement §12.2).
      */
     public function approveKyc(Employee $employee): JsonResponse
     {
@@ -453,7 +453,7 @@ class StaffController extends HrmController
     }
 
     /**
-     * POST hrm/staff/{employee}/kyc/reject — the details go back for correction, with the reason.
+     * POST hrm/staff/{employee}/kyc/reject - the details go back for correction, with the reason.
      */
     public function rejectKyc(Request $request, Employee $employee): JsonResponse
     {

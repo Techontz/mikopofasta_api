@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
  * customer never brought that money in cash.
  *
  * The settlement itself is an ordinary repayment posted component by component; this table is the tracking attribute the
- * spec asks for — which old loan, which new loan, how much of it was principal, penalty, interest or salary advance, and
+ * spec asks for - which old loan, which new loan, how much of it was principal, penalty, interest or salary advance, and
  * how much cash the customer actually received. It is what lets the offset be excluded from the commission base and added
  * back before dividend and reinvestment (§15).
  */

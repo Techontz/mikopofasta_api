@@ -151,7 +151,7 @@ class HistoricalFileReportTest extends TestCase
         $this->artisan('mkopa:import-historical-file-report')->assertSuccessful();
         $other = $this->otherBranch();
         // The same printed name as S/No. 11, 71 and 167, but the report prints a different number beside it, so this
-        // is a different person who happens to share the name — as FESTO E. NYAGAWA does at Makambako and Wanging'ombe.
+        // is a different person who happens to share the name - as FESTO E. NYAGAWA does at Makambako and Wanging'ombe.
         $namesake = Customer::factory()->create(['company_id' => $this->admin->company_id, 'branch_id' => $other->id, 'first_name' => 'Juma', 'middle_name' => 'K', 'last_name' => 'Juma', 'phone' => '255700000001']);
 
         $this->artisan('mkopa:create-historical-customers')->assertSuccessful();

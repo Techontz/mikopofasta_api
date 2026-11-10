@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Spec §24 + §58 — HR creates an allowance with a reason for a payroll period (pending), FINANCE approves it (approved /
+     * Spec §24 + §58 - HR creates an allowance with a reason for a payroll period (pending), FINANCE approves it (approved /
      * awaiting payroll) and the payroll that pays it consumes it once (paid). Allowances that existed before this rule were
      * recurring and already flowed into payroll: they are kept as approved recurring allowances (status `active`).
      */

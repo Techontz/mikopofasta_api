@@ -172,7 +172,7 @@ class CommissionController extends HrmController
 
     /**
      * The allocations an action applies to: explicit `ids`, or every allocation of `period` in the statuses the action starts
-     * from (bulk) — always within the viewer's company and branches.
+     * from (bulk) - always within the viewer's company and branches.
      *
      * @param  list<string>  $bulkStatuses
      * @return Collection<int, CommissionAllocation>

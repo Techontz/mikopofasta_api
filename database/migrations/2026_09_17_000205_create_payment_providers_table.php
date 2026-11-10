@@ -9,7 +9,7 @@ return new class extends Migration
 {
     /**
      * Settings → Payment Channels: the few banks and mobile networks the COMPANY receives customer payments through. They are
-     * names only — not the company's bank accounts that hold company funds (Bank → Register Account), and not the full Master
+     * names only - not the company's bank accounts that hold company funds (Bank → Register Account), and not the full Master
      * Data bank list, which is for customers' own accounts. Each existing company starts with the active Master Data networks.
      */
     public function up(): void

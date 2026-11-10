@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
  * "Daily Report" cash book.
  *
  * The live formulas are server-side only; they are inferred as follows:
- * - OPENING / CLOSING: the cash position from the ledger — the sum of every ledger entry in scope
+ * - OPENING / CLOSING: the cash position from the ledger - the sum of every ledger entry in scope
  *   (the selected branches' accounts, or all branch and HQ accounts for ALL) on money accounts, excluding money
  *   held in bank accounts, receivables and the non-cash Offset / Outstanding Interest assets, up to the day before
  *   "from" (opening) and up to "to" (closing). Opening therefore always equals the previous day's closing.

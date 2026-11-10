@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One recovery of a negligence deduction from a commission payment (spec §57) — or, legacy, from the commission of a payroll: the commission of that period,
+ * One recovery of a negligence deduction from a commission payment (spec §57) - or, legacy, from the commission of a payroll: the commission of that period,
  * the amount recovered into the PRINCIPAL A/C and the balance still outstanding afterwards.
  */
 class NegligenceRecovery extends Model

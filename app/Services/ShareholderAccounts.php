@@ -9,16 +9,16 @@ use Illuminate\Support\Str;
 
 /**
  * The shareholders' (Investment) accounts money can be sent TO: the rows of the owners' Company Account List that hold
- * real money — the COMPANY ACCOUNT, each bank account, the Investment RESERVE A/C and the DIVIDEND A/C (user request
+ * real money - the COMPANY ACCOUNT, each bank account, the Investment RESERVE A/C and the DIVIDEND A/C (user request
  * 2026-09-22). "Assets" is never offered: a fixed asset is not money (user ruling 2026-09-16, the same rule the float
  * and capital forms follow).
  *
  * DIVIDEND A/C is the credit-normal DIVIDEND ACCOUNT the owners' modal shows as its Dividend memo, so sending to it
  * settles dividends already declared: the money leaves the HQ row and the dividend owed falls by the same amount. It
- * does not record who was paid — a shareholder's own entitlement is paid through Dividends → Pay ({@see DividendService}).
+ * does not record who was paid - a shareholder's own entitlement is paid through Dividends → Pay ({@see DividendService}).
  *
  * Only names are published, never balances: HQ and Finance never see the Investment (user ruling, stated twice on
- * 2026-09-16) — they may send money to an account of it without being told what is in it.
+ * 2026-09-16) - they may send money to an account of it without being told what is in it.
  */
 class ShareholderAccounts
 {

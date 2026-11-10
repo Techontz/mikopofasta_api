@@ -9,7 +9,7 @@ return new class extends Migration
     /**
      * C2 (salary-advance approval fee): the fee is income only when it is actually collected. Approval no longer posts it; a
      * separate collection records who collected it, how, and its Dr LOAN FEE A/C / Cr FEE INCOME journal. Additive, nullable
-     * columns only — advances whose fee was posted at approval (legacy) keep their journal and are read as collected by the API.
+     * columns only - advances whose fee was posted at approval (legacy) keep their journal and are read as collected by the API.
      */
     public function up(): void
     {

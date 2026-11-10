@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * The Customer Profile's Credit History tab: what the customer has done throughout their borrowing history, read from the
- * records that already exist. It is a reporting layer only — nothing here writes, and no figure is added on top of another:
+ * records that already exist. It is a reporting layer only - nothing here writes, and no figure is added on top of another:
  *
  *  - balances are the ones the rest of the profile shows: per loan {@see LoanBalances} (paid / remain, Principal → Penalty →
  *    Interest → Insurance split stored at posting), and the debt totals come from {@see CustomerDebt} unchanged, so Total
@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\DB;
  *    order. On time = completed on or before its due date; late = completed after it; missed = due and still not fully
  *    paid today. An arrears event is any instalment that went past its due date unpaid (late + missed); arrears are not a
  *    default;
- *  - a default is a loan that reached DEFAULT (its end date passed with a balance — {@see LoanService::applyPenaltiesAndDefaults()}),
+ *  - a default is a loan that reached DEFAULT (its end date passed with a balance - {@see LoanService::applyPenaltiesAndDefaults()}),
  *    or was written off. The default date is when the audit trail first recorded status = default; outstanding at default is
  *    the principal + interest + insurance still unpaid on that day (penalties left out);
  *  - Loans, penalties and salary advances carried over from the old system (`is_legacy_opening`, Source = Legacy System) are
@@ -184,7 +184,7 @@ final class CustomerCreditHistory
     /**
      * Instalment performance of this system's disbursed loans (old-system loans carry no schedule here and are only counted
      * in `loans_without_schedule`). The arrears amount is what is still unpaid on instalments already due, on loans that
-     * are still repayable — a closed or written-off loan no longer carries arrears. The on-time rate is on time ÷ instalments
+     * are still repayable - a closed or written-off loan no longer carries arrears. The on-time rate is on time ÷ instalments
      * already due; null (N/A) while nothing has fallen due.
      *
      * @param  Collection<int, Loan>  $disbursed
@@ -219,7 +219,7 @@ final class CustomerCreditHistory
     }
 
     /**
-     * Arrears History: every instalment that went past its due date unpaid — paid late (its arrears since cleared) or still
+     * Arrears History: every instalment that went past its due date unpaid - paid late (its arrears since cleared) or still
      * unpaid (partially paid or missed). Arrears is what is unpaid on it today.
      *
      * @param  Collection<int, array<string, mixed>>  $instalments
@@ -265,7 +265,7 @@ final class CustomerCreditHistory
     }
 
     /**
-     * Default History: loans that reached DEFAULT — now, or at any point according to the audit trail — and loans written
+     * Default History: loans that reached DEFAULT - now, or at any point according to the audit trail - and loans written
      * off. The default date is the first audit entry that set status = default (an old-system loan was imported already in
      * default, so its real default date is unknown: N/A). Outstanding at default is principal + interest + insurance less
      * what had been repaid by that date; for an old-system loan it is the Remain Amount it was imported with.
@@ -309,7 +309,7 @@ final class CustomerCreditHistory
                         ->sum(fn (object $deposit): float => (float) $deposit->principal + (float) $deposit->interest + (float) $deposit->insurance)), 2),
             };
             [$resolution, $resolvedAt] = match ($loan->status) {
-                LoanStatus::Closed => ['Resolved — paid in full', $loan->closed_at?->toDateString()],
+                LoanStatus::Closed => ['Resolved - paid in full', $loan->closed_at?->toDateString()],
                 LoanStatus::WrittenOff => ['Written off', $loan->writeOff?->written_off_on?->toDateString()],
                 LoanStatus::Default => ['Unresolved', null],
                 default => ['Returned to repayment', null],
@@ -492,8 +492,8 @@ final class CustomerCreditHistory
         return match (true) {
             $disbursed->contains(fn (Loan $loan): bool => in_array($loan->status, [LoanStatus::Default, LoanStatus::WrittenOff], true)) => ['key' => 'defaulted', 'label' => 'Defaulted', 'tone' => 'danger'],
             $loanRows->contains('in_arrears', true) => ['key' => 'arrears', 'label' => 'In arrears', 'tone' => 'warning'],
-            $disbursed->contains(fn (Loan $loan): bool => in_array($loan->status, LoanStatus::repayable(), true)) => ['key' => 'active', 'label' => 'Active — up to date', 'tone' => 'success'],
-            $disbursed->isNotEmpty() && $debt['total'] <= 0.004 => ['key' => 'clear', 'label' => 'Clear — all loans completed', 'tone' => 'primary'],
+            $disbursed->contains(fn (Loan $loan): bool => in_array($loan->status, LoanStatus::repayable(), true)) => ['key' => 'active', 'label' => 'Active - up to date', 'tone' => 'success'],
+            $disbursed->isNotEmpty() && $debt['total'] <= 0.004 => ['key' => 'clear', 'label' => 'Clear - all loans completed', 'tone' => 'primary'],
             $debt['total'] > 0.004 => ['key' => 'owing', 'label' => 'Owes penalty / salary advance', 'tone' => 'warning'],
             default => ['key' => 'none', 'label' => 'No borrowing history', 'tone' => 'default'],
         };

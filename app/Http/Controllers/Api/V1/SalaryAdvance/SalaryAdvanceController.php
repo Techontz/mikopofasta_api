@@ -32,7 +32,7 @@ class SalaryAdvanceController extends ApiController
     public function __construct(private readonly SalaryAdvanceService $service) {}
 
     /**
-     * "Salary Advance Requested" — pending requests (filter: branch).
+     * "Salary Advance Requested" - pending requests (filter: branch).
      */
     public function requested(Request $request): AnonymousResourceCollection
     {
@@ -141,7 +141,7 @@ class SalaryAdvanceController extends ApiController
     }
 
     /**
-     * "Salary advance Loan" — active advances (filter: branch, optional from/to on request date).
+     * "Salary advance Loan" - active advances (filter: branch, optional from/to on request date).
      */
     public function active(Request $request): AnonymousResourceCollection
     {
@@ -182,7 +182,7 @@ class SalaryAdvanceController extends ApiController
     }
 
     /**
-     * "Salary Advance Loan Repayment" — active and fully repaid advances.
+     * "Salary Advance Loan Repayment" - active and fully repaid advances.
      */
     public function repayments(Request $request): AnonymousResourceCollection
     {
@@ -192,7 +192,7 @@ class SalaryAdvanceController extends ApiController
     }
 
     /**
-     * "Salary Advance Paid List" — repayments of today, or of the filtered branch and dates.
+     * "Salary Advance Paid List" - repayments of today, or of the filtered branch and dates.
      */
     public function paid(Request $request): AnonymousResourceCollection
     {

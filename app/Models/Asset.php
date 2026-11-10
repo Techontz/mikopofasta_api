@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A contributed asset in the Asset Registry (Capital → Assets). One row per asset capital contribution.
  *
  * The contribution value, contributor, contribution date and valuation snapshot never change; `current_value` changes only
- * through a recorded revaluation, `branch_id` through a transfer and `status` through a status change — each written to
+ * through a recorded revaluation, `branch_id` through a transfer and `status` through a status change - each written to
  * {@see AssetEvent} history.
  */
 class Asset extends Model

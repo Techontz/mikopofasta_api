@@ -33,17 +33,17 @@ use Illuminate\Validation\ValidationException;
  * the period in the ledger.
  *
  * Final rules (RULES_FINAL):
- *  - Rule 2: eligible cash income (interest net of the reserve — including write-off recoveries credited to interest income —
+ *  - Rule 2: eligible cash income (interest net of the reserve - including write-off recoveries credited to interest income -
  *    fees, penalties collected, legacy recovery income; insurance excluded) − eligible expenses − loss b/f − HQ 2 % hold =
  *    distributable profit, the only base of commission (10 %) and, after calculated commission, of dividends (90 % → 70/30).
  *  - Rule 3: the interest reserve never reaches profit. The only reserve-related closing line is the legacy reclassification
  *    Dr INTEREST INCOME / Cr INTEREST RESERVE for reserve still inside interest income (legacy repayment entries): both sides are
  *    non-cash (income → reserve equity), it keeps that reserve out of the Profit Account and never touches the branch RESERVE A/C
  *    money. Nothing here moves reserve into profit, principal, dividends or income.
- *  - Rule 14: cash basis — penalty income is read from the ledger as posted (cash collections; legacy accrual entries on older
+ *  - Rule 14: cash basis - penalty income is read from the ledger as posted (cash collections; legacy accrual entries on older
  *    data are read as posted too), no accrual is assumed.
  *  - Rule 15: legacy INSURANCE INCOME closes to INSURANCE RESERVE; new collections credit INSURANCE RESERVE directly (equity, not in
- *    the income/expense rows) — neither reaches profit.
+ *    the income/expense rows) - neither reaches profit.
  *  - Rule 16: the HQ 2 % hold is applied once, here: results store it, closing moves exactly that amount from the branch Profit
  *    Account to the HQ Profit Account; commission, dividends and reports read the stored distributable profit and never re-apply it.
  */

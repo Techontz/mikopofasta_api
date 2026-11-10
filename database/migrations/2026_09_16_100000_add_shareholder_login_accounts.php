@@ -10,7 +10,7 @@ return new class extends Migration
      * Shareholder login accounts reuse the `employees` authentication table (Sanctum):
      *  - employees.account_type: 'staff' (every existing row) or 'shareholder' (a portal-only login);
      *  - employees.must_change_password: forces a password change after a temporary password (false for existing rows);
-     *  - share_holders.employee_id: the 1:1 link to the login (unique, ON DELETE RESTRICT — financial history never cascades);
+     *  - share_holders.employee_id: the 1:1 link to the login (unique, ON DELETE RESTRICT - financial history never cascades);
      *  - capitals.source / cancelled_at / cancelled_by: contributions submitted from the Shareholder Portal and their cancellation.
      * Additive only: no existing value changes.
      */

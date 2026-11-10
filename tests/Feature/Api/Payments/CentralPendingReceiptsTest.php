@@ -12,7 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Specification §11: ONE central Pending / Unverified Receipts account at HQ — no pending account per branch — while every
+ * Specification §11: ONE central Pending / Unverified Receipts account at HQ - no pending account per branch - while every
  * receipt keeps its branch, so HQ sees the total and each branch sees its own.
  */
 class CentralPendingReceiptsTest extends TestCase

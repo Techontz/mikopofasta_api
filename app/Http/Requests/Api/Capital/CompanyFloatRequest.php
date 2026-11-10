@@ -10,7 +10,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * "Transfer Float Form": company money account → HQ PRINCIPAL A/C. The source is the COMPANY ACCOUNT, a company bank
- * account or the Investment RESERVE A/C ({@see FloatService::hqFloatSources()}) — never an asset, and never a branch.
+ * account or the Investment RESERVE A/C ({@see FloatService::hqFloatSources()}) - never an asset, and never a branch.
  */
 class CompanyFloatRequest extends FormRequest
 {

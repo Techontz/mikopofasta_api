@@ -162,7 +162,7 @@ final class FinanceDashboard
 
     /**
      * The Total Cash card's accounts: the money accounts of the Cash Flow report ({@see CashFlowReport::balance()}) at the end
-     * of the month, in the HQ Account List's terms — OPERATION PRINCIPAL, OPERATION INCOME, RESERVE and FUND are the pools of
+     * of the month, in the HQ Account List's terms - OPERATION PRINCIPAL, OPERATION INCOME, RESERVE and FUND are the pools of
      * {@see HqFund}, SAVINGS is the SAVING ACCOUNT, every bank account is its own row and any other money account is shown under
      * its ledger name. Received money not yet matched to a loan (SUSPENSE) is not available cash, so it is a negative UNMATCHED
      * row, exactly as the report nets it. These rows add up to the card (`in_total`).
@@ -170,7 +170,7 @@ final class FinanceDashboard
      * PROFIT and DIVIDEND are listed too but are not in the total, because their money is still held in OPERATION INCOME
      * ({@see DashboardStatistics::hqFunds()}) and adding them would count it twice:
      *  - PROFIT is the PROFIT ACCOUNT: on the 1st the month-end close moves the past month's income less expenses there
-     *    ({@see PeriodClose}), but only on paper — the cash stays in the income accounts until the dividend decision;
+     *    ({@see PeriodClose}), but only on paper - the cash stays in the income accounts until the dividend decision;
      *  - DIVIDEND is DIVIDEND PAYABLE: once the decision is approved, the shareholders' 30 % is declared there (paid later) and
      *    the 70 % reinvestment, after commission, is moved in cash from the income accounts to OPERATION PRINCIPAL
      *    ({@see DividendService}).

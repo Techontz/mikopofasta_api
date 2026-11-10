@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 class HrDashboardController extends ApiController
 {
     /**
-     * GET /dashboard/hr?month=YYYY-MM — the HR Department dashboard ({@see HrDashboard}): staff, the month's payroll and
+     * GET /dashboard/hr?month=YYYY-MM - the HR Department dashboard ({@see HrDashboard}): staff, the month's payroll and
      * the staff requests waiting for a decision, for the whole company. For employees who manage HR.
      */
     public function __invoke(Request $request, HrDashboard $dashboard): JsonResponse

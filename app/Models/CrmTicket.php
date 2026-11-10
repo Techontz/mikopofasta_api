@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 /**
  * CRM case received from a customer and tracked until resolved: a complaint (something went wrong) or a customer request
- * (something the customer asks for — a statement, a change of details …), shown on Complaints and Customer Requests.
+ * (something the customer asks for - a statement, a change of details …), shown on Complaints and Customer Requests.
  */
 class CrmTicket extends Model
 {

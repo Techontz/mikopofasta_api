@@ -7,7 +7,7 @@
 |
 | The single source of the asset form: every asset type with its type-specific fields (and which are required), whether
 | quantity is fixed to 1, whether condition applies, the suggested documents and the fixed-asset ledger account
-| (an App\Enums\Account value — never a database id). The API validates from this file and the web form renders from
+| (an App\Enums\Account value - never a database id). The API validates from this file and the web form renders from
 | GET /capital/assets/config, so field lists are never duplicated.
 |
 | Field: key, label, type (text|number|integer|select|textarea), required, options (select), identifier (shown on

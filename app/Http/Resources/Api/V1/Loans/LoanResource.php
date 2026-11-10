@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1\Loans;
 
+use App\Enums\LoanMethod;
 use App\Enums\LoanStatus;
 use App\Models\Loan;
 use App\Models\LoanDisbursement;
@@ -36,7 +37,9 @@ class LoanResource extends JsonResource
             'category' => $this->whenLoaded('category', fn () => $this->category?->name),
             // Customer type of the loan category (only when category.customerType was eager loaded).
             'category_customer_type' => $this->when($this->relationLoaded('category') && $this->category?->relationLoaded('customerType'), fn () => $this->category?->customerType?->name),
-            'requires_mandate' => $this->whenLoaded('category', fn () => (bool) $this->category?->requires_mandate),
+            'loan_method' => $this->loan_method?->value,
+            'loan_method_label' => $this->loan_method?->label(),
+            'requires_mandate' => $this->loan_method === LoanMethod::EMandate,
             'group_id' => $this->group_id,
             'employee' => $this->whenLoaded('employee', fn () => $this->employee?->full_name),
             'amount_applied' => (float) $this->amount_applied,

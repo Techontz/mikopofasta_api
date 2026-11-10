@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Spec §27 / §49 — a staff benefit claim (a payment out of the single STAFF FUND A/C) is no longer one immediate step:
+     * Spec §27 / §49 - a staff benefit claim (a payment out of the single STAFF FUND A/C) is no longer one immediate step:
      * prepared (HR, with the employee's recorded benefit entitlement) → finance_review → approved → paid, or rejected.
      *
      * Existing withdrawals were paid immediately when recorded, so they migrate as `paid` by their recorder on their

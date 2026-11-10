@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API v1 — consumed by the Next.js frontend (web/)
+| API v1 - consumed by the Next.js frontend (web/)
 |--------------------------------------------------------------------------
 */
 

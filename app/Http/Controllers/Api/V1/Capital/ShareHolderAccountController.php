@@ -76,7 +76,7 @@ class ShareHolderAccountController extends ApiController
         $credentials = $this->accounts->resetTemporaryPassword($shareHolder, $this->currentEmployee());
         EnsureIdempotentRequest::doNotStore(['credentials']);
 
-        return $this->message('Temporary password generated — the shareholder must change it at the next login', 200, [
+        return $this->message('Temporary password generated - the shareholder must change it at the next login', 200, [
             'data' => $this->accounts->loginSummary($shareHolder->fresh('account')),
             'credentials' => $credentials,
         ]);

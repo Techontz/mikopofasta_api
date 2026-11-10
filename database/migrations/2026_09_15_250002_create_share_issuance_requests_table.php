@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * C6 maker/checker for PAID share issuances: the issuance is requested (pending — no capital row, no journal, no share
+ * C6 maker/checker for PAID share issuances: the issuance is requested (pending - no capital row, no journal, no share
  * transaction, ownership unchanged) and posted only when a different authorised user approves it; a rejection keeps the row
  * with the reason. Linked-contribution and bonus issuances post no journal and stay single-step. Existing share transactions
  * are untouched (they have no request).

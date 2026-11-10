@@ -47,8 +47,8 @@ use Illuminate\Support\Str;
 
 /**
  * C6 Pending Approvals: one read-only list of every item waiting for a checker, across the two-step workflows. Each workflow
- * is included only for a viewer holding that module's permission; rows are limited to the viewer's company and — for branch
- * data — to their branch scope ({@see AccessControl::branchIds()}), as on the module pages. Approving still happens on the
+ * is included only for a viewer holding that module's permission; rows are limited to the viewer's company and - for branch
+ * data - to their branch scope ({@see AccessControl::branchIds()}), as on the module pages. Approving still happens on the
  * module page (`link`); `can_approve` / `approve_blocked_reason` carry the module's approval permission and the
  * segregation-of-duties rule including the company approval policy ({@see SegregationOfDuties}).
  */
@@ -204,7 +204,7 @@ class PendingApprovals
             ->map(fn (ExpenseRequest $row): array => $this->row(
                 ApprovalPolicy::EXPENSES,
                 $row->id,
-                strtoupper((string) $row->scope).' EXPENSE — '.($row->expenseType?->name ?? ''),
+                strtoupper((string) $row->scope).' EXPENSE - '.($row->expenseType?->name ?? ''),
                 $row->branch?->name,
                 (float) $row->amount,
                 $row->employee?->full_name,
@@ -235,7 +235,7 @@ class PendingApprovals
             ->map(fn (FloatTransfer $row): array => $this->row(
                 ApprovalPolicy::FLOATS,
                 $row->id,
-                trim(strtoupper(str_replace('_', ' ', (string) $row->type)).' — '.implode(' → ', array_filter([
+                trim(strtoupper(str_replace('_', ' ', (string) $row->type)).' - '.implode(' → ', array_filter([
                     $row->fromBranch?->name ?? ($row->from_account ? Account::tryFrom($row->from_account)?->label() : null),
                     $row->toBranch?->name ?? ($row->to_account ? Account::tryFrom($row->to_account)?->label() : null),
                 ]))),
@@ -278,7 +278,7 @@ class PendingApprovals
             ->map(fn (BankTransfer $row): array => $this->row(
                 ApprovalPolicy::BANK_TRANSFERS,
                 $row->id,
-                strtoupper(str_replace('_', ' ', (string) $row->type)).' — '.($row->bankAccount?->name ?? ''),
+                strtoupper(str_replace('_', ' ', (string) $row->type)).' - '.($row->bankAccount?->name ?? ''),
                 $row->branch?->name,
                 (float) $row->amount,
                 $row->employee?->full_name,
@@ -337,7 +337,7 @@ class PendingApprovals
             ->map(fn (Capital $row): array => $this->row(
                 ApprovalPolicy::CAPITAL_CONTRIBUTIONS,
                 $row->id,
-                $row->pay_method.' CAPITAL — '.$row->shareHolder?->full_name.($row->isFromShareholderPortal() ? ' (submitted by shareholder)' : ''),
+                $row->pay_method.' CAPITAL - '.$row->shareHolder?->full_name.($row->isFromShareholderPortal() ? ' (submitted by shareholder)' : ''),
                 null,
                 (float) $row->amount,
                 $row->recorder?->full_name ?? $row->shareHolder?->full_name,
@@ -369,7 +369,7 @@ class PendingApprovals
             ->map(fn (Capital $row): array => $this->row(
                 ApprovalPolicy::ASSET_CONTRIBUTIONS,
                 $row->asset->id,
-                trim(($row->asset->asset_code ?? '').' '.$row->asset->name).' — '.$row->shareHolder?->full_name,
+                trim(($row->asset->asset_code ?? '').' '.$row->asset->name).' - '.$row->shareHolder?->full_name,
                 $row->asset->branch?->name,
                 (float) $row->amount,
                 $row->recorder?->full_name,
@@ -396,7 +396,7 @@ class PendingApprovals
             ->map(fn (ShareIssuanceRequest $row): array => $this->row(
                 ApprovalPolicy::SHARE_ISSUANCES,
                 $row->id,
-                number_format((int) $row->shares).' SHARES — '.$row->shareHolder?->full_name.' ('.$row->pay_method.')',
+                number_format((int) $row->shares).' SHARES - '.$row->shareHolder?->full_name.' ('.$row->pay_method.')',
                 null,
                 (float) $row->total_amount,
                 $row->requester?->full_name,
@@ -462,7 +462,7 @@ class PendingApprovals
                 return array_merge($this->row(
                     ApprovalPolicy::LOAN_APPROVALS,
                     $loan->id,
-                    $stage['label'].' — '.$loan->loan_number.' '.$loan->customer?->full_name,
+                    $stage['label'].' - '.$loan->loan_number.' '.$loan->customer?->full_name,
                     $loan->branch?->name,
                     (float) ($loan->amount_approved ?: $loan->amount_applied),
                     $loan->employee?->full_name,
@@ -490,7 +490,7 @@ class PendingApprovals
             ->map(fn (WriteOffRequest $row): array => $this->row(
                 ApprovalPolicy::WRITE_OFFS,
                 $row->id,
-                'WRITE-OFF — '.$row->loan?->loan_number.' '.$row->loan?->customer?->full_name,
+                'WRITE-OFF - '.$row->loan?->loan_number.' '.$row->loan?->customer?->full_name,
                 $row->branch?->name,
                 $row->loan === null ? 0.0 : (float) $loans->outstanding($row->loan)['total'],
                 $row->requester?->full_name,
@@ -522,7 +522,7 @@ class PendingApprovals
             ->map(fn (ReversalRequest $row): array => $this->row(
                 ApprovalPolicy::REVERSAL_REQUESTS,
                 $row->id,
-                'REVERSAL — '.$requests->describe($row).($row->loan?->customer ? ' '.$row->loan->customer->full_name : ''),
+                'REVERSAL - '.$requests->describe($row).($row->loan?->customer ? ' '.$row->loan->customer->full_name : ''),
                 $row->branch?->name,
                 (float) $row->amount,
                 $row->requester?->full_name,
@@ -554,7 +554,7 @@ class PendingApprovals
             ->map(fn (LegacyImport $import): array => $this->row(
                 self::LEGACY_IMPORTS,
                 $import->id,
-                sprintf('OLD SYSTEM %s — %s (%d rows to import)', strtoupper($import->moduleLabel()), $import->file_name, (int) ($import->totals['importable_rows'] ?? 0)),
+                sprintf('OLD SYSTEM %s - %s (%d rows to import)', strtoupper($import->moduleLabel()), $import->file_name, (int) ($import->totals['importable_rows'] ?? 0)),
                 $import->branch?->name,
                 (float) (($import->totals['loan_outstanding'] ?? 0) + ($import->totals['penalty_outstanding'] ?? 0) + ($import->totals['salary_advance_outstanding'] ?? 0)),
                 ($import->submitter ?? $import->uploader)?->full_name,
@@ -582,7 +582,7 @@ class PendingApprovals
             ->map(fn (SalaryAdvance $row): array => $this->row(
                 ApprovalPolicy::SALARY_ADVANCES,
                 $row->id,
-                'SALARY ADVANCE — '.$row->customer?->full_name,
+                'SALARY ADVANCE - '.$row->customer?->full_name,
                 $row->branch?->name,
                 (float) $row->amount,
                 $row->employee?->full_name,
@@ -611,7 +611,7 @@ class PendingApprovals
             return array_merge($this->row(
                 ApprovalPolicy::STAFF_CREDIT,
                 $row->id,
-                ($labels[$step['action']] ?? '').$label.' — '.$row->employee?->full_name,
+                ($labels[$step['action']] ?? '').$label.' - '.$row->employee?->full_name,
                 $row->branch?->name,
                 $amount,
                 null,
@@ -680,7 +680,7 @@ class PendingApprovals
             ->map(fn (StaffAllowance $row): array => array_merge($this->row(
                 self::ALLOWANCES,
                 $row->id,
-                'ALLOWANCE ('.strtoupper((string) $row->reason).') '.$row->payroll_period?->format('F Y').' — '.$row->employee?->full_name,
+                'ALLOWANCE ('.strtoupper((string) $row->reason).') '.$row->payroll_period?->format('F Y').' - '.$row->employee?->full_name,
                 $row->branch?->name,
                 (float) $row->amount,
                 $row->creator?->full_name,
@@ -713,7 +713,7 @@ class PendingApprovals
             ->map(fn (NegligenceDeduction $row): array => array_merge($this->row(
                 self::NEGLIGENCE_DEDUCTIONS,
                 $row->id,
-                'NEGLIGENCE / LOSS — '.$row->employee?->full_name.': '.Str::limit((string) $row->reason, 80),
+                'NEGLIGENCE / LOSS - '.$row->employee?->full_name.': '.Str::limit((string) $row->reason, 80),
                 $row->branch?->name,
                 (float) $row->amount,
                 $row->creator?->full_name,
@@ -766,7 +766,7 @@ class PendingApprovals
             ->map(fn (Payment $row): array => $this->row(
                 ApprovalPolicy::BRANCH_RECEIPTS,
                 $row->id,
-                strtoupper((string) $row->channel).' '.($row->transaction_id ?? '').' — '.$row->loan?->loan_number.' '.$row->customer?->full_name,
+                strtoupper((string) $row->channel).' '.($row->transaction_id ?? '').' - '.$row->loan?->loan_number.' '.$row->customer?->full_name,
                 $row->branch?->name,
                 (float) $row->amount,
                 $row->employee?->full_name,

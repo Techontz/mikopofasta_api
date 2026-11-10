@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  * - No duplicates: a row whose name already matches a customer is linked to that customer, never to a new one
  *   (matching is company-wide via {@see HistoricalNameMatcher}, so a person penalised in two branches is one
  *   customer). People are grouped on the printed name, so the same name on several rows is one customer. A name that
- *   matches more than one existing customer is left alone and reported — merging is a person's decision.
+ *   matches more than one existing customer is left alone and reported - merging is a person's decision.
  * - A Penalty report prints no phone number, so these customers have none; their remark says where they came from and
  *   that registration must be completed before any new loan. Gender and date of birth are not invented.
  * - A report whose branch does not exist in the system (its rows have no branch to belong to) is skipped and reported.

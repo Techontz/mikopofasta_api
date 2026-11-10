@@ -133,7 +133,7 @@ class SalaryAdvanceApiTest extends TestCase
         $this->assertEquals(0, $ledger->balance($company, Account::Principal), 'OPERATION PRINCIPAL regains the principal, and only the principal');
         $this->assertEquals(4000, $ledger->balance($company, Account::HqInterest), 'Salary advance interest lands in the interest pool (spec §8)');
         $this->assertEquals(0, $ledger->balance($company, Account::SalaryAdvanceReceivable, $branch));
-        // §9: salary advance profit is its own income category — not interest income, and no 20% reserve on it.
+        // §9: salary advance profit is its own income category - not interest income, and no 20% reserve on it.
         $this->assertEquals(4000, $ledger->balance($company, Account::SalaryAdvanceIncome, $branch));
         $this->assertEquals(0, $ledger->balance($company, Account::InterestIncome, $branch));
         $this->assertEquals(0, $ledger->balance($company, Account::InterestReserve, $branch));

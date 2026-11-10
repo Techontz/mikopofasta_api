@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * The DATA half of the credit analysis screen (§37B, §38): everything the engine knows about ONE customer, read from
- * the records that already exist. No figure here is invented and none is scored — {@see CreditAssessment} turns these
+ * the records that already exist. No figure here is invented and none is scored - {@see CreditAssessment} turns these
  * readings into factors, and each reading names the table it came from.
  *
  * Sources per group:
@@ -213,7 +213,7 @@ class CustomerCreditProfile
     }
 
     /**
-     * §38: previous top-ups and offset history — the loans taken as a top-up of an earlier one and the audit rows
+     * §38: previous top-ups and offset history - the loans taken as a top-up of an earlier one and the audit rows
      * (action SETTLED_BY_TOPUP) that record the balance a top-up settled internally.
      *
      * @param  Collection<int, Loan>  $previousLoans
@@ -241,8 +241,8 @@ class CustomerCreditProfile
     }
 
     /**
-     * §38: current obligations — the customer's other repayable loans, outstanding salary advances and unpaid
-     * penalties — and the monthly load they represent. A salary advance is repaid from the next salary and a penalty is
+     * §38: current obligations - the customer's other repayable loans, outstanding salary advances and unpaid
+     * penalties - and the monthly load they represent. A salary advance is repaid from the next salary and a penalty is
      * already due, so both count in full against this month; an open loan counts at its monthly instalment.
      *
      * @param  Collection<int, Loan>  $open
@@ -361,7 +361,7 @@ class CustomerCreditProfile
     }
 
     /**
-     * §42: the customer's historical contribution to income — collected interest and penalty, loan fees deducted at
+     * §42: the customer's historical contribution to income - collected interest and penalty, loan fees deducted at
      * disbursement, salary advance interest actually repaid (payments beyond the advance amount) and salary advance fees
      * actually collected. Reported for the officer's judgement; it carries no weight.
      *
@@ -409,7 +409,7 @@ class CustomerCreditProfile
     }
 
     /**
-     * §38: relationship duration — how long the customer has been on the books and since their first disbursed loan.
+     * §38: relationship duration - how long the customer has been on the books and since their first disbursed loan.
      *
      * @param  Collection<int, Loan>  $disbursed
      * @return array<string, mixed>

@@ -59,10 +59,10 @@ class DashboardStatistics
     /**
      * Stat cards. The green card is:
      *  - the Investment ({@see accountBalances()}: COMPANY ACCOUNT + bank accounts + Investment reserve + assets) for a
-     *    company-wide employee who may see capital — the owners' position, never shown to HQ;
+     *    company-wide employee who may see capital - the owners' position, never shown to HQ;
      *  - HQ funds ({@see hqFunds()}: the PRINCIPAL A/C the company floated to HQ plus the HQ income pools) for every other
      *    company-wide employee (HQ, Finance);
-     *  - the PETTY CASH A/C of their branches ({@see pettyCash()}) for branch- and zone-scoped employees — the only money a
+     *  - the PETTY CASH A/C of their branches ({@see pettyCash()}) for branch- and zone-scoped employees - the only money a
      *    branch holds. Their disbursed today, total loan outstanding and default loan cover those branches only.
      *
      * @param  list<int>|null  $branchIds
@@ -73,7 +73,7 @@ class DashboardStatistics
         $inBranches = fn (Builder $query): Builder => $branchIds === null ? $query : $query->whereIn('branch_id', $branchIds);
 
         $green = match (true) {
-            $branchIds !== null => ['Petty Cash', 'Sent by HQ — spent only with HQ approval', $this->pettyCash($company, $branchIds)],
+            $branchIds !== null => ['Petty Cash', 'Sent by HQ - spent only with HQ approval', $this->pettyCash($company, $branchIds)],
             $investment => ['Account Balance', 'Company A/C + banks + reserve + assets', round(array_sum($this->accountBalances($company)), 2)],
             default => ['HQ Funds', 'Operation principal + income + fund + reserve', $this->hqFundsTotal($company)],
         };
@@ -108,14 +108,14 @@ class DashboardStatistics
     public const HQ_CLAIM_ROWS = ['UNMATCHED', 'SAVINGS', 'PROFIT', 'DIVIDENDS'];
 
     /**
-     * HQ funds — what HQ and Finance see instead of the owners' Investment: exactly six accounts (user ruling 2026-09-17),
+     * HQ funds - what HQ and Finance see instead of the owners' Investment: exactly six accounts (user ruling 2026-09-17),
      * plus UNMATCHED (user request 2026-09-17), every one listed even when empty.
      *  - OPERATION PRINCIPAL: the lending money (PRINCIPAL A/C) the company floated to HQ;
-     *  - OPERATION INCOME: interest (after the 20% reserve), loan fee and penalty — branch pools plus HQ's own accounts,
+     *  - OPERATION INCOME: interest (after the 20% reserve), loan fee and penalty - branch pools plus HQ's own accounts,
      *    one figure (spec §5, presentation only);
      *  - FUND: the single STAFF FUND A/C (spec §25);
      *  - RESERVE: the branch reserve pools plus the HQ reserve;
-     *  - UNMATCHED: money received but not yet matched to a loan — the unallocated amount in Payments → Suspense Account;
+     *  - UNMATCHED: money received but not yet matched to a loan - the unallocated amount in Payments → Suspense Account;
      *  - SAVINGS: customer savings the company holds (SAVING A/C), what Savings → Savings Balance shows;
      *  - PROFIT: profit closed from past months and not yet distributed (RETAINED PROFIT);
      *  - DIVIDENDS: dividends declared and not yet paid (DIVIDEND PAYABLE).
@@ -144,7 +144,7 @@ class DashboardStatistics
     }
 
     /**
-     * The HQ Funds card: the money rows of {@see hqFunds()} — PROFIT and DIVIDENDS are already inside OPERATION INCOME.
+     * The HQ Funds card: the money rows of {@see hqFunds()} - PROFIT and DIVIDENDS are already inside OPERATION INCOME.
      *
      * @param  array<string, float>|null  $rows
      */
@@ -157,7 +157,7 @@ class DashboardStatistics
 
     /**
      * Operating Income (specification §5 and §45): ONE central pool for approved operating expenses, shown as one total with
-     * the income categories it came from. The categories are sources, never extra cash on top of the total — the rows add
+     * the income categories it came from. The categories are sources, never extra cash on top of the total - the rows add
      * up to it exactly. The ledger keeps an INTEREST, LOAN FEE and PENALTY A/C (user ruling: presentation only), so the total
      * is their sum; interest is already net of the 20% reserve, which is not operating income (§6).
      *
@@ -180,7 +180,7 @@ class DashboardStatistics
 
     /**
      * "Company Account List" (Investment) modal: the company account, each bank account, the Investment RESERVE A/C
-     * (only reserve HQ has already sent — it can differ from the HQ reserve), then one Assets row
+     * (only reserve HQ has already sent - it can differ from the HQ reserve), then one Assets row
      * = the total of every fixed asset account (assets contributed as capital).
      *
      * @return array<string, float>
@@ -198,7 +198,7 @@ class DashboardStatistics
 
     /**
      * The memo lines the live account modal prints under TOTAL: what staff still owe on salary advances, and the dividends
-     * declared but not yet paid out. Neither is part of the total — one is money still to come back, the other money already
+     * declared but not yet paid out. Neither is part of the total - one is money still to come back, the other money already
      * promised to the shareholders. DIVIDEND is a company-level liability, so it is the whole company's whatever branches the
      * caller is scoped to.
      *
@@ -220,14 +220,14 @@ class DashboardStatistics
 
     /**
      * "Branch List" modal: one row per real branch (Head Office is not a branch). Every column covers ONE month except PETTY CASH,
-     * which is the balance the branch holds now — the only money a branch holds (user ruling 2026-09-17). The monthly columns
+     * which is the balance the branch holds now - the only money a branch holds (user ruling 2026-09-17). The monthly columns
      * report what the branch generated for HQ:
      *  - principal_repaid: principal its customers paid back (reversed repayments excluded). Already back in HQ's OPERATION
      *    PRINCIPAL, so a report figure, never extra money;
      *  - interest (after the 20% reserve), loan_fee, penalty and reserve: collected in the month, exactly as the Profit & Loss
      *    report counts them ({@see ProfitLossReport::row()}: reversals net out, month-end closing entries excluded);
      *  - salary_advance: the FULL amount its customers repaid on salary advances in the month (capital + profit, reversed
-     *    advances excluded) — a report figure only (user ruling 2026-09-17). The capital is already back in OPERATION
+     *    advances excluded) - a report figure only (user ruling 2026-09-17). The capital is already back in OPERATION
      *    PRINCIPAL and the profit in Salary Advance income; nothing here moves money;
      *  - cash_pending: money the teller collected at the branch in the month (cash, bank or mobile money) that Finance has not yet
      *    verified as banked.
@@ -282,7 +282,7 @@ class DashboardStatistics
      * (entries dated today, month-end closing entries excluded) with the components of the branch Profit & Loss
      * ({@see ProfitLossReport::row()}): interest net of reserve + loan fees + penalties + recoveries = total income;
      * insurance is no longer used and not shown. Capital received, float sent to HQ and
-     * other principal transfers are money movements — never income or expenses (spec Rule 1, §12, §19).
+     * other principal transfers are money movements - never income or expenses (spec Rule 1, §12, §19).
      * $branchIds null = whole company. With branch ids (branch- and zone-scoped employees) every figure covers those branches
      * only and the company money movements (capital, float, principal transfers, expenses paid from the company bank) are null.
      *
@@ -377,7 +377,7 @@ class DashboardStatistics
 
     /**
      * "Penalty (x%)": penalty money collected (paid part of every penalty, including penalties waived after a part payment)
-     * against collected + still outstanding (unwaived penalties' unpaid part) — the same outstanding penalty as
+     * against collected + still outstanding (unwaived penalties' unpaid part) - the same outstanding penalty as
      * {@see LoanService::outstanding()}.
      *
      * @return array{collected: float, remaining: float, due: float, percent: float}
@@ -394,7 +394,7 @@ class DashboardStatistics
     /**
      * Salary advance KPIs over the employee's advances (reversed advances excluded):
      * - received: paid against payable of ACTIVE and DONE advances (Salary Advance Loan Repayment page);
-     * - default: ACTIVE advances with a balance whose repayment cycle has ended — cycle end = the 5th of the month after
+     * - default: ACTIVE advances with a balance whose repayment cycle has ended - cycle end = the 5th of the month after
      *   approval (creation when not yet approved), the rule of the Active Salary Advance page's "old" alert. Percent = unpaid share
      *   of what they owe; collected/due = paid / payable;
      * - customers: active advances, split into new (cycle still running) and old (cycle ended).

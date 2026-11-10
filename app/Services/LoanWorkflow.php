@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Account;
+use App\Enums\LoanMethod;
 use App\Enums\LoanStatus;
 use App\Integrations\BankMandate\BankMandateGateway;
 use App\Integrations\Sms\SmsGateway;
@@ -41,8 +42,8 @@ use Illuminate\Validation\ValidationException;
  * disbursement succeeds; the posting itself is LoanService::withdraw().
  *
  * Disbursement source: Finance chooses where the money is paid from when preparing (and may change it before sending):
- * "cash" = the loan branch's PRINCIPAL A/C — the branch lending cash fund that the COMPANY ACCOUNT floats money into
- * (FloatService) and bank → branch transfers top up — or "bank" = a company bank account. The source is stored on the
+ * "cash" = the loan branch's PRINCIPAL A/C - the branch lending cash fund that the COMPANY ACCOUNT floats money into
+ * (FloatService) and bank → branch transfers top up - or "bank" = a company bank account. The source is stored on the
  * batch, its balance is checked before money is sent, and on success the batch keeps the journal entry
  * (Dr LOAN RECEIVABLE / Cr source). A loan is posted once: batch and loan rows are locked and a loan that already has
  * a successful batch is never posted again (duplicate callbacks, retries and double clicks create no second entry).
@@ -91,7 +92,7 @@ class LoanWorkflow
         // cleared first: a customer is never treated as debt-free because the debt was imported.
         $debt = app(CustomerDebt::class)->summary($customer);
         if ($debt['penalty_without_loan'] > 0.004) {
-            $reasons[] = 'Penalty outstanding without a loan: '.money($debt['penalty_without_loan']).' — clear it before a new loan';
+            $reasons[] = 'Penalty outstanding without a loan: '.money($debt['penalty_without_loan']).' - clear it before a new loan';
         }
 
         $eligibilityReasons = array_values(array_unique($reasons));
@@ -177,9 +178,6 @@ class LoanWorkflow
         // Customer → customer type → active loan category of that type, then the category's limits, then eligibility and freeze.
         $this->eligibility->assertLoanCategoryAvailable($customer, (int) $data['loan_category_id'], 'loan_category_id');
         $this->assertWithinLimits(LoanCategory::findOrFail($data['loan_category_id']), (float) $data['amount_applied'], 'amount_applied');
-        if (LoanCategory::whereKey($data['loan_category_id'])->value('loan_method') === 'phone_bond') {
-            PhoneBond::assertEligible($customer);
-        }
 
         $status = $this->borrowingStatus($customer, $data['loan_category_id'], $data['amount_applied']);
         if (! $status['allowed']) {
@@ -256,6 +254,9 @@ class LoanWorkflow
             if (array_key_exists('start_date', $data)) {
                 $loan->start_date = $data['start_date'];
             }
+            if (array_key_exists('loan_method', $data)) {
+                $loan->loan_method = $data['loan_method'];
+            }
             $loan->setRelation('category', $category);
             $this->loans->price($loan, (float) $data['amount_applied']);
             $loan->save();
@@ -288,7 +289,7 @@ class LoanWorkflow
             $loan->amount_approved = $approvedAmount;
             $this->loans->price($loan, $approvedAmount);
             $loan->approved_at = now();
-            $loan->status = $loan->category->requires_mandate ? LoanStatus::MandatePendingOtp : LoanStatus::PendingCreditReview;
+            $loan->status = $loan->loan_method === LoanMethod::EMandate ? LoanStatus::MandatePendingOtp : LoanStatus::PendingCreditReview;
             $loan->save();
 
             $this->record($loan, 'MANAGER_APPROVED', LoanStatus::PendingManagerApproval, $employee, ['amount_approved' => $approvedAmount]);
@@ -382,7 +383,7 @@ class LoanWorkflow
     }
 
     /**
-     * Credit officer: POST /vodacom/kyc-verify — the name registered on the customer's number must match.
+     * Credit officer: POST /vodacom/kyc-verify - the name registered on the customer's number must match.
      *
      * @return array{matched: bool, registered_name: string|null, message: string}
      */
@@ -469,7 +470,7 @@ class LoanWorkflow
     }
 
     /**
-     * Finance: POST /loans/{id}/prepare-disbursement — generates the batch id.
+     * Finance: POST /loans/{id}/prepare-disbursement - generates the batch id.
      */
     /**
      * @param  array{source_account?: string|null, source_bank_account_id?: int|null}|null  $source
@@ -728,7 +729,7 @@ class LoanWorkflow
     }
 
     /**
-     * POST /loans/{id}/close — only when nothing is outstanding.
+     * POST /loans/{id}/close - only when nothing is outstanding.
      */
     public function close(Loan $loan, Employee $employee): Loan
     {
@@ -849,7 +850,9 @@ class LoanWorkflow
                     $this->record($previous->fresh(), 'SETTLED_BY_TOPUP', $previous->status, $employee, ['amount' => $balance, 'new_loan' => $loan->loan_number]);
                 }
                 // Enhancement §3.4: a Phone Bond top-up keeps the enrolled device and sends Linda the new debt.
-                app(PhoneBond::class)->moveToTopUp($previous, $loan->fresh(), $employee);
+                if ($loan->loan_method === LoanMethod::PhoneBond) {
+                    app(PhoneBond::class)->moveToTopUp($previous, $loan->fresh(), $employee);
+                }
             }
 
             $loan->refresh();

@@ -54,7 +54,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *  - cash confirmed:            Dr Bank (slip bank A/C)          Cr Teller Cash
  *  - unmatched / excess money:  Dr Bank                          Cr Suspense
  *  - any allocation to a loan:  Dr Suspense                      Cr Bank, then LoanService::deposit()
- *    (Dr Principal/Penalty/Interest/Insurance A/C, Cr Loan Receivable / income) — so held money moves
+ *    (Dr Principal/Penalty/Interest/Insurance A/C, Cr Loan Receivable / income) - so held money moves
  *    into the branch fund accounts exactly like a live teller deposit.
  *  - rejected teller cash:      Ledger::reverse() of the receipt entry.
  *  - confirmed money for a WRITTEN-OFF loan (Finance entry, suspense allocation, approved branch receipt, confirmed teller
@@ -126,7 +126,7 @@ class PaymentService
     }
 
     /**
-     * Teller receives a customer payment (POST /payments/cash) — CASH, or BANK / MNO with its bank or network (provider). Every method
+     * Teller receives a customer payment (POST /payments/cash) - CASH, or BANK / MNO with its bank or network (provider). Every method
      * follows the cash process: held as PENDING_VERIFICATION, banked on a deposit slip, posted when Finance verifies the slip.
      * The loan row is locked and the available balance (outstanding − branch money already pending) re-checked inside the
      * transaction, so concurrent receipts cannot exceed the balance. Cash for a written-off loan is accepted up to the
@@ -222,7 +222,7 @@ class PaymentService
      * The teller corrects a slip Finance found MISMATCHED against the bank statement: bank, slip number, date and which receipts it
      * covers. Only the teller who submitted the slip may do this, and only while it is MISMATCH. Receipts taken off the slip go back
      * to PENDING_VERIFICATION (still to bank); the slip returns to PENDING with the old statement check cleared, so Finance verifies
-     * it again. Nothing is posted — a slip posts only when Finance verifies it.
+     * it again. Nothing is posted - a slip posts only when Finance verifies it.
      *
      * @param  array{bank_account_id: int, slip_number: string, amount: float, deposit_date: string}  $data
      * @param  list<int>  $paymentIds
@@ -556,7 +556,7 @@ class PaymentService
 
     /**
      * Finance-entered payment, single step (C6: ENTER → CONFIRMED → ALLOCATED → POSTED), in one transaction with the loan row
-     * locked: the payment is recorded CONFIRMED, the money received (Dr BANK — the bank clearing account; the channel's provider is only a bank or network name /
+     * locked: the payment is recorded CONFIRMED, the money received (Dr BANK - the bank clearing account; the channel's provider is only a bank or network name /
      * Cr SUSPENSE), then allocated (Dr SUSPENSE / Cr BANK and the repayment journal of {@see LoanService::deposit()}, or the
      * recovery journal for a written-off loan) and the payment becomes ALLOCATED. More than the loan's outstanding balance (or the
      * unrecovered write-off) is rejected; a fully recovered or ambiguous write-off takes no entry. transaction_id is unique per
@@ -640,7 +640,7 @@ class PaymentService
 
     /**
      * Branch / teller-entered non-cash receipt (mobile money or bank, C6): recorded PENDING_APPROVAL with its channel and
-     * transaction ID. Nothing is posted — no journal, no loan balance, income, profit, commission or dividend effect — until
+     * transaction ID. Nothing is posted - no journal, no loan balance, income, profit, commission or dividend effect - until
      * Finance approves it ({@see approveBranchReceipt()}). The loan row is locked and the amount checked against the outstanding
      * balance (or unrecovered write-off) less branch money already awaiting Finance.
      *
@@ -692,7 +692,7 @@ class PaymentService
 
     /**
      * Finance approves a pending branch receipt (C6), in one transaction with the payment and loan rows locked and the status
-     * re-checked (a double approval posts once): CONFIRMED, the money received (Dr BANK — the chosen bank A/C, the one on the
+     * re-checked (a double approval posts once): CONFIRMED, the money received (Dr BANK - the chosen bank A/C, the one on the
      * receipt, or the bank clearing account / Cr SUSPENSE), then allocated to the loan like a Finance entry (repayment, or recovery
      * for a written-off loan). What no longer fits the loan (paid meanwhile, fully recovered, ambiguous write-off) stays in suspense
      * on the same payment, UNALLOCATED. The employee who recorded the receipt cannot approve it unless self-approval is granted.
@@ -812,7 +812,7 @@ class PaymentService
     }
 
     /**
-     * Flag suspense money (fraud suspicion / wrong customer) — it stays in suspense.
+     * Flag suspense money (fraud suspicion / wrong customer) - it stays in suspense.
      */
     public function flag(Payment $payment, string $reason): Payment
     {
@@ -853,7 +853,7 @@ class PaymentService
 
     /**
      * Customer statement: every loan transaction with its Principal / Penalty / Interest / Insurance split, and every standing
-     * recovery on a written-off loan (type `recovery`, with its component split — a legacy recovery is interest only; it reduces
+     * recovery on a written-off loan (type `recovery`, with its component split - a legacy recovery is interest only; it reduces
      * the remaining debit). Reversed
      * transactions and recoveries are left out, so they count in no remaining debit or total.
      *
@@ -1036,7 +1036,7 @@ class PaymentService
     }
 
     /**
-     * Money of a reversed loan posting that was received directly (no payment record) — a repayment or a write-off recovery —
+     * Money of a reversed loan posting that was received directly (no payment record) - a repayment or a write-off recovery -
      * held as a new unallocated suspense receipt of the loan's branch (Dr BANK clearing / Cr SUSPENSE), so it can be
      * re-allocated or refunded. Runs inside the caller's transaction.
      */
@@ -1125,7 +1125,7 @@ class PaymentService
     }
 
     /**
-     * Match by loan reference (reference number or loan number) of a repayable loan — or of a WRITTEN-OFF loan, whose money
+     * Match by loan reference (reference number or loan number) of a repayable loan - or of a WRITTEN-OFF loan, whose money
      * is then recorded as a recovery; otherwise by phone when the customer has exactly one repayable loan (never a written-off
      * one). Inferred: ambiguous phone matches go to suspense.
      */
@@ -1204,7 +1204,7 @@ class PaymentService
     /**
      * Write the receipt SMS to sms_logs as "pending" (one insert, inside the caller's transaction) without talking to the
      * provider. {@see self::deliverSmsAfterResponse()} hands it over once the response is out, so posting a repayment never
-     * waits on the SMS gateway — a slip of a hundred receipts used to make a hundred blocking HTTP calls inside the posting
+     * waits on the SMS gateway - a slip of a hundred receipts used to make a hundred blocking HTTP calls inside the posting
      * transaction and ran the request out of time.
      */
     private function recordPaymentSms(Payment $payment, Loan $loan, float $amount): ?SmsLog

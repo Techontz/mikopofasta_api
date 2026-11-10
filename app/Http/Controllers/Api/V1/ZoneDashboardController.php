@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 class ZoneDashboardController extends ApiController
 {
     /**
-     * GET /dashboard/zone?month=YYYY-MM&branch_id= — the Zone Manager dashboard ({@see ZoneDashboard}): the Branch dashboard
+     * GET /dashboard/zone?month=YYYY-MM&branch_id= - the Zone Manager dashboard ({@see ZoneDashboard}): the Branch dashboard
      * of the branches the employee may see (a zone manager's zone) or one of them, with a performance row per branch.
      */
     public function __invoke(Request $request, ZoneDashboard $dashboard, AccessControl $access): JsonResponse

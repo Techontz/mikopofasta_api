@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A "File" report printed by the old system and imported as history (records only — no loans, cash or ledger entries).
+ * A "File" report printed by the old system and imported as history (records only - no loans, cash or ledger entries).
  * printed_totals keeps the TOTAL row as printed, keyed by month number; it is not recomputed from the rows.
  */
 class HistoricalFileReport extends Model

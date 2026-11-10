@@ -9,13 +9,13 @@ use App\Services\Approvals\SegregationOfDuties;
 use Illuminate\Support\Collection;
 
 /**
- * Who may give which role (enhancement §12.3), applied by every path that assigns roles — Settings → Roles, the HRM staff
- * form, the HRM role list, additional roles — and by staff privileges:
+ * Who may give which role (enhancement §12.3), applied by every path that assigns roles - Settings → Roles, the HRM staff
+ * form, the HRM role list, additional roles - and by staff privileges:
  *
  * - Roles & Permissions (editing what a role may do) is for the Super Admin only;
  * - only a Super Admin gives or removes Super Admin; the Shareholder role comes only with a shareholder login;
- * - outside Super Admin and Admin (e.g. HR) nobody gives or removes the protected roles — HR, Admin, Super Admin, Finance,
- *   Credit Officer, Shareholder — nor changes the role or privileges of an employee who holds one.
+ * - outside Super Admin and Admin (e.g. HR) nobody gives or removes the protected roles - HR, Admin, Super Admin, Finance,
+ *   Credit Officer, Shareholder - nor changes the role or privileges of an employee who holds one.
  *
  * The acting role is the one the session currently acts as ({@see ApplyActiveRole}).
  */

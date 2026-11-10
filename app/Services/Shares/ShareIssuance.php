@@ -23,7 +23,7 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Share structure set-up (initial allocation) and new share issuance — the only ways total issued shares grow.
+ * Share structure set-up (initial allocation) and new share issuance - the only ways total issued shares grow.
  *
  * Accounting treatment (the existing ledger, no second engine):
  *  - paid: the subscription amount is recorded through {@see CapitalContributions}: one `capitals` row and one journal
@@ -31,10 +31,10 @@ use Throwable;
  *    to that contribution and journal entry.
  *  - linked_contribution: the money was already recorded as a capital contribution; the share transaction links to it
  *    and no second journal is posted.
- *  - no_cash: founders' allocation without payment or an explicit bonus issuance — no journal.
+ *  - no_cash: founders' allocation without payment or an explicit bonus issuance - no journal.
  *
  * C6 maker/checker: a PAID issuance from Shares → Issue Shares is only requested ({@see self::requestIssuance()}: a
- * `share_issuance_requests` row — no contribution, journal or share transaction). A different authorised user approves it
+ * `share_issuance_requests` row - no contribution, journal or share transaction). A different authorised user approves it
  * ({@see self::approveIssuance()}, which runs {@see self::issue()} dated the approval date) or rejects it. {@see self::issue()}
  * with the paid treatment posts immediately and is for that approval (and internal callers) only. The paid treatment of the
  * one-time initial allocation ({@see self::establish()}) is unchanged.
@@ -130,8 +130,8 @@ class ShareIssuance
 
     /**
      * Approve a pending paid share issuance: a different authorised user than the requester (and than the shareholder's own
-     * login account) posts it — the capital contribution with its journal Dr COMPANY ACCOUNT / bank, Cr CAPITAL ACCOUNT and the
-     * share transaction, dated the approval date at the requested price — in one transaction with the request row locked.
+     * login account) posts it - the capital contribution with its journal Dr COMPANY ACCOUNT / bank, Cr CAPITAL ACCOUNT and the
+     * share transaction, dated the approval date at the requested price - in one transaction with the request row locked.
      *
      * @throws ValidationException
      */

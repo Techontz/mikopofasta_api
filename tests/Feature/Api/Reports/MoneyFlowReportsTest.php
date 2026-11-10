@@ -252,7 +252,7 @@ class MoneyFlowReportsTest extends TestCase
         $this->assertNull($data['finance_kpis']['company_accounts']);
         $this->assertStringNotContainsString('9000000', json_encode($data['cards']).json_encode($data['account_balances']));
 
-        // §5 / §45: one Operating Income total; the categories are its sources and add up to it — never extra cash.
+        // §5 / §45: one Operating Income total; the categories are its sources and add up to it - never extra cash.
         $this->assertEquals(150000 + 50000, $data['operating_income']['total']);
         $this->assertSame(['interest', 'loan_fee', 'penalty'], array_column($data['operating_income']['sources'], 'key'));
         $this->assertEquals($data['operating_income']['total'], array_sum(array_column($data['operating_income']['sources'], 'amount')));
@@ -266,7 +266,7 @@ class MoneyFlowReportsTest extends TestCase
         $ledger->openingBalance($companyId, Account::StaffFundCash, 200000, 'STAFF FUND');
         $ledger->openingBalance($companyId, Account::HqSaving, 25000, 'CUSTOMER SAVINGS', branch: $this->admin->branch_id);
         app(PaymentService::class)->recordUnmatched($companyId, ['amount' => 40000, 'channel' => 'BANK', 'provider' => 'CRDB Bank', 'paid_on' => today()->toDateString()], $this->admin);
-        // A closed month: 300,000 of income now belongs to profit, 90,000 of which was declared as dividends — the cash
+        // A closed month: 300,000 of income now belongs to profit, 90,000 of which was declared as dividends - the cash
         // itself is still in the interest pool.
         $ledger->transfer($companyId, ['account' => Account::RetainedProfit], ['account' => Account::Interest, 'branch' => $this->admin->branch_id], 300000, 'CLOSED MONTH');
         $ledger->transfer($companyId, ['account' => Account::DividendPayable], ['account' => Account::RetainedProfit], 90000, 'DIVIDEND DECLARED');

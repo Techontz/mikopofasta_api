@@ -64,7 +64,7 @@ class PhoneBondController extends LoanApiController
     }
 
     /**
-     * POST phone-bond/devices/{device}/lock | unlock — manual action with a reason.
+     * POST phone-bond/devices/{device}/lock | unlock - manual action with a reason.
      */
     public function action(Request $request, PhoneBondDevice $device, string $action): JsonResponse
     {
@@ -84,7 +84,7 @@ class PhoneBondController extends LoanApiController
     }
 
     /**
-     * POST phone-bond/requests/{lockRequest}/confirm — record Linda's confirmation reference.
+     * POST phone-bond/requests/{lockRequest}/confirm - record Linda's confirmation reference.
      */
     public function confirm(Request $request, PhoneBondLockRequest $lockRequest): JsonResponse
     {

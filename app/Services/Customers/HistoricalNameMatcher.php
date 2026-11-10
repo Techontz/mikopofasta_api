@@ -9,7 +9,7 @@ namespace App\Services\Customers;
  * The printouts abbreviate differently: a File report prints "SHABAN D. MASONJO" and "ALFONCE TEST G. SINKONGE"
  * where a Penalty report prints "SHABAN DAUD MASONJO" and "ALFONCE TEST GOTROP SINKONGE". So a name is read as a
  * surname (the last word) plus the given names before it, and two names are the same person when the surnames are
- * equal and the given names line up — an initial standing for a full name that begins with it.
+ * equal and the given names line up - an initial standing for a full name that begins with it.
  *
  * Only a single letter may abbreviate a word. Two spelled-out words must be equal, so "MARIAM" is not "MARIAMU" and
  * "DOTO" is not "DOTTO": those are left for a person to decide, never merged automatically.
@@ -30,7 +30,7 @@ final class HistoricalNameMatcher
     }
 
     /**
-     * Surname plus first given name, e.g. "SINKONGE|ALFONCE" — the bucket to look a person up in before comparing
+     * Surname plus first given name, e.g. "SINKONGE|ALFONCE" - the bucket to look a person up in before comparing
      * the rest of the name with {@see same()}.
      */
     public static function key(string $name): string
@@ -44,7 +44,7 @@ final class HistoricalNameMatcher
     /**
      * Whether two printed names are the same person: same surname, and given names that line up in order, an initial
      * matching a name that starts with it. A name with fewer given names matches one with more only when the ones it
-     * does have come first ("RIZIKI JORAM" can be "RIZIKI AMANI JORAM") — that is deliberately loose, so callers
+     * does have come first ("RIZIKI JORAM" can be "RIZIKI AMANI JORAM") - that is deliberately loose, so callers
      * accept it only when exactly one candidate matches.
      */
     public static function same(string $a, string $b): bool

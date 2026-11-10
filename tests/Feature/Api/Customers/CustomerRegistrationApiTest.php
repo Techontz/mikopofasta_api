@@ -21,7 +21,7 @@ use Tests\Feature\Api\Customers\Concerns\BuildsCustomerModule;
 use Tests\TestCase;
 
 /**
- * POST /customers — persistence of every type (§8.8), Basic Information (§8.3), MNO / Bank (§8.4) and
+ * POST /customers - persistence of every type (§8.8), Basic Information (§8.3), MNO / Bank (§8.4) and
  * customer-type answers (§8.1 server side).
  */
 class CustomerRegistrationApiTest extends TestCase
@@ -194,7 +194,7 @@ class CustomerRegistrationApiTest extends TestCase
 
         $this->postJson('/api/v1/customers', $this->registrationPayload($admin, ['idTypeId' => $this->ids['nida'], 'idNumber' => null, 'regionId' => null, 'districtId' => null, 'wardId' => null]))
             ->assertUnprocessable()
-            ->assertJsonPath('errors.idTypeId.0', 'An identity document is required — choose the ID type and enter the number shown on it.')
+            ->assertJsonPath('errors.idTypeId.0', 'An identity document is required - choose the ID type and enter the number shown on it.')
             ->assertJsonPath('errors.regionId.0', 'Region is required.')
             ->assertJsonPath('errors.districtId.0', 'District must be selected.');
 
@@ -218,7 +218,7 @@ class CustomerRegistrationApiTest extends TestCase
         $this->postJson('/api/v1/customers', $this->registrationPayload($admin, ['accountTypeId' => 7, 'maritalStatusId' => null]))
             ->assertUnprocessable()
             ->assertJsonPath('errors.maritalStatusId.0', 'Marital status is required for this account type.')
-            ->assertJsonPath('errors.customerCategoryId.0', 'A customer type is required for this account type — it decides which loan products the customer may take.')
+            ->assertJsonPath('errors.customerCategoryId.0', 'A customer type is required for this account type - it decides which loan products the customer may take.')
             ->assertJsonPath('errors.employer.0', 'An employer or place of employment is required for this account type.')
             ->assertJsonPath('errors.workType.0', 'Work type or type of employment is required for this account type.')
             ->assertJsonPath('errors.takeHome.0', 'An income figure is required for this account type.')

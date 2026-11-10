@@ -18,7 +18,7 @@ class DashboardController extends ApiController
      * and for them the green card is their branch PETTY CASH A/C with every other figure covering their branches only.
      *
      * The Investment (the owners' position: Company A/C, banks, Investment reserve, assets) needs capital.view: HQ and Finance
-     * see HQ funds instead — the PRINCIPAL A/C the company floated to HQ plus the HQ income pools.
+     * see HQ funds instead - the PRINCIPAL A/C the company floated to HQ plus the HQ income pools.
      */
     public function __invoke(DashboardStatistics $statistics, AccessControl $access): JsonResponse
     {

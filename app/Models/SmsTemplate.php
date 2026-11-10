@@ -6,7 +6,7 @@ use App\Services\Sms\SmsTemplates;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * SMS centre message: an automatic template (key set: payment_received, repayment_reminder, overdue_reminder — sent by the
+ * SMS centre message: an automatic template (key set: payment_received, repayment_reminder, overdue_reminder - sent by the
  * system, see {@see SmsTemplates}) or an announcement draft (key null) that staff send by hand.
  */
 class SmsTemplate extends Model

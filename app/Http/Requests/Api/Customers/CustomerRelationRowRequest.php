@@ -6,7 +6,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
 /**
- * POST /customers/{customer}/next-of-kin and /guarantors from the profile — the same row rules as registration.
+ * POST /customers/{customer}/next-of-kin and /guarantors from the profile - the same row rules as registration.
  */
 class CustomerRelationRowRequest extends CustomerScopedRequest
 {

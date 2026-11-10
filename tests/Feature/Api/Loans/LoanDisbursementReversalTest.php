@@ -195,7 +195,7 @@ class LoanDisbursementReversalTest extends TestCase
     }
 
     /**
-     * PRINCIPAL A/C is read at company level (HQ, no branch) — the lending cash never sits in a branch account; the fee
+     * PRINCIPAL A/C is read at company level (HQ, no branch) - the lending cash never sits in a branch account; the fee
      * and receivable accounts stay tagged to the branch that originated the loan.
      *
      * @return array<string, float>

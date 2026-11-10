@@ -25,7 +25,7 @@ use Throwable;
  * Asset capital contributions and the Asset Registry lifecycle.
  *
  *  - Contribution (C6 maker/checker): the request writes the `capitals` row (pending) + `assets` row (status pending) +
- *    history in one database transaction — no journal, not counted anywhere. A different authorised user approves it
+ *    history in one database transaction - no journal, not counted anywhere. A different authorised user approves it
  *    ({@see self::approve()}): journal Dr fixed-asset account by type / Cr CAPITAL ACCOUNT dated the approval date, asset
  *    active; or rejects it ({@see self::reject()}): nothing posted, asset status rejected. The Asset ID (AST-000001, per
  *    company) is assigned after insert under a company row lock; the QR token is a random UUID unrelated to the id.
@@ -33,7 +33,7 @@ use Throwable;
  *    and are memo-only history (the chart has no revaluation surplus / impairment accounts), so they never touch
  *    contributed capital or the ledger.
  *  - Transfers (branch), status changes (incl. disposal / write-off) and descriptive edits are history events; disposal and
- *    write-off accounting is not modelled — the asset stays at its contributed cost in the ledger until the contribution
+ *    write-off accounting is not modelled - the asset stays at its contributed cost in the ledger until the contribution
  *    is reversed.
  *  - Reversal (correction): Ledger::reverse of the contribution journal, contribution and asset marked reversed; blocked
  *    while shares issued against the contribution are active.
@@ -289,7 +289,7 @@ class AssetRegistry
                 'valuation_date' => $date->toDateString(),
                 'valued_by' => $data['valued_by'] ?? null,
                 'valuation_reference' => $data['valuation_reference'] ?? null,
-                'accounting' => 'memo only — contributed capital and ledger unchanged',
+                'accounting' => 'memo only - contributed capital and ledger unchanged',
             ], $before, $newValue, $data['reason'], $date->setTimeFrom(now()));
 
             return $asset;

@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 class BranchDashboardController extends ApiController
 {
     /**
-     * GET /dashboard/branch?month=YYYY-MM&branch_id= — the Branch dashboard ({@see BranchDashboard}) of Tellers, Loan
+     * GET /dashboard/branch?month=YYYY-MM&branch_id= - the Branch dashboard ({@see BranchDashboard}) of Tellers, Loan
      * Officers and Branch Managers: the loan book, petty cash, today's collection and disbursement, the portfolio per
      * customer type, the approval queue and the month's pipeline, for the branches the employee may see or one of them.
      */

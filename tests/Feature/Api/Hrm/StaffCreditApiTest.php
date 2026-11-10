@@ -81,7 +81,7 @@ class StaffCreditApiTest extends TestCase
     {
         $category = StaffLoanCategory::create(['company_id' => $this->admin->company_id, 'name' => 'TEST1', 'amount_from' => 1000, 'amount_to' => 10000, 'interest_rate' => 20, 'duration' => 'monthly', 'repayment_from' => 1, 'repayment_to' => 3, 'fee' => 0]);
         $payload = ['blanch_id' => $this->staff->branch_id, 'empl_id' => $this->staff->id, 'category_id' => $category->id, 'loan_amount' => 10000, 'day' => 'monthly', 'session' => 2, 'reason' => 'School fees'];
-        // Requested by HR (also able to pay) so rule 6 — not a permission — blocks the requester below.
+        // Requested by HR (also able to pay) so rule 6 - not a permission - blocks the requester below.
         $requester = $this->requesterWhoCanPay();
         $this->actingAs($requester);
 
@@ -131,7 +131,7 @@ class StaffCreditApiTest extends TestCase
         $category = StaffSalaryAdvanceCategory::create(['company_id' => $this->admin->company_id, 'name' => 'SALARY ADVANCE STAFF', 'amount_from' => 10000, 'amount_to' => 100000, 'fee' => 200]);
         $payload = ['blanch_id' => $this->staff->branch_id, 'empl_id' => $this->staff->id, 'fee' => $category->id];
 
-        // Requested by HR (also able to pay) so rule 6 — not a permission — blocks the requester below.
+        // Requested by HR (also able to pay) so rule 6 - not a permission - blocks the requester below.
         $requester = $this->requesterWhoCanPay();
         $this->actingAs($requester);
         $this->postJson('/api/v1/hrm/salary-advances', $payload + ['advance_amount' => 500])->assertJsonValidationErrors('advance_amount');

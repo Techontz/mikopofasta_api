@@ -30,7 +30,7 @@ use Tests\TestCase;
 
 /**
  * Shareholder capital → ownership → company Cash/Bank → loan disbursement accounting (the owner's TEST 1–8 and the
- * supporting rules): ownership comes only from the share register (shares ÷ total issued shares — the owner superseded
+ * supporting rules): ownership comes only from the share register (shares ÷ total issued shares - the owner superseded
  * the earlier contribution-ratio rule); contributions stay financial records posted Dr Cash/Bank / Cr Capital; internal
  * fund moves are balanced transfers; a loan is disbursed once from the chosen source, Dr Loan Receivable / Cr source.
  */

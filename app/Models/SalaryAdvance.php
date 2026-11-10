@@ -80,7 +80,7 @@ class SalaryAdvance extends Model
 
     /**
      * LEGACY detection: an approval journal of this advance (source = the advance, no fee_journal_entry_id link) that credits
-     * FEE INCOME — approvals before C2 posted Dr LOAN FEE A/C / Cr FEE INCOME together with the advance itself.
+     * FEE INCOME - approvals before C2 posted Dr LOAN FEE A/C / Cr FEE INCOME together with the advance itself.
      */
     public function feePostedAtApproval(): bool
     {

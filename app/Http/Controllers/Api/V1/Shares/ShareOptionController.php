@@ -29,7 +29,7 @@ class ShareOptionController extends SharesController
 
         return response()->json(['data' => $rows->map(fn (array $row): array => [
             'value' => (string) $row['share_holder']->id,
-            'label' => $row['share_holder']->full_name.' — '.number_format($row['shares']).' shares',
+            'label' => $row['share_holder']->full_name.' - '.number_format($row['shares']).' shares',
             'shares' => $row['shares'],
         ])->values()]);
     }
@@ -53,7 +53,7 @@ class ShareOptionController extends SharesController
             ->get()
             ->map(fn (Capital $capital): array => [
                 'value' => (string) $capital->id,
-                'label' => ($capital->asset ? 'ASSET '.$capital->asset->asset_code.' '.$capital->asset->name.' — ' : $capital->pay_method.' — ').number_format((float) $capital->amount).' — '.($capital->contributed_at ?? $capital->created_at)?->toDateString().' — '.($capital->journalEntry?->reference ?? 'no journal'),
+                'label' => ($capital->asset ? 'ASSET '.$capital->asset->asset_code.' '.$capital->asset->name.' - ' : $capital->pay_method.' - ').number_format((float) $capital->amount).' - '.($capital->contributed_at ?? $capital->created_at)?->toDateString().' - '.($capital->journalEntry?->reference ?? 'no journal'),
                 'amount' => (float) $capital->amount,
             ])]);
     }
