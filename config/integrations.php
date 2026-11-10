@@ -50,7 +50,6 @@ return [
         'driver' => env('LINDA_DRIVER', 'none'),
         'grace_days' => (int) env('PHONE_BOND_GRACE_DAYS', 1),
         // Customer types (customer_categories.code) that may not take a Phone Bond loan.
-        'excluded_customer_types' => ['WATUMISHI_WA_UMMA', 'MSTAAFU_UMMA'],
     ],
     'payments' => [
         'driver' => env('PAYMENTS_DRIVER', 'test'),

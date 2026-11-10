@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Duration;
+use App\Enums\LoanMethod;
 use App\Enums\LoanStatus;
 use App\Models\Concerns\Auditable;
 use App\Services\LoanService;
@@ -73,6 +74,7 @@ class Loan extends Model
             'frozen_until' => 'datetime',
             'status' => LoanStatus::class,
             'duration' => Duration::class,
+            'loan_method' => LoanMethod::class,
         ];
     }
 

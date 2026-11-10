@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Account;
+use App\Enums\LoanMethod;
 use App\Enums\LoanStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\TransactionType;
@@ -74,6 +75,7 @@ class LoanService
             'fee_deduct' => $data['fee_deduct'],
             'reason' => $data['reason'],
             'interest_rate' => $category->interest_rate,
+            'loan_method' => $data['loan_method'] ?? LoanMethod::Normal,
             'status' => LoanStatus::PendingManagerApproval,
         ]);
 
@@ -331,16 +333,15 @@ class LoanService
     }
 
     /**
-     * The first repayment date (enhancement §3.2): the loan's Start Date, or - for a loan without one, or one disbursed after
-     * its Start Date had passed - one period after disbursement, as before. Every later due date follows from it.
+     * The first repayment date: one period after the loan's Start Date (set on the application form), whatever day the
+     * loan is disbursed - also when the Start Date has already passed. Only a loan without a Start Date (older records)
+     * counts from its disbursement date. Every later due date follows from it.
      */
     public function firstDueDate(Loan $loan, CarbonImmutable $disbursedOn): CarbonImmutable
     {
-        $start = $loan->start_date ? CarbonImmutable::parse($loan->start_date)->startOfDay() : null;
+        $start = $loan->start_date ? CarbonImmutable::parse($loan->start_date)->startOfDay() : $disbursedOn;
 
-        return $start !== null && $start->greaterThanOrEqualTo($disbursedOn->startOfDay())
-            ? $start
-            : $loan->duration->addPeriods($disbursedOn, 1);
+        return $loan->duration->addPeriods($start, 1);
     }
 
     /**

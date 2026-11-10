@@ -527,7 +527,6 @@ class LoanController extends LoanApiController
                 'repayment_from' => $category->repayment_from,
                 'repayment_to' => $category->repayment_to,
                 'fee_deduct' => $category->fee_deduct,
-                'requires_mandate' => (bool) $category->requires_mandate,
                 'topup_percent' => (float) $category->topup_percent,
                 'freeze_time_days' => (int) $category->freeze_time_days,
             ]);

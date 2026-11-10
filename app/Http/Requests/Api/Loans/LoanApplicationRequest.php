@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\Loans;
 
+use App\Enums\LoanMethod;
 use App\Http\Requests\Loans\LoanApplicationRequest as LiveLoanApplicationRequest;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
@@ -22,6 +23,8 @@ class LoanApplicationRequest extends LiveLoanApplicationRequest
         $rules['instalment'] = ['nullable', 'numeric', 'min:0'];
         // Enhancement §3.2: the first repayment date, today or later (the schedule is built from it at disbursement).
         $rules['start_date'] = ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'];
+        // Normal, E-Mandate or Phone Bond, for any loan category; a new loan without it is Normal.
+        $rules['loan_method'] = ['nullable', Rule::enum(LoanMethod::class)];
 
         if ($this->isMethod('post')) {
             $rules['customer_id'] = ['required', Rule::exists('customers', 'id')->where('company_id', $this->user()->company_id)];
@@ -44,15 +47,17 @@ class LoanApplicationRequest extends LiveLoanApplicationRequest
             'rate' => 'interest formula',
             'fee_status' => 'deducted fee',
             'start_date' => 'start date',
+            'loan_method' => 'loan method',
         ];
     }
 
     /**
-     * @return array{loan_category_id: int, group_id: int|null, amount_applied: float, sessions: int, formula: string, fee_deduct: bool, reason: string, instalment: float, start_date?: string|null}
+     * @return array{loan_category_id: int, group_id: int|null, amount_applied: float, sessions: int, formula: string, fee_deduct: bool, reason: string, instalment: float, start_date?: string|null, loan_method?: string}
      */
     public function loanData(): array
     {
         return parent::loanData() + ['instalment' => (float) $this->input('instalment', 0)]
-            + ($this->has('start_date') ? ['start_date' => $this->filled('start_date') ? $this->string('start_date')->toString() : null] : []);
+            + ($this->has('start_date') ? ['start_date' => $this->filled('start_date') ? $this->string('start_date')->toString() : null] : [])
+            + ($this->filled('loan_method') ? ['loan_method' => $this->string('loan_method')->toString()] : []);
     }
 }

@@ -61,8 +61,9 @@ class LoanStartDateAndStageReturnTest extends TestCase
         $start = today()->addDays(12);
         $loan = $this->toActive(['start_date' => $start->toDateString()]);
 
-        $this->assertSame([$start->toDateString()], $loan->schedules()->pluck('due_date')->map(fn ($date): string => substr((string) $date, 0, 10))->all());
-        $this->assertSame($start->toDateString(), $loan->end_date->toDateString());
+        $firstDue = $loan->duration->addPeriods($start->toImmutable(), 1)->toDateString();
+        $this->assertSame([$firstDue], $loan->schedules()->pluck('due_date')->map(fn ($date): string => substr((string) $date, 0, 10))->all());
+        $this->assertSame($firstDue, $loan->end_date->toDateString());
         $this->getJson(route('api.v1.loans.show', $loan))->assertOk()->assertJsonPath('data.loan.start_date', $start->toDateString());
     }
 
@@ -73,16 +74,17 @@ class LoanStartDateAndStageReturnTest extends TestCase
         $this->assertSame($loan->duration->addPeriods(today()->toImmutable(), 1)->toDateString(), substr((string) $loan->schedules()->value('due_date'), 0, 10));
     }
 
-    public function test_a_start_date_passed_before_disbursement_starts_one_period_after_disbursement_and_is_recorded(): void
+    public function test_a_start_date_passed_before_disbursement_still_sets_the_schedule_and_is_recorded(): void
     {
-        $loan = $this->toFinance(['start_date' => today()->addDay()->toDateString()]);
+        $start = today()->addDay()->toImmutable();
+        $loan = $this->toFinance(['start_date' => $start->toDateString()]);
         $this->travel(5)->days();
 
         $this->postJson(route('api.v1.loans.prepare-disbursement', $loan))->assertOk();
         $this->postJson(route('api.v1.loans.disburse', $loan))->assertOk();
 
         $loan->refresh();
-        $this->assertSame($loan->duration->addPeriods(today()->toImmutable(), 1)->toDateString(), substr((string) $loan->schedules()->value('due_date'), 0, 10));
+        $this->assertSame($loan->duration->addPeriods($start, 1)->toDateString(), substr((string) $loan->schedules()->value('due_date'), 0, 10));
         $this->assertTrue(AuditLog::where('auditable_id', $loan->id)->where('action', 'DISBURSED')->sole()->context['start_date_passed']);
     }
 

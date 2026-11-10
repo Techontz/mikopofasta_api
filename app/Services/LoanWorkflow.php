@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Account;
+use App\Enums\LoanMethod;
 use App\Enums\LoanStatus;
 use App\Integrations\BankMandate\BankMandateGateway;
 use App\Integrations\Sms\SmsGateway;
@@ -177,9 +178,6 @@ class LoanWorkflow
         // Customer → customer type → active loan category of that type, then the category's limits, then eligibility and freeze.
         $this->eligibility->assertLoanCategoryAvailable($customer, (int) $data['loan_category_id'], 'loan_category_id');
         $this->assertWithinLimits(LoanCategory::findOrFail($data['loan_category_id']), (float) $data['amount_applied'], 'amount_applied');
-        if (LoanCategory::whereKey($data['loan_category_id'])->value('loan_method') === 'phone_bond') {
-            PhoneBond::assertEligible($customer);
-        }
 
         $status = $this->borrowingStatus($customer, $data['loan_category_id'], $data['amount_applied']);
         if (! $status['allowed']) {
@@ -256,6 +254,9 @@ class LoanWorkflow
             if (array_key_exists('start_date', $data)) {
                 $loan->start_date = $data['start_date'];
             }
+            if (array_key_exists('loan_method', $data)) {
+                $loan->loan_method = $data['loan_method'];
+            }
             $loan->setRelation('category', $category);
             $this->loans->price($loan, (float) $data['amount_applied']);
             $loan->save();
@@ -288,7 +289,7 @@ class LoanWorkflow
             $loan->amount_approved = $approvedAmount;
             $this->loans->price($loan, $approvedAmount);
             $loan->approved_at = now();
-            $loan->status = $loan->category->requires_mandate ? LoanStatus::MandatePendingOtp : LoanStatus::PendingCreditReview;
+            $loan->status = $loan->loan_method === LoanMethod::EMandate ? LoanStatus::MandatePendingOtp : LoanStatus::PendingCreditReview;
             $loan->save();
 
             $this->record($loan, 'MANAGER_APPROVED', LoanStatus::PendingManagerApproval, $employee, ['amount_approved' => $approvedAmount]);
@@ -849,7 +850,9 @@ class LoanWorkflow
                     $this->record($previous->fresh(), 'SETTLED_BY_TOPUP', $previous->status, $employee, ['amount' => $balance, 'new_loan' => $loan->loan_number]);
                 }
                 // Enhancement §3.4: a Phone Bond top-up keeps the enrolled device and sends Linda the new debt.
-                app(PhoneBond::class)->moveToTopUp($previous, $loan->fresh(), $employee);
+                if ($loan->loan_method === LoanMethod::PhoneBond) {
+                    app(PhoneBond::class)->moveToTopUp($previous, $loan->fresh(), $employee);
+                }
             }
 
             $loan->refresh();

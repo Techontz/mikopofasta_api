@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\LoanMethod;
 use App\Enums\LoanStatus;
 use App\Integrations\Linda\LindaGateway;
 use App\Integrations\Linda\LindaResult;
 use App\Models\AuditLog;
-use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Loan;
 use App\Models\PhoneBondDevice;
@@ -18,8 +18,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * Phone Bond within M-KopaCredit (enhancement §5): the customer's phone, enrolled with Linda, secures the loan.
  *
- * - Only Traders/Entrepreneurs, Private Sector Employees and University/College Students may take it (never Public Servants
- *   or Retired Public Servants - `integrations.linda.excluded_customer_types`).
+ * - Any customer may take it: the loan method is chosen on the loan application form.
  * - A loan whose due instalment is still unpaid after the grace day is locked through Linda automatically; once it has no
  *   arrears it is unlocked. Authorised staff may lock or unlock by hand, with a reason.
  * - Nothing is reported locked or unlocked before Linda confirms it: a request Linda only accepts stays pending, a refusal
@@ -36,23 +35,11 @@ class PhoneBond
     ) {}
 
     /**
-     * @throws ValidationException
-     */
-    public static function assertEligible(Customer $customer): void
-    {
-        $code = $customer->customerCategory?->code;
-        if ($code !== null && in_array($code, config('integrations.linda.excluded_customer_types', []), true)) {
-            throw ValidationException::withMessages(['category_id' => 'Phone Bond is not available to Public Servants or Retired Public Servants.']);
-        }
-    }
-
-    /**
      * @param  array{imei: string, serial_number?: string|null, brand?: string|null, model?: string|null, phone_number?: string|null, linda_device_id?: string|null, sim_protection?: bool|null}  $data
      */
     public function register(Loan $loan, array $data, Employee $actor): PhoneBondDevice
     {
-        self::assertEligible($loan->customer);
-        if ($loan->category?->loan_method !== 'phone_bond') {
+        if ($loan->loan_method !== LoanMethod::PhoneBond) {
             throw ValidationException::withMessages(['loan_id' => 'Only a Phone Bond loan takes a device.']);
         }
         if (PhoneBondDevice::where('loan_id', $loan->id)->whereIn('status', [PhoneBondDevice::ACTIVE, PhoneBondDevice::DONE])->exists()) {
