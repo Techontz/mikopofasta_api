@@ -3,6 +3,7 @@
 namespace App\Services\Customers;
 
 use App\Models\Customer;
+use App\Models\Employee;
 use Carbon\CarbonImmutable;
 
 /**
@@ -63,7 +64,13 @@ class KycStatusCalculator
         $status = $this->status($customer);
 
         if ($customer->kyc_status !== $status) {
+            $completedNow = $status === self::COMPLETED && $customer->exists && ! $customer->wasRecentlyCreated;
             $customer->forceFill(['kyc_status' => $status])->save();
+
+            if ($completedNow) {
+                $actor = auth()->user();
+                app(CustomerActivityNotifier::class)->kycCompleted($customer, $actor instanceof Employee ? $actor : null);
+            }
         }
 
         return $status;
