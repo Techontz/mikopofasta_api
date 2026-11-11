@@ -150,11 +150,13 @@ class LoanLifecycleApiTest extends TestCase
         $loan = Loan::latest('id')->firstOrFail();
         $this->assertSame('normal', $loan->loan_method->value);
 
-        $this->putJson(route('api.v1.loans.update', $loan), $this->form(['loan_method' => 'phone_bond']))->assertOk();
+        // eSIMU needs an enrolled phone (covered by EsimuTest); any other method can be chosen on any category.
+        $this->putJson(route('api.v1.loans.update', $loan), $this->form(['loan_method' => 'phone_bond']))->assertUnprocessable()->assertJsonValidationErrors('device_id');
+        $this->putJson(route('api.v1.loans.update', $loan), $this->form(['loan_method' => 'e_mandate']))->assertOk();
         $loan->refresh();
-        $this->assertSame('phone_bond', $loan->loan_method->value);
+        $this->assertSame('e_mandate', $loan->loan_method->value);
         $this->assertSame($this->category->id, $loan->loan_category_id);
-        $this->getJson(route('api.v1.loans.show', $loan))->assertOk()->assertJsonPath('data.loan.loan_method', 'phone_bond');
+        $this->getJson(route('api.v1.loans.show', $loan))->assertOk()->assertJsonPath('data.loan.loan_method', 'e_mandate');
     }
 
     public function test_mandate_product_requires_otp_before_credit_review(): void

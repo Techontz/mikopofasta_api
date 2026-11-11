@@ -328,6 +328,11 @@ class LoanService
                 $this->close($loan, $date);
             }
 
+            // eSIMU: once the repayment is committed, a phone whose arrears are cleared is unlocked through Linda.
+            if ($loan->loan_method === LoanMethod::PhoneBond) {
+                DB::afterCommit(fn () => app(PhoneBond::class)->afterRepayment($loan));
+            }
+
             return $transaction;
         });
     }

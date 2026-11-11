@@ -40,8 +40,8 @@ class SmsCentreApiTest extends TestCase
 
     public function test_the_payment_receipt_uses_the_companys_wording_and_can_be_switched_off(): void
     {
-        $templates = $this->getJson('/api/v1/sms/templates')->assertOk()->assertJsonCount(3, 'data')->json('data');
-        $this->assertSame([SmsTemplates::PAYMENT_RECEIVED, SmsTemplates::REPAYMENT_REMINDER, SmsTemplates::OVERDUE_REMINDER], array_column($templates, 'key'));
+        $templates = $this->getJson('/api/v1/sms/templates')->assertOk()->assertJsonCount(4, 'data')->json('data');
+        $this->assertSame([SmsTemplates::PAYMENT_RECEIVED, SmsTemplates::REPAYMENT_REMINDER, SmsTemplates::OVERDUE_REMINDER, SmsTemplates::ESIMU_LOCK_WARNING], array_column($templates, 'key'));
         $payment = $templates[0];
 
         $this->putJson("/api/v1/sms/templates/{$payment['id']}", ['body' => 'Asante {name}! Rejesho TSH {amount} limepokelewa, salio TSH {balance}. Risiti {receipt}', 'is_active' => true])->assertOk();

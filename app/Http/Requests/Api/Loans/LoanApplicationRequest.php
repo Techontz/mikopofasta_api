@@ -25,6 +25,9 @@ class LoanApplicationRequest extends LiveLoanApplicationRequest
         $rules['start_date'] = ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'];
         // Normal, E-Mandate or Phone Bond, for any loan category; a new loan without it is Normal.
         $rules['loan_method'] = ['nullable', Rule::enum(LoanMethod::class)];
+        // eSIMU: the enrolled phone securing the loan, and the Loan Officer's inspection when it secured an earlier loan.
+        $rules['device_id'] = ['nullable', 'integer'];
+        $rules['device_inspected'] = ['nullable', 'boolean'];
 
         if ($this->isMethod('post')) {
             $rules['customer_id'] = ['required', Rule::exists('customers', 'id')->where('company_id', $this->user()->company_id)];
@@ -48,16 +51,18 @@ class LoanApplicationRequest extends LiveLoanApplicationRequest
             'fee_status' => 'deducted fee',
             'start_date' => 'start date',
             'loan_method' => 'loan method',
+            'device_id' => 'eSIMU device',
         ];
     }
 
     /**
-     * @return array{loan_category_id: int, group_id: int|null, amount_applied: float, sessions: int, formula: string, fee_deduct: bool, reason: string, instalment: float, start_date?: string|null, loan_method?: string}
+     * @return array{loan_category_id: int, group_id: int|null, amount_applied: float, sessions: int, formula: string, fee_deduct: bool, reason: string, instalment: float, start_date?: string|null, loan_method?: string, device_id?: int, device_inspected?: bool}
      */
     public function loanData(): array
     {
         return parent::loanData() + ['instalment' => (float) $this->input('instalment', 0)]
             + ($this->has('start_date') ? ['start_date' => $this->filled('start_date') ? $this->string('start_date')->toString() : null] : [])
-            + ($this->filled('loan_method') ? ['loan_method' => $this->string('loan_method')->toString()] : []);
+            + ($this->filled('loan_method') ? ['loan_method' => $this->string('loan_method')->toString()] : [])
+            + ($this->filled('device_id') ? ['device_id' => $this->integer('device_id'), 'device_inspected' => $this->boolean('device_inspected')] : []);
     }
 }

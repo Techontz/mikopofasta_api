@@ -2,28 +2,46 @@
 
 namespace App\Integrations\Linda;
 
-use App\Models\PhoneBondDevice;
-
 /**
- * Default driver while Linda's API documentation and credentials are not available: every request is refused, so nothing is
- * ever reported as locked or unlocked without Linda's confirmation. Staff act in the Linda portal and record its reference.
+ * Default driver until LINDA_DRIVER=http and a key are set: every call is refused (not retried), so nothing is ever reported
+ * registered, enrolled, locked or unlocked without Linda. Staff act in the Linda portal and record its reference.
  */
 class UnconfiguredLindaGateway implements LindaGateway
 {
-    public const MESSAGE = 'The Linda integration is not configured (API documentation and credentials are required). Act in the Linda portal and record its reference.';
+    public const MESSAGE = 'The Linda integration is not configured (LINDA_DRIVER and LINDA_API_KEY). Act in the Linda portal and record its reference.';
 
-    public function lock(PhoneBondDevice $device, string $reason): LindaResult
+    public function register(array $customer, array $device): LindaResult
     {
-        return new LindaResult(false, false, null, self::MESSAGE);
+        return $this->refuse();
     }
 
-    public function unlock(PhoneBondDevice $device, string $reason): LindaResult
+    public function enrollment(string $deviceId): LindaResult
     {
-        return new LindaResult(false, false, null, self::MESSAGE);
+        return $this->refuse();
     }
 
-    public function updateDebt(PhoneBondDevice $device, float $amount): LindaResult
+    public function device(string $deviceId): LindaResult
     {
-        return new LindaResult(false, false, null, self::MESSAGE);
+        return $this->refuse();
+    }
+
+    public function lock(string $deviceId, string $reason, string $idempotencyKey): LindaResult
+    {
+        return $this->refuse();
+    }
+
+    public function unlock(string $deviceId, string $reason, string $idempotencyKey): LindaResult
+    {
+        return $this->refuse();
+    }
+
+    public function command(string $commandId): LindaResult
+    {
+        return $this->refuse();
+    }
+
+    private function refuse(): LindaResult
+    {
+        return new LindaResult(false, 0, [], self::MESSAGE);
     }
 }

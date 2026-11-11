@@ -44,12 +44,24 @@ return [
         'provider' => env('BANK_MANDATE_PROVIDER', 'bank'),
         'collection_fields' => null,
     ],
-    // Phone Bond devices (enhancement §5, https://linda.co.tz/). Driver "none" until Linda's API documentation and credentials
-    // exist; "test" for automated tests. No HTTP driver is shipped: none can be written without the documentation.
+    // eSIMU (the Phone Bond loan method): smartphones enrolled with Linda Device Lock (Partner API v1,
+    // https://api.linda.co.tz/v1/partner). Driver "http" for the live API, "test" for automated tests, "none" (default) refuses
+    // every call so nothing is ever reported registered, enrolled, locked or unlocked. The key and the webhook signing secret
+    // come from the Linda console (Developers) and live only in the server environment.
     'linda' => [
         'driver' => env('LINDA_DRIVER', 'none'),
-        'grace_days' => (int) env('PHONE_BOND_GRACE_DAYS', 1),
-        // Customer types (customer_categories.code) that may not take a Phone Bond loan.
+        'base_url' => env('LINDA_BASE_URL', 'https://api.linda.co.tz/v1/partner'),
+        'api_key' => env('LINDA_API_KEY'),
+        'webhook_secret' => env('LINDA_WEBHOOK_SECRET'),
+        'timeout' => (int) env('LINDA_TIMEOUT', 15),
+        // Days after an instalment's due date before an unpaid instalment locks the phone: 0 = the morning after the due date.
+        'grace_days' => (int) env('PHONE_BOND_GRACE_DAYS', 0),
+        // Local time of the eSIMU evening warning and of the next-morning lock run.
+        'timezone' => env('ESIMU_TIMEZONE', 'Africa/Dar_es_Salaam'),
+        'warning_at' => env('ESIMU_WARNING_AT', '18:00'),
+        'lock_at' => env('ESIMU_LOCK_AT', '08:00'),
+        // Hours a lock / unlock may stay queued at Linda (phone off or out of signal) before staff are alerted.
+        'command_alert_hours' => (int) env('ESIMU_COMMAND_ALERT_HOURS', 24),
     ],
     'payments' => [
         'driver' => env('PAYMENTS_DRIVER', 'test'),

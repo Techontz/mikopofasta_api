@@ -8,7 +8,8 @@ use App\Models\SmsTemplate;
  * The SMS the system sends by itself, worded by the company (SMS Centre → Templates):
  *  - payment_received: the "rejesho" receipt texted as soon as a repayment is allocated to a loan;
  *  - repayment_reminder: texted `days` days before an instalment falls due ({@see SmsReminders});
- *  - overdue_reminder: texted `days` days after an instalment was due and is still unpaid.
+ *  - overdue_reminder: texted `days` days after an instalment was due and is still unpaid;
+ *  - esimu_lock_warning: texted the evening of an eSIMU instalment's due date when it is not fully paid.
  * Each company starts with the default wording below; a template switched off is simply not sent. Placeholders in
  * braces ({name}, {amount}…) are filled from the payment or the instalment.
  */
@@ -19,6 +20,8 @@ class SmsTemplates
     public const REPAYMENT_REMINDER = 'repayment_reminder';
 
     public const OVERDUE_REMINDER = 'overdue_reminder';
+
+    public const ESIMU_LOCK_WARNING = 'esimu_lock_warning';
 
     /**
      * @var array<string, array{name: string, body: string, days: int|null, variables: list<string>}>
@@ -40,6 +43,12 @@ class SmsTemplates
             'name' => 'Overdue reminder',
             'body' => 'Habari {name}, rejesho lako la TSH {amount} lililotakiwa tarehe {due_date} bado halijalipwa. Tafadhali lipa mapema. {company}.',
             'days' => 1,
+            'variables' => ['name', 'amount', 'due_date', 'balance', 'loan_number', 'company'],
+        ],
+        self::ESIMU_LOCK_WARNING => [
+            'name' => 'eSIMU lock warning (evening of the due date)',
+            'body' => 'Habari {name}, rejesho la leo la TSH {amount} la mkopo {loan_number} bado halijakamilika. Usipolipa kikamilifu, simu yako itafungwa kesho asubuhi. {company}.',
+            'days' => null,
             'variables' => ['name', 'amount', 'due_date', 'balance', 'loan_number', 'company'],
         ],
     ];

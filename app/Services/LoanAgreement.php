@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Duration;
+use App\Enums\LoanMethod;
 use App\Enums\LoanStatus;
 use App\Models\AuditLog;
 use App\Models\Customer;
@@ -106,7 +107,7 @@ class LoanAgreement
                 'type' => $collateral->type,
                 'location' => $collateral->location,
                 'value' => (float) $collateral->value,
-            ])->values()->all(),
+            ])->values()->concat($this->esimuCollateral($loan))->all(),
             'next_of_kin' => $customer->nextOfKins->map(fn ($kin): array => [
                 'full_name' => trim("{$kin->first_name} {$kin->middle_name} {$kin->last_name}") ?: $kin->name,
                 'phone' => $kin->phone,
@@ -166,5 +167,25 @@ class LoanAgreement
             ->where('action', 'MANAGER_APPROVED')
             ->latest('id')
             ->first()?->employee?->full_name;
+    }
+
+    /**
+     * eSIMU: the enrolled smartphone securing the loan, shown under "Dhamana Zilizowekwa" (make and model, IMEI).
+     *
+     * @return list<array{name: string, type: string, location: string, value: null}>
+     */
+    private function esimuCollateral(Loan $loan): array
+    {
+        $device = $loan->loan_method === LoanMethod::PhoneBond ? app(PhoneBond::class)->deviceFor($loan) : null;
+        if ($device === null) {
+            return [];
+        }
+
+        return [[
+            'name' => trim('Simu janja '.$device->brand.' '.$device->model),
+            'type' => 'eSIMU (Linda Device Lock)',
+            'location' => 'IMEI '.$device->imei,
+            'value' => null,
+        ]];
     }
 }

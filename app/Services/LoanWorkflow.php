@@ -20,6 +20,8 @@ use App\Models\LoanDisbursement;
 use App\Models\LoanMandate;
 use App\Models\LoanOffset;
 use App\Models\LoanTransaction;
+use App\Models\PhoneBondDevice;
+use App\Models\PhoneBondDeviceLoan;
 use App\Models\SmsLog;
 use App\Services\Approvals\SegregationOfDuties;
 use App\Services\Credit\CreditAssessment;
@@ -183,9 +185,13 @@ class LoanWorkflow
         if (! $status['allowed']) {
             throw ValidationException::withMessages(['customer_id' => $status['reasons']]);
         }
+        $device = $this->esimuDevice($customer, $data, $status['topup']['loan_id'] ?? null);
 
-        $loan = DB::transaction(function () use ($customer, $data, $employee, $status): Loan {
+        $loan = DB::transaction(function () use ($customer, $data, $employee, $status, $device): Loan {
             $loan = $this->loans->apply($customer, $data, $employee);
+            if ($device !== null) {
+                app(PhoneBond::class)->link($loan, $device, 'application', $employee);
+            }
             if (filled($data['start_date'] ?? null)) {
                 $loan->update(['start_date' => $data['start_date']]);
             }
@@ -200,6 +206,57 @@ class LoanWorkflow
         $this->recordCreditAssessment($loan, $employee);
 
         return $loan;
+    }
+
+    /**
+     * eSIMU: an application can only be submitted with an enrolled phone the customer may use as collateral. A top-up keeps
+     * the phone securing the current loan (it moves to the top-up at disbursement), so it needs none.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function esimuDevice(Customer $customer, array $data, ?int $topupOfLoanId): ?PhoneBondDevice
+    {
+        if (($data['loan_method'] ?? null) !== LoanMethod::PhoneBond->value) {
+            return null;
+        }
+
+        $phoneBond = app(PhoneBond::class);
+        $topupDevice = $topupOfLoanId !== null ? $phoneBond->deviceFor(Loan::findOrFail($topupOfLoanId)) : null;
+        if ($topupDevice !== null && (empty($data['device_id']) || (int) $data['device_id'] === $topupDevice->id)) {
+            return null;
+        }
+        if (empty($data['device_id'])) {
+            throw ValidationException::withMessages(['device_id' => 'Register the eSIMU device and confirm its Linda enrollment before submitting.']);
+        }
+
+        return $phoneBond->assertCanSecure($customer, (int) $data['device_id'], (bool) ($data['device_inspected'] ?? false));
+    }
+
+    /**
+     * eSIMU on an edited or resubmitted application: a newly chosen phone replaces the one on the application; an
+     * application changed to another loan method gives its phone back. The phone is never re-registered.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function relinkEsimuDevice(Loan $loan, array $data, Employee $employee): void
+    {
+        $phoneBond = app(PhoneBond::class);
+        $current = $phoneBond->deviceFor($loan);
+
+        if ($loan->loan_method !== LoanMethod::PhoneBond) {
+            if ($current !== null) {
+                PhoneBondDeviceLoan::where('loan_id', $loan->id)->whereNull('unlinked_at')->update(['unlinked_at' => now(), 'unlinked_reason' => 'Loan method changed']);
+            }
+
+            return;
+        }
+
+        if (! empty($data['device_id']) && (int) $data['device_id'] !== $current?->id) {
+            $device = $phoneBond->assertCanSecure($loan->customer, (int) $data['device_id'], (bool) ($data['device_inspected'] ?? false), $loan);
+            $phoneBond->link($loan, $device, 'application', $employee);
+        } elseif ($current === null && $loan->topup_of_loan_id === null) {
+            throw ValidationException::withMessages(['device_id' => 'Register the eSIMU device and confirm its Linda enrollment before submitting.']);
+        }
     }
 
     /**
@@ -260,6 +317,7 @@ class LoanWorkflow
             $loan->setRelation('category', $category);
             $this->loans->price($loan, (float) $data['amount_applied']);
             $loan->save();
+            $this->relinkEsimuDevice($loan, $data, $employee);
 
             $this->record($loan, $from === LoanStatus::Returned ? 'RESUBMITTED' : 'MODIFIED', $from, $employee);
 
@@ -849,7 +907,7 @@ class LoanWorkflow
                     $this->recordOffset($loan, $previous, $settlement, (float) $disbursement->amount);
                     $this->record($previous->fresh(), 'SETTLED_BY_TOPUP', $previous->status, $employee, ['amount' => $balance, 'new_loan' => $loan->loan_number]);
                 }
-                // Enhancement §3.4: a Phone Bond top-up keeps the enrolled device and sends Linda the new debt.
+                // eSIMU: a top-up keeps the enrolled phone (no new registration or QR); it now secures the top-up loan.
                 if ($loan->loan_method === LoanMethod::PhoneBond) {
                     app(PhoneBond::class)->moveToTopUp($previous, $loan->fresh(), $employee);
                 }
