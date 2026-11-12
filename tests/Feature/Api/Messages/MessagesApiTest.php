@@ -89,13 +89,14 @@ class MessagesApiTest extends TestCase
             ->assertCreated()->assertJsonPath('message', 'Message sent successfully')->json('data.id');
 
         $this->actingAs($s['managerA']);
-        $this->getJson('/api/v1/messages/unread')->assertOk()->assertJsonPath('data.count', 1);
+        $this->getJson('/api/v1/messages/unread')->assertOk()->assertJsonPath('data.count', 1)
+            ->assertJsonPath('data.latest.from', $s['officerA']->full_name)->assertJsonPath('data.latest.conversation_id', $conversationId)->assertJsonPath('data.latest.preview', 'Mteja ameomba mkopo mkubwa');
         $this->getJson('/api/v1/messages/conversations')->assertOk()
             ->assertJsonPath('data.0.title', $s['officerA']->full_name)
             ->assertJsonPath('data.0.unread_count', 1);
 
         $thread = $this->getJson("/api/v1/messages/conversations/{$conversationId}")->assertOk()->assertJsonCount(1, 'data.messages');
-        $this->getJson('/api/v1/messages/unread')->assertJsonPath('data.count', 0);
+        $this->getJson('/api/v1/messages/unread')->assertJsonPath('data.count', 0)->assertJsonPath('data.latest', null);
 
         $this->postJson("/api/v1/messages/conversations/{$conversationId}/messages", ['body' => 'Sawa, nitaangalia'])->assertCreated();
         $this->postJson('/api/v1/messages/conversations', ['employee_id' => $s['officerA']->id, 'body' => 'Tuma fomu'])
