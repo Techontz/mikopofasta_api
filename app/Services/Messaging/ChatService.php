@@ -154,6 +154,32 @@ class ChatService
     }
 
     /**
+     * The newest message the employee has not read yet (for the header alert), or null.
+     *
+     * @return array{id: int, conversation_id: int, from: string, preview: string, sent_at: string|null}|null
+     */
+    public function latestUnread(Employee $employee): ?array
+    {
+        $message = ChatMessage::query()
+            ->select('chat_messages.*')
+            ->join('chat_participants', 'chat_participants.chat_conversation_id', '=', 'chat_messages.chat_conversation_id')
+            ->where('chat_participants.employee_id', $employee->id)
+            ->whereColumn('chat_messages.id', '>', 'chat_participants.last_read_message_id')
+            ->where(fn ($query) => $query->whereNull('chat_messages.employee_id')->orWhere('chat_messages.employee_id', '!=', $employee->id))
+            ->with('sender')
+            ->latest('chat_messages.id')
+            ->first();
+
+        return $message === null ? null : [
+            'id' => $message->id,
+            'conversation_id' => (int) $message->chat_conversation_id,
+            'from' => $message->sender?->full_name ?? 'System',
+            'preview' => mb_strimwidth((string) $message->body, 0, 80, '…'),
+            'sent_at' => $message->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
      * @param  list<int>  $employeeIds
      */
     private function addParticipants(ChatConversation $conversation, array $employeeIds): void

@@ -272,6 +272,26 @@ class CustomerApiTest extends TestCase
         $this->getJson("/api/v1/customers/{$customerId}/timeline")->assertOk()->assertJsonFragment(['type' => 'registered'])->assertJsonFragment(['title' => 'Approved']);
     }
 
+    public function test_kyc_approval_tabs_filter_by_status_and_count_each_tab(): void
+    {
+        $admin = $this->signInAdmin();
+        $this->seedCustomerModule($admin);
+        $make = fn (array $state): Customer => Customer::factory()->create(['company_id' => $admin->company_id, 'branch_id' => $admin->branch_id] + $state);
+        $ready = $make(['approval_status' => 'pending', 'kyc_status' => 'completed']);
+        $incomplete = $make(['approval_status' => 'pending', 'kyc_status' => 'incomplete']);
+        $returned = $make(['approval_status' => 'rejected', 'kyc_status' => 'completed']);
+        $approved = $make(['approval_status' => 'approved', 'kyc_status' => 'completed']);
+        $make(['approval_status' => 'not_required', 'kyc_status' => 'completed']);
+
+        $response = $this->getJson('/api/v1/customers/pending-approval')->assertOk();
+        $this->assertEqualsCanonicalizing([$ready->id, $incomplete->id], array_column($response->json('data'), 'id'), 'The default tab stays "awaiting approval".');
+        $this->assertSame(['pending' => 2, 'awaiting' => 1, 'kyc_incomplete' => 1, 'returned' => 1, 'approved' => 1, 'all' => 4], $response->json('counts'));
+
+        foreach (['awaiting' => [$ready->id], 'kyc_incomplete' => [$incomplete->id], 'returned' => [$returned->id], 'approved' => [$approved->id]] as $tab => $ids) {
+            $this->assertSame($ids, array_column($this->getJson("/api/v1/customers/pending-approval?status={$tab}")->json('data'), 'id'), $tab);
+        }
+    }
+
     public function test_profile_next_of_kin_guarantors_notes_overview_and_kyc_status(): void
     {
         $admin = $this->signInAdmin();

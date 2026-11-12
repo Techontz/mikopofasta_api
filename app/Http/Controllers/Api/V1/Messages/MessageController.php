@@ -81,7 +81,9 @@ class MessageController extends ApiController
     {
         $this->authorizeAny('messages.use');
 
-        return response()->json(['data' => ['count' => $this->chat->unreadCount($this->currentEmployee())]]);
+        $employee = $this->currentEmployee();
+
+        return response()->json(['data' => ['count' => $this->chat->unreadCount($employee), 'latest' => $this->chat->latestUnread($employee)]]);
     }
 
     public function start(StartConversationRequest $request): JsonResponse

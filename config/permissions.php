@@ -53,8 +53,11 @@ return [
         'loans.prepare_disbursement' => 'Prepare disbursement batches',
         'loans.disburse' => 'Disburse and retry disbursements',
         'loans.write_off' => 'Write off defaulted loans',
-        'phone_bond.manage' => 'Register Phone Bond devices and manage their Linda enrollment, status and closure',
-        'phone_bond.lock' => 'Lock or unlock a Phone Bond device manually through Linda, with a reason',
+        'phone_bond.manage' => 'eSIMU: register phones with Linda, enrollment QR, inspection and lost / stolen reports',
+        'phone_bond.lock' => 'eSIMU: lock or unlock a phone manually through Linda, with a reason',
+        'phone_bond.release' => 'eSIMU: release a phone from Linda management once no loan uses it',
+        'phone_bond.replace_request' => 'eSIMU: request the replacement of the phone securing a running loan',
+        'phone_bond.replace_approve' => 'eSIMU: approve or reject phone replacement requests',
         'loans.discount_request' => 'Request a discount / waiver of an issued loan\'s outstanding debt (approved by another user)',
         'loans.discount_approve' => 'Approve or reject loan discount / waiver requests raised by another user',
         'loans.reverse_repayment' => 'Request the reversal of a posted loan repayment (another user approves; the money returns to suspense)',
@@ -146,7 +149,7 @@ return [
     'roles' => [
         'super_admin' => ['name' => 'Super Admin', 'scope' => 'company', 'permissions' => ['*']],
         'admin' => ['name' => 'Admin', 'scope' => 'company', 'permissions' => [
-            'phone_bond.manage', 'phone_bond.lock',
+            'phone_bond.manage', 'phone_bond.lock', 'phone_bond.release', 'phone_bond.replace_approve',
             'loans.discount_request', 'loans.discount_approve',
             'dashboard.view', 'settings.manage', 'users.manage', 'hrm.staff_privileges', 'hrm.staff_reset_password', 'float.manage', 'bank.manage', 'expenses.request',
             'expenses.approve_hq', 'hq.manage', 'customers.view', 'customers.manage', 'customers.delete', 'customers.edit', 'customers.approve',
@@ -156,7 +159,6 @@ return [
             'legacy_imports.manage', 'legacy_imports.approve',
         ]],
         'finance' => ['name' => 'Finance', 'scope' => 'company', 'permissions' => [
-            'phone_bond.lock',
             'loans.discount_request', 'loans.discount_approve',
             'dashboard.view', 'float.manage', 'funds.transfer', 'expenses.approve_branch', 'hq.manage', 'customers.view', 'customers.edit', 'groups.view', 'branches.view_all',
             'loans.view', 'loans.prepare_disbursement', 'loans.disburse', 'loans.reverse_repayment', 'loans.reverse_disbursement', 'loans.recover', 'payments.verify', 'payments.suspense',
@@ -168,6 +170,7 @@ return [
             'approvals.view', 'dashboard.view', 'users.manage', 'hrm.manage', 'hrm.staff_privileges', 'payroll.approve', 'branches.view_all', 'messages.use', 'goals.view',
         ]],
         'zone_manager' => ['name' => 'Zone Manager', 'scope' => 'zone', 'permissions' => [
+            'phone_bond.lock',
             'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'loans.view', 'reports.operations', 'reports.loans', 'reports.customers', 'reports.portfolio', 'crm.use', 'messages.use', 'goals.view',
         ]],
         'branch_manager' => ['name' => 'Branch Manager', 'scope' => 'branch', 'permissions' => [
@@ -184,10 +187,11 @@ return [
             'loans.view', 'reports.customers', 'reports.loans', 'crm.use', 'messages.use', 'goals.view',
         ]],
         'credit_officer' => ['name' => 'Credit Officer', 'scope' => 'company', 'permissions' => [
+            'phone_bond.lock', 'phone_bond.release', 'phone_bond.replace_approve',
             'dashboard.view', 'customers.view', 'customers.edit', 'groups.view', 'branches.view_all', 'loans.view', 'loans.credit_review', 'reports.loans', 'reports.customers', 'reports.portfolio', 'messages.use', 'goals.view',
         ]],
         'loan_officer' => ['name' => 'Loan Officer', 'scope' => 'branch', 'permissions' => [
-            'phone_bond.manage',
+            'phone_bond.manage', 'phone_bond.replace_request',
             'dashboard.view', 'customers.view', 'customers.manage', 'customers.edit', 'groups.view', 'groups.manage',
             'loans.view', 'loans.apply', 'crm.use', 'messages.use', 'goals.view',
         ]],
@@ -307,8 +311,11 @@ return [
                 ['key' => 'report_portfolio', 'label' => 'PORTFOLIO & RISK REPORTS', 'permissions' => ['reports.portfolio']],
                 ['key' => 'loan_discount_request', 'label' => 'REQUEST LOAN DISCOUNT / WAIVER', 'permissions' => ['loans.discount_request']],
                 ['key' => 'loan_discount_approve', 'label' => 'APPROVE LOAN DISCOUNT / WAIVER', 'permissions' => ['loans.discount_approve']],
-                ['key' => 'phone_bond_manage', 'label' => 'PHONE BOND DEVICES', 'permissions' => ['phone_bond.manage']],
-                ['key' => 'phone_bond_lock', 'label' => 'PHONE BOND LOCK / UNLOCK', 'permissions' => ['phone_bond.lock']],
+                ['key' => 'phone_bond_manage', 'label' => 'eSIMU DEVICES', 'permissions' => ['phone_bond.manage']],
+                ['key' => 'phone_bond_lock', 'label' => 'eSIMU LOCK / UNLOCK', 'permissions' => ['phone_bond.lock']],
+                ['key' => 'phone_bond_release', 'label' => 'eSIMU RELEASE DEVICE', 'permissions' => ['phone_bond.release']],
+                ['key' => 'phone_bond_replace_request', 'label' => 'eSIMU REQUEST DEVICE REPLACEMENT', 'permissions' => ['phone_bond.replace_request']],
+                ['key' => 'phone_bond_replace_approve', 'label' => 'eSIMU APPROVE DEVICE REPLACEMENT', 'permissions' => ['phone_bond.replace_approve']],
                 ['key' => 'financial_reports', 'label' => 'FINANCIAL REPORTS', 'permissions' => ['reports.financial']],
                 ['key' => 'audit', 'label' => 'AUDIT TRAIL', 'permissions' => ['audit.view']],
                 ['key' => 'approvals_view', 'label' => 'PENDING APPROVALS', 'permissions' => ['approvals.view']],
