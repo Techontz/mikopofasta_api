@@ -33,9 +33,11 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use Throwable;
 
 class LoanService
 {
@@ -504,54 +506,93 @@ class LoanService
 
     /**
      * Overdue processing (Documents: "Cron Job POST /loans/overdue/process - missed payment → pending, apply penalty").
-     * For every repayable loan: one penalty per missed instalment (company penalty setting: percentage of the unpaid
-     * instalment or a fixed amount, only for products with penalty = YES), days past due from the oldest unpaid
-     * instalment, ACTIVE ⇄ OVERDUE, and DEFAULT once the loan end date has passed with a balance (live behaviour).
-     * Penalty basis (the overdue instalment) is inferred; the live calculation is server-side only.
+     * For every repayable loan:
+     *  - one penalty per missed instalment, charged on its arrears: the instalment amount less the confirmed repayments
+     *    allocated to it (loan_schedules.paid_amount), × the company Penalty Setting percentage / 100 (or the setting's
+     *    fixed money value), only for products with penalty = YES. The penalty is linked to its instalment with a unique
+     *    key, so running the job again never charges the same instalment twice. The setting has no grace period or
+     *    repeat interval: an instalment is charged once, on the first run after its due date;
+     *  - days past due from the oldest unpaid instalment, ACTIVE ⇄ OVERDUE, and DEFAULT once the loan end date has passed
+     *    with a balance (live behaviour).
+     * Each loan is processed in its own transaction under a row lock; a loan that fails is reported and the run goes on.
      *
-     * @return array{processed: int, penalties: int, penalty_amount: float, overdue: int, defaulted: int}
+     * @return array{processed: int, penalties: int, penalty_amount: float, overdue: int, defaulted: int, failed: int}
      */
     public function applyPenaltiesAndDefaults(CarbonImmutable $today): array
     {
-        $summary = ['processed' => 0, 'penalties' => 0, 'penalty_amount' => 0.0, 'overdue' => 0, 'defaulted' => 0];
+        $summary = ['processed' => 0, 'penalties' => 0, 'penalty_amount' => 0.0, 'overdue' => 0, 'defaulted' => 0, 'failed' => 0];
 
-        Loan::query()->status(...LoanStatus::repayable())->with(['company', 'category', 'customer'])->each(function (Loan $loan) use ($today, &$summary): void {
-            $summary['processed']++;
-            $unpaid = $loan->schedules()->whereDate('due_date', '<', $today->toDateString())->whereColumn('paid_amount', '<', 'amount')->get();
-
-            if ($loan->category?->has_penalty) {
-                foreach ($unpaid as $schedule) {
-                    $alreadyCharged = Penalty::where('loan_id', $loan->id)->whereDate('penalty_date', $schedule->due_date)->exists();
-                    if ($alreadyCharged) {
-                        continue;
+        Loan::query()->status(...LoanStatus::repayable())->select('id')->orderBy('id')->each(function (Loan $row) use ($today, &$summary): void {
+            try {
+                DB::transaction(function () use ($row, $today, &$summary): void {
+                    $loan = Loan::whereKey($row->id)->lockForUpdate()->with(['company', 'category', 'customer'])->first();
+                    if ($loan === null || ! in_array($loan->status, LoanStatus::repayable(), true)) {
+                        return;
                     }
-                    $overdue = (float) $schedule->amount - (float) $schedule->paid_amount;
-                    $value = (float) $loan->company->penalty_value;
-                    $penalty = $loan->company->penalty_type === 'percentage' ? $overdue * $value / 100 : $value;
-                    if ($penalty > 0) {
-                        $this->chargePenalty($loan, round($penalty, 2), CarbonImmutable::parse($schedule->due_date));
-                        $summary['penalties']++;
-                        $summary['penalty_amount'] += round($penalty, 2);
+                    $summary['processed']++;
+                    $unpaid = $loan->schedules()->whereDate('due_date', '<', $today->toDateString())->whereColumn('paid_amount', '<', 'amount')->orderBy('due_date')->orderBy('id')->get();
+
+                    if ($loan->category?->has_penalty) {
+                        foreach ($unpaid as $schedule) {
+                            $penalty = $this->overduePenalty($loan, $schedule);
+                            if ($penalty !== null) {
+                                $summary['penalties']++;
+                                $summary['penalty_amount'] += (float) $penalty->amount;
+                            }
+                        }
                     }
-                }
-            }
 
-            [$status, $daysPastDue] = $this->delinquency($loan, $unpaid, $today, $loan->status);
+                    [$status, $daysPastDue] = $this->delinquency($loan, $unpaid, $today, $loan->status);
 
-            if ($status === LoanStatus::Default && $loan->status !== LoanStatus::Default) {
-                $summary['defaulted']++;
-                $loan->customer->update(['status' => 'out']);
-            }
-            if ($status === LoanStatus::Overdue) {
-                $summary['overdue']++;
-            }
+                    if ($status === LoanStatus::Default && $loan->status !== LoanStatus::Default) {
+                        $summary['defaulted']++;
+                        $loan->customer->update(['status' => 'out']);
+                    }
+                    if ($status === LoanStatus::Overdue) {
+                        $summary['overdue']++;
+                    }
 
-            if ($status !== $loan->status || $daysPastDue !== (int) $loan->days_past_due) {
-                $loan->update(['status' => $status, 'days_past_due' => $daysPastDue]);
+                    if ($status !== $loan->status || $daysPastDue !== (int) $loan->days_past_due) {
+                        $loan->update(['status' => $status, 'days_past_due' => $daysPastDue]);
+                    }
+                });
+            } catch (Throwable $exception) {
+                $summary['failed']++;
+                report($exception);
             }
         });
 
+        $summary['penalty_amount'] = round($summary['penalty_amount'], 2);
+
         return $summary;
+    }
+
+    /**
+     * The penalty for one missed instalment, or null when it is already charged or comes to nothing. Base: the
+     * instalment's overdue arrears (amount − confirmed paid), so a partial payment lowers the penalty and a fully paid
+     * instalment never reaches here.
+     */
+    private function overduePenalty(Loan $loan, LoanSchedule $schedule): ?Penalty
+    {
+        $charged = Penalty::where('loan_schedule_id', $schedule->id)->exists()
+            // Penalties charged before instalment links existed: one per loan and due date.
+            || Penalty::where('loan_id', $loan->id)->whereNull('loan_schedule_id')->whereDate('penalty_date', $schedule->due_date)->exists();
+        if ($charged) {
+            return null;
+        }
+
+        $arrears = round((float) $schedule->amount - (float) $schedule->paid_amount, 2);
+        $value = (float) $loan->company->penalty_value;
+        $amount = round($loan->company->penalty_type === 'percentage' ? $arrears * $value / 100 : $value, 2);
+        if ($arrears <= 0.004 || $amount <= 0) {
+            return null;
+        }
+
+        try {
+            return $this->chargePenalty($loan, $amount, CarbonImmutable::parse($schedule->due_date), $schedule);
+        } catch (UniqueConstraintViolationException) {
+            return null;
+        }
     }
 
     /**
@@ -692,13 +733,14 @@ class LoanService
      * Charge a penalty (rule 14, cash basis - supersedes stream P's D9 accrual): only the penalty row is created, no journal.
      * The penalty becomes income when its cash is collected (repayment allocation or payPenalty()).
      */
-    public function chargePenalty(Loan $loan, float $amount, CarbonImmutable $penaltyDate): Penalty
+    public function chargePenalty(Loan $loan, float $amount, CarbonImmutable $penaltyDate, ?LoanSchedule $schedule = null): Penalty
     {
         return Penalty::create([
             'company_id' => $loan->company_id,
             'branch_id' => $loan->branch_id,
             'customer_id' => $loan->customer_id,
             'loan_id' => $loan->id,
+            'loan_schedule_id' => $schedule?->id,
             'amount' => $amount,
             'penalty_date' => $penaltyDate->toDateString(),
         ]);
@@ -1596,7 +1638,8 @@ class LoanService
      */
     private function rebuildSchedules(Loan $loan): void
     {
-        $paid = round((float) $loan->transactions()->where('type', 'deposit')->whereNull('reversed_at')
+        // Repayments and approved discounts both fill the schedule (allocateToSchedules), so both rebuild it.
+        $paid = round((float) $loan->transactions()->whereIn('type', ['deposit', LoanTransaction::TYPE_DISCOUNT])->whereNull('reversed_at')
             ->selectRaw('COALESCE(SUM(principal + interest + insurance), 0) v')->value('v'), 2);
 
         foreach ($loan->schedules()->orderBy('id')->lockForUpdate()->get() as $schedule) {

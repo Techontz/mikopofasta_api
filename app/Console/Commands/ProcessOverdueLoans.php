@@ -22,10 +22,10 @@ class ProcessOverdueLoans extends Command
         $summary = $loans->applyPenaltiesAndDefaults($date->startOfDay());
 
         $this->info(sprintf(
-            'Processed %d loans: %d penalties (%s), %d overdue, %d moved to default.',
-            $summary['processed'], $summary['penalties'], number_format($summary['penalty_amount']), $summary['overdue'], $summary['defaulted'],
+            'Processed %d loans: %d penalties (%s), %d overdue, %d moved to default, %d failed (see the log).',
+            $summary['processed'], $summary['penalties'], number_format($summary['penalty_amount']), $summary['overdue'], $summary['defaulted'], $summary['failed'],
         ));
 
-        return self::SUCCESS;
+        return $summary['failed'] > 0 ? self::FAILURE : self::SUCCESS;
     }
 }
