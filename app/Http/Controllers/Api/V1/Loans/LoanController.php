@@ -23,6 +23,7 @@ use App\Services\Approvals\SegregationOfDuties;
 use App\Services\Credit\CreditAssessment;
 use App\Services\CustomerEligibility;
 use App\Services\LoanCalculator;
+use App\Services\LoanDebtClearance;
 use App\Services\LoanGuarantors;
 use App\Services\LoanRecoveryService;
 use App\Services\LoanRepaymentHistory;
@@ -195,6 +196,8 @@ class LoanController extends LoanApiController
             ])->values(),
             'collateral_attachment' => $loan->collateral_attachment ? asset('storage/'.$loan->collateral_attachment) : null,
             'deductions' => $this->loans->deductions($loan),
+            // Debt clearance: the customer's existing debts that this loan's payout deducts and settles.
+            'debt_clearance' => app(LoanDebtClearance::class)->plan($loan),
             'net_disbursement' => $this->workflow->netDisbursement($loan),
             'outstanding' => in_array($loan->status, LoanStatus::disbursed(), true) ? $this->loans->outstanding($loan) : null,
             'paid_amount' => $loan->paid_amount,

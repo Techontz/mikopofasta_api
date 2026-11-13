@@ -18,8 +18,6 @@ use App\Models\LoanAssessment;
 use App\Models\LoanCategory;
 use App\Models\LoanDisbursement;
 use App\Models\LoanMandate;
-use App\Models\LoanOffset;
-use App\Models\LoanTransaction;
 use App\Models\PhoneBondDevice;
 use App\Models\PhoneBondDeviceLoan;
 use App\Models\SmsLog;
@@ -571,6 +569,7 @@ class LoanWorkflow
                 $disbursement->update($this->resolveSource($locked, $source));
             }
             $this->assertSourceFunds($locked, $disbursement);
+            $this->revalidateDebts($disbursement, $locked, $employee);
 
             $disbursement->update(['status' => LoanDisbursement::REQUESTED, 'requested_by' => $employee->id, 'requested_at' => now()]);
             $this->record($locked, 'DISBURSEMENT_REQUESTED', $locked->status, $employee, ['batch_id' => $disbursement->batch_id, 'attempt' => $disbursement->attempt, 'source' => $disbursement->sourceLabel()]);
@@ -780,6 +779,9 @@ class LoanWorkflow
             throw ValidationException::withMessages(['code' => 'Invalid withdrawal code']);
         }
         $this->assertSourceFunds($loan, $disbursement);
+        // The cash is counted out now: deduct the debts as they stand at this moment.
+        DB::transaction(fn () => $this->revalidateDebts(LoanDisbursement::lockForUpdate()->findOrFail($disbursement->id), $loan, $employee));
+        $disbursement->refresh();
 
         $this->completeDisbursement($disbursement, 'CASH-'.$disbursement->batch_id, $employee);
 
@@ -811,15 +813,13 @@ class LoanWorkflow
     }
 
     /**
-     * Net cash sent to the customer: approved principal − deducted loan fee − balance of the loan being topped up.
-     * Inferred: salary advance and penalty deductions shown on the approval screen are informational only.
+     * Net cash sent to the customer: approved principal − deducted loan fee − every existing debt of the customer (other
+     * loans still being repaid, active Salary Advances, penalties not tied to a loan), settled at disbursement
+     * ({@see LoanDebtClearance}).
      */
     public function netDisbursement(Loan $loan): float
     {
-        $fee = $loan->fee_deduct ? (float) $loan->loan_fee : 0.0;
-        $topup = $loan->topupOf && in_array($loan->topupOf->status, LoanStatus::repayable(), true) ? $this->loans->outstanding($loan->topupOf)['total'] : 0.0;
-
-        return round(max(0, (float) $loan->amount_approved - $fee - $topup), 2);
+        return round(max(0, app(LoanDebtClearance::class)->plan($loan)['net']), 2);
     }
 
     /**
@@ -900,17 +900,25 @@ class LoanWorkflow
                 'journal_entry_id' => $entry->id,
             ]);
 
-            if ($previous !== null && in_array($previous->status, LoanStatus::repayable(), true)) {
-                $balance = $this->loans->outstanding($previous)['total'];
-                if ($balance > 0) {
-                    $settlement = $this->loans->deposit($previous, $balance, $today, 'TOPUP', $employee);
-                    $this->recordOffset($loan, $previous, $settlement, (float) $disbursement->amount);
-                    $this->record($previous->fresh(), 'SETTLED_BY_TOPUP', $previous->status, $employee, ['amount' => $balance, 'new_loan' => $loan->loan_number]);
-                }
-                // eSIMU: a top-up keeps the enrolled phone (no new registration or QR); it now secures the top-up loan.
-                if ($loan->loan_method === LoanMethod::PhoneBond) {
-                    app(PhoneBond::class)->moveToTopUp($previous, $loan->fresh(), $employee);
-                }
+            // Debt clearance: the debts netted from this payout are settled now, in this transaction, through their own
+            // records (loan repayment, Salary Advance repayment, penalty payment).
+            $wasRepayable = $previous !== null && in_array($previous->status, LoanStatus::repayable(), true);
+            $statuses = Loan::whereIn('id', collect($disbursement->debt_settlement['plan']['loans'] ?? [])->pluck('id')->push($previous?->id)->filter())->pluck('status', 'id');
+            $settled = app(LoanDebtClearance::class)->settle($disbursement, $loan, $today, $employee);
+            foreach ($settled['loans'] as $row) {
+                $this->record(Loan::findOrFail($row['loan_id']), 'SETTLED_BY_TOPUP', $statuses[$row['loan_id']] ?? null, $employee, ['amount' => $row['amount'], 'new_loan' => $loan->loan_number]);
+            }
+            if ($settled['salary_advances'] !== [] || $settled['penalties'] !== [] || $settled['unsettled'] > 0) {
+                $this->record($loan, 'DEBTS_SETTLED', LoanStatus::AwaitingDisbursement, $employee, [
+                    'salary_advance' => round(array_sum(array_column($settled['salary_advances'], 'amount')), 2),
+                    'penalties' => round(array_sum(array_column($settled['penalties'], 'amount')), 2),
+                    'previous_loans' => round(array_sum(array_column($settled['loans'], 'amount')), 2),
+                    'netted_but_no_longer_owed' => $settled['unsettled'],
+                ]);
+            }
+            // eSIMU: a top-up keeps the enrolled phone (no new registration or QR); it now secures the top-up loan.
+            if ($wasRepayable && $loan->loan_method === LoanMethod::PhoneBond) {
+                app(PhoneBond::class)->moveToTopUp($previous, $loan->fresh(), $employee);
             }
 
             $loan->refresh();
@@ -999,6 +1007,11 @@ class LoanWorkflow
             default => 'VODA',
         };
 
+        // The debts netted from this payout, from the latest confirmed balances; the payout stops when they reach the proceeds.
+        $clearance = app(LoanDebtClearance::class);
+        $plan = $clearance->plan($loan);
+        $clearance->assertPayable($plan);
+
         return LoanDisbursement::create([
             'company_id' => $loan->company_id,
             'branch_id' => $loan->branch_id,
@@ -1007,7 +1020,8 @@ class LoanWorkflow
             'attempt' => $channel === 'vodacom' ? $attempt : max(1, (int) $loan->disbursement_attempts),
             'channel' => $channel,
             'phone' => $loan->customer->phone,
-            'amount' => $this->netDisbursement($loan),
+            'amount' => round(max(0, $plan['net']), 2),
+            'debt_settlement' => ['plan' => $plan],
             'status' => LoanDisbursement::PREPARED,
             'prepared_by' => $employee?->id,
         ] + $source);
@@ -1042,30 +1056,20 @@ class LoanWorkflow
     }
 
     /**
-     * Record what the top-up settled internally (specification §13/§14): the old debt the customer never paid in cash,
-     * split into the components it was made of, beside the cash they actually received. The money has already moved
-     * through the ordinary repayment posting; this is the tracking attribute that keeps the offset out of the commission
-     * base and puts it back before the dividend (§15).
+     * Right before money moves: the netted debts are recalculated from the latest confirmed balances (a repayment made
+     * after approval is not deducted twice) and the batch amount follows them.
      */
-    private function recordOffset(Loan $loan, Loan $previous, LoanTransaction $settlement, float $cashDisbursed): void
+    private function revalidateDebts(LoanDisbursement $disbursement, Loan $loan, ?Employee $employee): void
     {
-        LoanOffset::updateOrCreate(['new_loan_id' => $loan->id], [
-            'company_id' => $loan->company_id,
-            'branch_id' => $loan->branch_id,
-            'customer_id' => $loan->customer_id,
-            'old_loan_id' => $previous->id,
-            'loan_transaction_id' => $settlement->id,
-            'amount' => (float) $settlement->amount,
-            'principal_amount' => (float) $settlement->principal,
-            'penalty_amount' => (float) $settlement->penalty,
-            'interest_amount' => (float) $settlement->interest,
-            // The customer's salary advance is settled on its own product, never out of the top-up; it stays 0 here until
-            // that flow exists, so the column never carries a figure the ledger cannot back.
-            'salary_advance_amount' => 0,
-            'insurance_amount' => (float) $settlement->insurance,
-            'cash_disbursed' => round($cashDisbursed, 2),
-            'settled_on' => $settlement->transaction_date,
-        ]);
+        $before = (float) $disbursement->amount;
+        if (app(LoanDebtClearance::class)->revalidate($disbursement, $loan)) {
+            $this->record($loan, 'DEBTS_REVALIDATED', $loan->status, $employee, [
+                'batch_id' => $disbursement->batch_id,
+                'amount_before' => $before,
+                'amount' => (float) $disbursement->amount,
+                'debts' => $disbursement->debt_settlement['plan']['totals'] ?? null,
+            ]);
+        }
     }
 
     /**

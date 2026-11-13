@@ -13,6 +13,11 @@ use App\Models\Loan;
 use App\Models\LoanCategory;
 use App\Models\LoanDisbursement;
 use App\Models\LoanOffset;
+use App\Models\Penalty;
+use App\Models\SalaryAdvance;
+use App\Models\SalaryAdvanceCategory;
+use App\Models\SalaryAdvancePayment;
+use App\Services\Customers\CustomerDebt;
 use App\Services\Ledger;
 use App\Services\LoanService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -318,6 +323,66 @@ class LoanLifecycleApiTest extends TestCase
         );
     }
 
+    public function test_a_new_loan_nets_and_settles_every_existing_debt_using_the_balances_at_payout(): void
+    {
+        $old = $this->toActive();
+        app(LoanService::class)->deposit($old, 70000, now()->toImmutable());
+        $advance = $this->activeSalaryAdvance(24000);
+
+        $this->postJson(route('api.v1.loans.store'), $this->form(['how_loan' => 200000]))->assertCreated();
+        $new = Loan::latest('id')->first();
+        $this->postJson(route('api.v1.loans.approve-manager', $new), ['loan_aprove' => 200000])->assertOk();
+        $this->getJson(route('api.v1.loans.show', $new))->assertOk()
+            ->assertJsonPath('data.deductions.remain_loan', 60000)->assertJsonPath('data.deductions.salary_advance', 24000)->assertJsonPath('data.deductions.remain_cash', 111000);
+        $this->assertSame(SalaryAdvance::find($advance->id)->status, 'active', 'Nothing is settled at approval.');
+        $this->uploadAgreement($new)->assertOk();
+        $this->postJson(route('api.v1.loans.kyc-verify', $new))->assertOk();
+        $this->postJson(route('api.v1.loans.approve-credit', $new))->assertOk();
+        $this->postJson(route('api.v1.loans.prepare-disbursement', $new))->assertOk();
+        $this->assertDatabaseHas('loan_disbursements', ['loan_id' => $new->id, 'amount' => 111000]);
+
+        // After preparation the customer repays 10,000 and a standalone penalty of 3,000 appears: the payout follows both.
+        app(LoanService::class)->deposit($old, 10000, now()->toImmutable());
+        $penalty = Penalty::create(['company_id' => $this->admin->company_id, 'branch_id' => $this->admin->branch_id, 'customer_id' => $this->customer->id, 'amount' => 3000, 'penalty_date' => today()]);
+        $this->postJson(route('api.v1.loans.disburse', $new))->assertOk();
+
+        $this->assertSame(LoanStatus::Active, $new->fresh()->status);
+        $this->assertDatabaseHas('loan_disbursements', ['loan_id' => $new->id, 'amount' => 118000]);
+        $this->assertSame(LoanStatus::Closed, $old->fresh()->status);
+        $this->assertSame('done', $advance->fresh()->status);
+        $this->assertSame($new->id, (int) SalaryAdvancePayment::where('salary_advance_id', $advance->id)->sole()->settled_by_loan_id);
+        $this->assertEquals(3000, $penalty->fresh()->paid_amount);
+        $this->assertEquals(0, app(CustomerDebt::class)->summary($this->customer->fresh())['salary_advance']);
+
+        $offset = LoanOffset::where('new_loan_id', $new->id)->firstOrFail();
+        $this->assertEquals([77000, 24000, 118000], [$offset->amount, $offset->salary_advance_amount, $offset->cash_disbursed]);
+        $this->assertDatabaseHas('audit_logs', ['auditable_id' => $new->id, 'action' => 'DEBTS_REVALIDATED']);
+    }
+
+    public function test_debts_reaching_the_loan_proceeds_stop_the_disbursement_and_settle_nothing(): void
+    {
+        $advance = $this->activeSalaryAdvance(300000);
+        $loan = $this->toFinance();
+
+        $this->postJson(route('api.v1.loans.prepare-disbursement', $loan))->assertUnprocessable()->assertJsonValidationErrors('loan');
+        $this->assertSame(LoanStatus::PendingFinance, $loan->fresh()->status);
+        $this->assertSame('active', $advance->fresh()->status);
+        $this->assertSame(0, SalaryAdvancePayment::count());
+    }
+
+    public function test_reversing_the_disbursement_restores_the_debts_it_settled(): void
+    {
+        $advance = $this->activeSalaryAdvance(24000);
+        $loan = $this->toActive();
+        $this->assertSame('done', $advance->fresh()->status);
+
+        app(LoanService::class)->reverseDisbursement($loan->fresh(), 'Customer returned the money', $this->employee('finance', $this->admin->branch_id));
+
+        $this->assertSame(LoanStatus::Cancelled, $loan->fresh()->status);
+        $this->assertSame('active', $advance->fresh()->status);
+        $this->assertNotNull(SalaryAdvancePayment::where('salary_advance_id', $advance->id)->sole()->reversed_at);
+    }
+
     public function test_preview_categories_and_withdrawal_report(): void
     {
         $this->postJson(route('api.v1.loans.preview'), ['category_id' => $this->category->id, 'how_loan' => '100,000', 'session' => 2, 'rate' => 'SIMPLE', 'fee_status' => 'YES'])
@@ -458,6 +523,16 @@ class LoanLifecycleApiTest extends TestCase
         $this->postJson(route('api.v1.loans.approve-manager', $loan), ['loan_aprove' => 100000])->assertOk();
 
         return $loan->fresh();
+    }
+
+    private function activeSalaryAdvance(float $total): SalaryAdvance
+    {
+        $category = SalaryAdvanceCategory::create(['company_id' => $this->admin->company_id, 'name' => 'WATUMISHI', 'interest_rate' => 20, 'amount_from' => 10000, 'amount_to' => 400000, 'fee' => 0]);
+
+        return SalaryAdvance::create([
+            'company_id' => $this->admin->company_id, 'branch_id' => $this->admin->branch_id, 'customer_id' => $this->customer->id, 'salary_advance_category_id' => $category->id,
+            'amount' => round($total / 1.2, 2), 'interest_rate' => 20, 'total_payable' => $total, 'fee' => 0, 'status' => 'active', 'approved_at' => now(),
+        ]);
     }
 
     private function toFinance(): Loan
