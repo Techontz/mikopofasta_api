@@ -25,6 +25,7 @@ use App\Services\CustomerEligibility;
 use App\Services\LoanCalculator;
 use App\Services\LoanGuarantors;
 use App\Services\LoanRecoveryService;
+use App\Services\LoanRepaymentHistory;
 use App\Services\LoanService;
 use App\Services\LoanWorkflow;
 use App\Services\MobileDisbursementFile;
@@ -426,6 +427,18 @@ class LoanController extends LoanApiController
                 'credit' => (float) $line->credit,
             ])->values()->all(),
         ];
+    }
+
+    /**
+     * GET /loans/{loan}/repayment-history - the loan's schedule instalment by instalment with what was paid on it
+     * (Customer Profile → Credit History and eSIMU → Devices).
+     */
+    public function repaymentHistory(Loan $loan, LoanRepaymentHistory $history): JsonResponse
+    {
+        $this->authorizeAny('loans.view', 'customers.view');
+        $this->ensureVisible($loan);
+
+        return response()->json(['data' => $history->for($loan->load(['category', 'customer']))]);
     }
 
     /**

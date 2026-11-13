@@ -62,6 +62,9 @@ class PhoneBond
     public function startRegistration(Customer $customer, array $phone, ?array $applicationDraft, Employee $actor): PhoneBondDevice
     {
         $existing = PhoneBondDevice::where('company_id', $customer->company_id)->where('imei', $phone['imei'])->where('status', '!=', PhoneBondDevice::CLOSED)->first();
+        if ($existing !== null && $existing->isCompanyDevice()) {
+            throw ValidationException::withMessages(['imei' => 'This IMEI is registered as a company device.']);
+        }
         if ($existing !== null && (int) $existing->customer_id !== (int) $customer->id) {
             throw ValidationException::withMessages(['imei' => 'This IMEI is registered to another customer.']);
         }
@@ -95,6 +98,46 @@ class PhoneBond
     }
 
     /**
+     * Company Devices: register (or resume registering) a company-owned smartphone. Saved first, then sent to Linda under
+     * the company, so a retry after a Linda outage never creates a second device. It never secures a loan.
+     *
+     * @param  array{imei: string, make: string, model: string, serial_number?: string|null, department: string, branch_id: int}  $phone
+     */
+    public function registerCompanyDevice(int $companyId, array $phone, Employee $actor): PhoneBondDevice
+    {
+        $existing = PhoneBondDevice::where('company_id', $companyId)->where('imei', $phone['imei'])->where('status', '!=', PhoneBondDevice::CLOSED)->first();
+        if ($existing !== null && ! $existing->isCompanyDevice()) {
+            throw ValidationException::withMessages(['imei' => 'This IMEI is registered as an eSIMU customer device.']);
+        }
+        if ($existing !== null && $existing->status !== PhoneBondDevice::PENDING) {
+            throw ValidationException::withMessages(['imei' => 'This company device is already registered.']);
+        }
+
+        $device = $existing ?? new PhoneBondDevice([
+            'company_id' => $companyId,
+            'kind' => PhoneBondDevice::KIND_COMPANY,
+            'imei' => $phone['imei'],
+            'status' => PhoneBondDevice::PENDING,
+            'enrollment_status' => PhoneBondDevice::NOT_REGISTERED,
+            'lock_state' => PhoneBondDevice::UNLOCKED,
+            'registered_by' => $actor->id,
+        ]);
+        $device->fill([
+            'branch_id' => $phone['branch_id'],
+            'department' => trim($phone['department']),
+            'brand' => $phone['make'],
+            'model' => $phone['model'],
+            'serial_number' => $phone['serial_number'] ?? $device->serial_number,
+        ])->save();
+
+        if ($existing === null) {
+            $this->audit->record($device, 'PhoneBond.registration_started', $actor, ['kind' => 'company', 'department' => $device->department, 'make' => $device->brand, 'model' => $device->model]);
+        }
+
+        return $this->registerWithLinda($device, $actor);
+    }
+
+    /**
      * Send the customer and phone to Linda (POST /registrations). Safe to repeat.
      */
     public function registerWithLinda(PhoneBondDevice $device, ?Employee $actor): PhoneBondDevice
@@ -103,8 +146,14 @@ class PhoneBond
             return $device;
         }
 
-        $customer = $device->customer;
-        $result = $this->linda->register($this->lindaCustomer($customer), [
+        // Linda keeps every phone under a customer: an eSIMU phone under its borrower, a company device under the company.
+        $owner = $device->isCompanyDevice() ? $this->lindaCompany($device) : $this->lindaCustomer($device->customer);
+        if ($owner === null) {
+            $device->forceFill(['registration_error' => 'Set the company phone number (Settings) before registering company devices with Linda.'])->save();
+
+            return $device;
+        }
+        $result = $this->linda->register($owner, [
             'externalId' => 'mkopa-device-'.$device->id,
             'imei' => $device->imei,
             'make' => $device->brand,
@@ -633,7 +682,7 @@ class PhoneBond
      */
     public function report(int $companyId, ?array $branchIds, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $devices = fn () => PhoneBondDevice::query()->where('company_id', $companyId)->when($branchIds !== null, fn ($query) => $query->whereIn('branch_id', $branchIds));
+        $devices = fn () => PhoneBondDevice::query()->loanDevices()->where('company_id', $companyId)->when($branchIds !== null, fn ($query) => $query->whereIn('branch_id', $branchIds));
 
         return [
             'cards' => [
@@ -699,6 +748,29 @@ class PhoneBond
             'nationalId' => $idNumber,
             'idDocumentType' => $idType,
             'address' => collect([$customer->street, $customer->ward, $customer->district, $customer->region?->name])->filter()->implode(', ') ?: null,
+        ];
+    }
+
+    /**
+     * The company as Linda's customer for its own devices (Linda needs a customer with a phone number for every phone).
+     *
+     * @return array{externalId: string, fullName: string, phone: string, nationalId: null, idDocumentType: null, address: string|null}|null
+     */
+    private function lindaCompany(PhoneBondDevice $device): ?array
+    {
+        $company = $device->company;
+        $phone = SmsSender::normalisePhone($company?->phone);
+        if ($company === null || $phone === null) {
+            return null;
+        }
+
+        return [
+            'externalId' => 'mkopa-company-'.$company->id,
+            'fullName' => mb_substr(trim((string) $company->name), 0, 160),
+            'phone' => $phone,
+            'nationalId' => null,
+            'idDocumentType' => null,
+            'address' => $company->address ?: null,
         ];
     }
 

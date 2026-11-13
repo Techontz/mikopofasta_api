@@ -36,8 +36,8 @@ class PhoneBondAlerts
                     'kind' => $kind,
                     'title' => $title,
                     'message' => $message,
-                    'link' => '/esimu/devices?device='.$device->id,
-                    'customer_id' => (int) $device->customer_id,
+                    'link' => ($device->isCompanyDevice() ? '/esimu/company-devices?device=' : '/esimu/devices?device=').$device->id,
+                    'customer_id' => $device->customer_id !== null ? (int) $device->customer_id : null,
                 ]));
             }
         });
