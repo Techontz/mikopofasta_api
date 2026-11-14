@@ -42,7 +42,7 @@ class PhoneBondController extends LoanApiController
     {
         $this->authorizeAny(...self::VIEW);
 
-        $devices = $this->scoped(PhoneBondDevice::query())
+        $devices = $this->scoped(PhoneBondDevice::query()->loanDevices())
             ->with(['customer:id,first_name,middle_name,last_name,phone,customer_number', 'branch:id,name', 'loan:id,loan_number,status'])
             ->when($request->filled('status') && $request->input('status') !== 'all', fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->when($request->filled('lock_state') && $request->input('lock_state') !== 'all', fn ($query) => $query->where('lock_state', $request->string('lock_state')->toString()))
@@ -421,6 +421,6 @@ class PhoneBondController extends LoanApiController
 
     private function assertVisible(?PhoneBondDevice $device): void
     {
-        abort_unless($device !== null && $this->scoped(PhoneBondDevice::query())->whereKey($device->id)->exists(), 404);
+        abort_unless($device !== null && $this->scoped(PhoneBondDevice::query()->loanDevices())->whereKey($device->id)->exists(), 404);
     }
 }

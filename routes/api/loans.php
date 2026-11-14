@@ -19,6 +19,7 @@ Route::prefix('loans')->name('loans.')->group(function (): void {
         Route::get('customers/{customer}/categories', 'categories')->whereNumber('customer')->name('categories');
         Route::get('customers/{customer}/guarantor-candidates', 'guarantorCandidates')->whereNumber('customer')->name('customer-guarantor-candidates');
         Route::get('{loan}', 'show')->whereNumber('loan')->name('show');
+        Route::get('{loan}/repayment-history', 'repaymentHistory')->whereNumber('loan')->name('repayment-history');
         Route::put('{loan}', 'update')->whereNumber('loan')->name('update');
         Route::delete('{loan}', 'destroy')->whereNumber('loan')->name('destroy');
     });

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\PhoneBond;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,6 +23,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class PhoneBondDevice extends Model
 {
+    /** An eSIMU phone securing customer loans. */
+    public const KIND_LOAN = 'loan';
+
+    /** A company-owned smartphone (Company Devices): no customer, never a loan's collateral. */
+    public const KIND_COMPANY = 'company';
+
     public const PENDING = 'pending';
 
     public const ACTIVE = 'active';
@@ -68,6 +75,32 @@ class PhoneBondDevice extends Model
             'application_draft' => 'array',
             'inspected_at' => 'datetime',
         ];
+    }
+
+    public function isCompanyDevice(): bool
+    {
+        return $this->kind === self::KIND_COMPANY;
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    public function scopeLoanDevices(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('kind'), self::KIND_LOAN);
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    public function scopeCompanyDevices(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('kind'), self::KIND_COMPANY);
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function isEnrolled(): bool

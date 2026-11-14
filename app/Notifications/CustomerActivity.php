@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notification;
 class CustomerActivity extends Notification
 {
     /**
-     * @param  array{kind: string, title: string, message: string, link: string, customer_id: int}  $payload
+     * @param  array{kind: string, title: string, message: string, link: string, customer_id: int|null}  $payload
      */
     public function __construct(public array $payload) {}
 
@@ -23,7 +23,7 @@ class CustomerActivity extends Notification
     }
 
     /**
-     * @return array{kind: string, title: string, message: string, link: string, customer_id: int}
+     * @return array{kind: string, title: string, message: string, link: string, customer_id: int|null}
      */
     public function toArray(object $notifiable): array
     {

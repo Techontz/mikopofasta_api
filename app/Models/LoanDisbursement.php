@@ -39,6 +39,7 @@ class LoanDisbursement extends Model
         return [
             'amount' => 'decimal:2',
             'callback_payload' => 'array',
+            'debt_settlement' => 'array',
             'requested_at' => 'datetime',
             'completed_at' => 'datetime',
             'reversed_at' => 'datetime',

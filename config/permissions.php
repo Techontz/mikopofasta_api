@@ -58,6 +58,9 @@ return [
         'phone_bond.release' => 'eSIMU: release a phone from Linda management once no loan uses it',
         'phone_bond.replace_request' => 'eSIMU: request the replacement of the phone securing a running loan',
         'phone_bond.replace_approve' => 'eSIMU: approve or reject phone replacement requests',
+        // Company Devices (company-owned smartphones under Linda), assigned per user by the Super Admin; separate from eSIMU.
+        'register_company_device' => 'Company Devices: register company smartphones with Linda and start QR enrollment',
+        'manage_company_device_lock_unlock' => 'Company Devices: lock or unlock company smartphones manually through Linda, with a reason',
         'loans.discount_request' => 'Request a discount / waiver of an issued loan\'s outstanding debt (approved by another user)',
         'loans.discount_approve' => 'Approve or reject loan discount / waiver requests raised by another user',
         'loans.reverse_repayment' => 'Request the reversal of a posted loan repayment (another user approves; the money returns to suspense)',
@@ -316,6 +319,8 @@ return [
                 ['key' => 'phone_bond_release', 'label' => 'eSIMU RELEASE DEVICE', 'permissions' => ['phone_bond.release']],
                 ['key' => 'phone_bond_replace_request', 'label' => 'eSIMU REQUEST DEVICE REPLACEMENT', 'permissions' => ['phone_bond.replace_request']],
                 ['key' => 'phone_bond_replace_approve', 'label' => 'eSIMU APPROVE DEVICE REPLACEMENT', 'permissions' => ['phone_bond.replace_approve']],
+                ['key' => 'register_company_device', 'label' => 'REGISTER COMPANY DEVICE', 'permissions' => ['register_company_device']],
+                ['key' => 'manage_company_device_lock_unlock', 'label' => 'COMPANY DEVICE LOCK / UNLOCK', 'permissions' => ['manage_company_device_lock_unlock']],
                 ['key' => 'financial_reports', 'label' => 'FINANCIAL REPORTS', 'permissions' => ['reports.financial']],
                 ['key' => 'audit', 'label' => 'AUDIT TRAIL', 'permissions' => ['audit.view']],
                 ['key' => 'approvals_view', 'label' => 'PENDING APPROVALS', 'permissions' => ['approvals.view']],

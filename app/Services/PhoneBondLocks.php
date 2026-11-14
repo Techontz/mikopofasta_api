@@ -194,7 +194,7 @@ class PhoneBondLocks
 
         if ($request->status === PhoneBondLockRequest::FAILED) {
             $device = $request->device;
-            $this->alerts->toStaff($device, 'phone_bond.lock', 'esimu_command_failed', 'eSIMU '.$request->action.' failed',
+            $this->alerts->toStaff($device, self::lockPermission($device), 'esimu_command_failed', 'eSIMU '.$request->action.' failed',
                 ucfirst($request->action)." of IMEI {$device->imei} failed: {$request->provider_message}");
         }
 
@@ -233,7 +233,7 @@ class PhoneBondLocks
                 $counts['failed'] += $request->status === PhoneBondLockRequest::FAILED ? 1 : 0;
                 if ($request->status === PhoneBondLockRequest::PENDING && $request->alerted_at === null && $request->created_at->lte($alertAfter)) {
                     $request->forceFill(['alerted_at' => now()])->save();
-                    $this->alerts->toStaff($request->device, 'phone_bond.lock', 'esimu_command_waiting', 'eSIMU '.$request->action.' still waiting',
+                    $this->alerts->toStaff($request->device, self::lockPermission($request->device), 'esimu_command_waiting', 'eSIMU '.$request->action.' still waiting',
                         ucfirst($request->action)." of IMEI {$request->device->imei} has not been confirmed by the phone since {$request->created_at->toDateTimeString()}. The phone may be off or out of signal.");
                     $counts['alerted']++;
                 }
@@ -327,6 +327,14 @@ class PhoneBondLocks
         if ($timestamp === 0 || abs(time() - $timestamp) > 300 || ! hash_equals($expected, (string) ($parts['v1'] ?? ''))) {
             throw new HttpException(400, 'Invalid signature.');
         }
+    }
+
+    /**
+     * Who may lock the device - and is alerted about its commands: eSIMU staff, or the Company Devices privilege.
+     */
+    public static function lockPermission(PhoneBondDevice $device): string
+    {
+        return $device->isCompanyDevice() ? 'manage_company_device_lock_unlock' : 'phone_bond.lock';
     }
 
     private function isLatest(PhoneBondLockRequest $request): bool

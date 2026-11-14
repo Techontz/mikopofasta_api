@@ -50,7 +50,8 @@ class InstalmentBehaviour
      * Instalments of the given loans with their rebuilt payment date and delay.
      *
      * @param  list<int>  $loanIds
-     * @return Collection<int, array{id: int, loan_id: int, due_date: string, amount: float, paid_amount: float, paid_date: ?string, delay_days: ?int, is_due: bool, is_paid: bool, bucket: ?string}>
+     *                              last_paid_date is the date of the latest payment that went to the instalment (also for a partly paid one).
+     * @return Collection<int, array{id: int, loan_id: int, due_date: string, amount: float, paid_amount: float, paid_date: ?string, last_paid_date: ?string, delay_days: ?int, is_due: bool, is_paid: bool, bucket: ?string}>
      */
     public function instalments(array $loanIds, CarbonImmutable $today): Collection
     {
@@ -79,10 +80,14 @@ class InstalmentBehaviour
                 $amount = round((float) $schedule->amount, 2);
                 $paid = 0.0;
                 $paidDate = null;
+                $lastPaidDate = null;
 
                 while ($paid < $amount - 0.005 && $cursor < count($queue)) {
                     $portion = min($queue[$cursor]['left'], $amount - $paid);
                     $paid = round($paid + $portion, 2);
+                    if ($portion > 0.005) {
+                        $lastPaidDate = $queue[$cursor]['date'];
+                    }
                     $queue[$cursor]['left'] = round($queue[$cursor]['left'] - $portion, 2);
                     if ($paid >= $amount - 0.005) {
                         $paidDate = $queue[$cursor]['date'];
@@ -109,6 +114,7 @@ class InstalmentBehaviour
                     'amount' => $amount,
                     'paid_amount' => $paid,
                     'paid_date' => $paidDate,
+                    'last_paid_date' => $lastPaidDate,
                     'delay_days' => $delay,
                     'is_due' => $isDue,
                     'is_paid' => $isPaid,

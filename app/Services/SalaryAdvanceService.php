@@ -174,12 +174,15 @@ class SalaryAdvanceService
      * Why a deposit cannot be reversed now, or null. Deposits are reversed newest first: each one's principal/interest split
      * depends on what was paid before it.
      */
-    public function paymentReversalBlocker(SalaryAdvancePayment $payment): ?string
+    public function paymentReversalBlocker(SalaryAdvancePayment $payment, bool $withLoanDisbursement = false): ?string
     {
         $advance = $payment->salaryAdvance;
 
         if ($payment->reversed_at !== null) {
             return 'This deposit has already been reversed.';
+        }
+        if ($payment->settled_by_loan_id !== null && ! $withLoanDisbursement) {
+            return 'This deposit was taken out of a new loan\'s proceeds; reverse that loan\'s disbursement instead.';
         }
         if ($advance === null || $advance->reversed_at !== null || $advance->status === 'reversed') {
             return 'The salary advance of this deposit has been reversed; its deposits were reversed with it.';
@@ -211,14 +214,14 @@ class SalaryAdvanceService
      *
      * @throws ValidationException
      */
-    public function reversePayment(SalaryAdvancePayment $payment, string $reason, Employee $employee): SalaryAdvancePayment
+    public function reversePayment(SalaryAdvancePayment $payment, string $reason, Employee $employee, bool $withLoanDisbursement = false): SalaryAdvancePayment
     {
-        return DB::transaction(function () use ($payment, $reason, $employee): SalaryAdvancePayment {
+        return DB::transaction(function () use ($payment, $reason, $employee, $withLoanDisbursement): SalaryAdvancePayment {
             $advance = SalaryAdvance::whereKey($payment->salary_advance_id)->lockForUpdate()->firstOrFail();
             $payment = SalaryAdvancePayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $payment->setRelation('salaryAdvance', $advance);
 
-            if (($blocker = $this->paymentReversalBlocker($payment)) !== null) {
+            if (($blocker = $this->paymentReversalBlocker($payment, $withLoanDisbursement)) !== null) {
                 throw ValidationException::withMessages(['reason' => $blocker]);
             }
 

@@ -33,9 +33,11 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use Throwable;
 
 class LoanService
 {
@@ -106,36 +108,23 @@ class LoanService
     }
 
     /**
-     * Deductions shown on the approval page ("Remain Loan Amount / Salary Advance / Penalty / Loan Fee").
+     * Deductions shown on the approval page ("Remain Loan Amount / Salary Advance / Penalty / Loan Fee"): the same debts
+     * the disbursement nets and settles ({@see LoanDebtClearance}), each counted once.
      *
      * @return array{remain_loan: float, salary_advance: float, penalty: float, loan_fee: float, total: float, remain_cash: float}
      */
     public function deductions(Loan $loan): array
     {
-        $customer = $loan->customer;
-        $remainLoan = $customer->loans()
-            ->whereKeyNot($loan->id)
-            ->status(...LoanStatus::repayable())
-            ->get()
-            ->sum(fn (Loan $other): float => $other->remaining_amount);
-
-        $salaryAdvance = (float) $customer->salaryAdvances()->where('status', 'active')->withSum('payments', 'amount')->get()
-            ->sum(fn ($advance): float => $advance->remaining_amount);
-
-        $penalty = (float) Penalty::where('customer_id', $customer->id)->where('is_waived', false)->get()
-            ->sum(fn (Penalty $item): float => (float) $item->amount - (float) $item->paid_amount);
-
-        $fee = $loan->fee_deduct ? (float) $loan->loan_fee : 0;
-        $total = $remainLoan + $salaryAdvance + $penalty + $fee;
-        $principal = (float) ($loan->amount_approved > 0 ? $loan->amount_approved : $loan->amount_applied);
+        $plan = app(LoanDebtClearance::class)->plan($loan);
+        $total = round($plan['totals']['total_debts'] + $plan['loan_fee'], 2);
 
         return [
-            'remain_loan' => $remainLoan,
-            'salary_advance' => $salaryAdvance,
-            'penalty' => $penalty,
-            'loan_fee' => $fee,
+            'remain_loan' => $plan['totals']['previous_loans'],
+            'salary_advance' => $plan['totals']['salary_advance'],
+            'penalty' => $plan['totals']['penalties'],
+            'loan_fee' => $plan['loan_fee'],
             'total' => $total,
-            'remain_cash' => $principal - $total,
+            'remain_cash' => round($plan['approved'] - $total, 2),
         ];
     }
 
@@ -504,54 +493,93 @@ class LoanService
 
     /**
      * Overdue processing (Documents: "Cron Job POST /loans/overdue/process - missed payment → pending, apply penalty").
-     * For every repayable loan: one penalty per missed instalment (company penalty setting: percentage of the unpaid
-     * instalment or a fixed amount, only for products with penalty = YES), days past due from the oldest unpaid
-     * instalment, ACTIVE ⇄ OVERDUE, and DEFAULT once the loan end date has passed with a balance (live behaviour).
-     * Penalty basis (the overdue instalment) is inferred; the live calculation is server-side only.
+     * For every repayable loan:
+     *  - one penalty per missed instalment, charged on its arrears: the instalment amount less the confirmed repayments
+     *    allocated to it (loan_schedules.paid_amount), × the company Penalty Setting percentage / 100 (or the setting's
+     *    fixed money value), only for products with penalty = YES. The penalty is linked to its instalment with a unique
+     *    key, so running the job again never charges the same instalment twice. The setting has no grace period or
+     *    repeat interval: an instalment is charged once, on the first run after its due date;
+     *  - days past due from the oldest unpaid instalment, ACTIVE ⇄ OVERDUE, and DEFAULT once the loan end date has passed
+     *    with a balance (live behaviour).
+     * Each loan is processed in its own transaction under a row lock; a loan that fails is reported and the run goes on.
      *
-     * @return array{processed: int, penalties: int, penalty_amount: float, overdue: int, defaulted: int}
+     * @return array{processed: int, penalties: int, penalty_amount: float, overdue: int, defaulted: int, failed: int}
      */
     public function applyPenaltiesAndDefaults(CarbonImmutable $today): array
     {
-        $summary = ['processed' => 0, 'penalties' => 0, 'penalty_amount' => 0.0, 'overdue' => 0, 'defaulted' => 0];
+        $summary = ['processed' => 0, 'penalties' => 0, 'penalty_amount' => 0.0, 'overdue' => 0, 'defaulted' => 0, 'failed' => 0];
 
-        Loan::query()->status(...LoanStatus::repayable())->with(['company', 'category', 'customer'])->each(function (Loan $loan) use ($today, &$summary): void {
-            $summary['processed']++;
-            $unpaid = $loan->schedules()->whereDate('due_date', '<', $today->toDateString())->whereColumn('paid_amount', '<', 'amount')->get();
-
-            if ($loan->category?->has_penalty) {
-                foreach ($unpaid as $schedule) {
-                    $alreadyCharged = Penalty::where('loan_id', $loan->id)->whereDate('penalty_date', $schedule->due_date)->exists();
-                    if ($alreadyCharged) {
-                        continue;
+        Loan::query()->status(...LoanStatus::repayable())->select('id')->orderBy('id')->each(function (Loan $row) use ($today, &$summary): void {
+            try {
+                DB::transaction(function () use ($row, $today, &$summary): void {
+                    $loan = Loan::whereKey($row->id)->lockForUpdate()->with(['company', 'category', 'customer'])->first();
+                    if ($loan === null || ! in_array($loan->status, LoanStatus::repayable(), true)) {
+                        return;
                     }
-                    $overdue = (float) $schedule->amount - (float) $schedule->paid_amount;
-                    $value = (float) $loan->company->penalty_value;
-                    $penalty = $loan->company->penalty_type === 'percentage' ? $overdue * $value / 100 : $value;
-                    if ($penalty > 0) {
-                        $this->chargePenalty($loan, round($penalty, 2), CarbonImmutable::parse($schedule->due_date));
-                        $summary['penalties']++;
-                        $summary['penalty_amount'] += round($penalty, 2);
+                    $summary['processed']++;
+                    $unpaid = $loan->schedules()->whereDate('due_date', '<', $today->toDateString())->whereColumn('paid_amount', '<', 'amount')->orderBy('due_date')->orderBy('id')->get();
+
+                    if ($loan->category?->has_penalty) {
+                        foreach ($unpaid as $schedule) {
+                            $penalty = $this->overduePenalty($loan, $schedule);
+                            if ($penalty !== null) {
+                                $summary['penalties']++;
+                                $summary['penalty_amount'] += (float) $penalty->amount;
+                            }
+                        }
                     }
-                }
-            }
 
-            [$status, $daysPastDue] = $this->delinquency($loan, $unpaid, $today, $loan->status);
+                    [$status, $daysPastDue] = $this->delinquency($loan, $unpaid, $today, $loan->status);
 
-            if ($status === LoanStatus::Default && $loan->status !== LoanStatus::Default) {
-                $summary['defaulted']++;
-                $loan->customer->update(['status' => 'out']);
-            }
-            if ($status === LoanStatus::Overdue) {
-                $summary['overdue']++;
-            }
+                    if ($status === LoanStatus::Default && $loan->status !== LoanStatus::Default) {
+                        $summary['defaulted']++;
+                        $loan->customer->update(['status' => 'out']);
+                    }
+                    if ($status === LoanStatus::Overdue) {
+                        $summary['overdue']++;
+                    }
 
-            if ($status !== $loan->status || $daysPastDue !== (int) $loan->days_past_due) {
-                $loan->update(['status' => $status, 'days_past_due' => $daysPastDue]);
+                    if ($status !== $loan->status || $daysPastDue !== (int) $loan->days_past_due) {
+                        $loan->update(['status' => $status, 'days_past_due' => $daysPastDue]);
+                    }
+                });
+            } catch (Throwable $exception) {
+                $summary['failed']++;
+                report($exception);
             }
         });
 
+        $summary['penalty_amount'] = round($summary['penalty_amount'], 2);
+
         return $summary;
+    }
+
+    /**
+     * The penalty for one missed instalment, or null when it is already charged or comes to nothing. Base: the
+     * instalment's overdue arrears (amount − confirmed paid), so a partial payment lowers the penalty and a fully paid
+     * instalment never reaches here.
+     */
+    private function overduePenalty(Loan $loan, LoanSchedule $schedule): ?Penalty
+    {
+        $charged = Penalty::where('loan_schedule_id', $schedule->id)->exists()
+            // Penalties charged before instalment links existed: one per loan and due date.
+            || Penalty::where('loan_id', $loan->id)->whereNull('loan_schedule_id')->whereDate('penalty_date', $schedule->due_date)->exists();
+        if ($charged) {
+            return null;
+        }
+
+        $arrears = round((float) $schedule->amount - (float) $schedule->paid_amount, 2);
+        $value = (float) $loan->company->penalty_value;
+        $amount = round($loan->company->penalty_type === 'percentage' ? $arrears * $value / 100 : $value, 2);
+        if ($arrears <= 0.004 || $amount <= 0) {
+            return null;
+        }
+
+        try {
+            return $this->chargePenalty($loan, $amount, CarbonImmutable::parse($schedule->due_date), $schedule);
+        } catch (UniqueConstraintViolationException) {
+            return null;
+        }
     }
 
     /**
@@ -692,13 +720,14 @@ class LoanService
      * Charge a penalty (rule 14, cash basis - supersedes stream P's D9 accrual): only the penalty row is created, no journal.
      * The penalty becomes income when its cash is collected (repayment allocation or payPenalty()).
      */
-    public function chargePenalty(Loan $loan, float $amount, CarbonImmutable $penaltyDate): Penalty
+    public function chargePenalty(Loan $loan, float $amount, CarbonImmutable $penaltyDate, ?LoanSchedule $schedule = null): Penalty
     {
         return Penalty::create([
             'company_id' => $loan->company_id,
             'branch_id' => $loan->branch_id,
             'customer_id' => $loan->customer_id,
             'loan_id' => $loan->id,
+            'loan_schedule_id' => $schedule?->id,
             'amount' => $amount,
             'penalty_date' => $penaltyDate->toDateString(),
         ]);
@@ -711,9 +740,9 @@ class LoanService
      *
      * @throws ValidationException
      */
-    public function payPenalty(Penalty $penalty, float $amount, CarbonImmutable $date, ?Employee $employee = null): void
+    public function payPenalty(Penalty $penalty, float $amount, CarbonImmutable $date, ?Employee $employee = null): PenaltyPayment
     {
-        DB::transaction(function () use ($penalty, $amount, $date, $employee): void {
+        return DB::transaction(function () use ($penalty, $amount, $date, $employee): PenaltyPayment {
             $locked = Penalty::whereKey($penalty->id)->lockForUpdate()->firstOrFail();
             $remaining = round((float) $locked->amount - (float) $locked->paid_amount, 2);
 
@@ -735,6 +764,8 @@ class LoanService
             ], $locked, $date, $locked->branch_id, $employee, TransactionType::LoanPenaltyPayment);
             $payment->update(['journal_entry_id' => $entry->id]);
             $penalty->setRawAttributes($locked->fresh()->getAttributes(), true);
+
+            return $payment;
         });
     }
 
@@ -1156,6 +1187,9 @@ class LoanService
         if ($loan->topup_of_loan_id !== null && ($blocker = $this->topupSettlementBlocker($loan)) !== null) {
             return $blocker;
         }
+        if (($blocker = $this->debtClearanceBlocker($loan)) !== null) {
+            return $blocker;
+        }
         if (Loan::where('topup_of_loan_id', $loan->id)->whereNotIn('status', LoanStatus::values(LoanStatus::Rejected, LoanStatus::Cancelled))->exists()) {
             return 'Another loan is a top-up of this loan; its disbursement cannot be reversed.';
         }
@@ -1217,6 +1251,7 @@ class LoanService
             app(SegregationOfDuties::class)->assertCanReverse($entry, $employee);
             $from = $loan->status;
             $settlement = $this->unwindTopupSettlement($loan, $reason, $employee);
+            $this->unwindDebtClearance($loan, $reason, $employee);
             $reversal = $this->ledger->reverse($entry->loadMissing('lines'), 'DISBURSEMENT REVERSED: '.$reason);
             $marks = ['reversed_at' => now(), 'reversed_by' => $employee->id, 'reversal_reason' => $reason, 'reversal_journal_entry_id' => $reversal->id];
 
@@ -1258,13 +1293,16 @@ class LoanService
      * Why a direct penalty payment (Penalty → pay) cannot be reversed now, or null when it can. The penalty portion of a loan
      * repayment is reversed with the repayment, never on its own. reversePenaltyPayment() enforces exactly these checks.
      */
-    public function penaltyPaymentReversalBlocker(PenaltyPayment $payment): ?string
+    public function penaltyPaymentReversalBlocker(PenaltyPayment $payment, bool $withLoanDisbursement = false): ?string
     {
         $penalty = $payment->penalty;
         $loan = $penalty?->loan;
 
         if ($payment->reversed_at !== null) {
             return 'This penalty payment has already been reversed.';
+        }
+        if ($payment->settled_by_loan_id !== null && ! $withLoanDisbursement) {
+            return 'This penalty was paid out of a new loan\'s proceeds; reverse that loan\'s disbursement instead.';
         }
         if (! $payment->isDirect()) {
             return 'This penalty was paid as part of a loan repayment; reverse the repayment instead.';
@@ -1320,14 +1358,14 @@ class LoanService
      *
      * @throws ValidationException
      */
-    public function reversePenaltyPayment(PenaltyPayment $payment, string $reason, Employee $employee): PenaltyPayment
+    public function reversePenaltyPayment(PenaltyPayment $payment, string $reason, Employee $employee, bool $withLoanDisbursement = false): PenaltyPayment
     {
-        return DB::transaction(function () use ($payment, $reason, $employee): PenaltyPayment {
+        return DB::transaction(function () use ($payment, $reason, $employee, $withLoanDisbursement): PenaltyPayment {
             $penalty = Penalty::whereKey($payment->penalty_id)->lockForUpdate()->firstOrFail();
             $payment = PenaltyPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $payment->setRelation('penalty', $penalty);
 
-            if (($blocker = $this->penaltyPaymentReversalBlocker($payment)) !== null) {
+            if (($blocker = $this->penaltyPaymentReversalBlocker($payment, $withLoanDisbursement)) !== null) {
                 throw ValidationException::withMessages(['reason' => $blocker]);
             }
 
@@ -1495,6 +1533,69 @@ class LoanService
         return $deposit;
     }
 
+    /**
+     * Debts other than the topped-up loan that this loan's payout settled (other loans, Salary Advances, penalties): why
+     * they cannot be undone with the disbursement, or null.
+     */
+    private function debtClearanceBlocker(Loan $loan): ?string
+    {
+        foreach ($this->clearedLoanDeposits($loan) as $deposit) {
+            if (LoanTransaction::where('loan_id', $deposit->loan_id)->where('type', 'deposit')->whereNull('reversed_at')->where('id', '>', $deposit->id)->exists()) {
+                return "The loan {$deposit->loan?->loan_number} settled by this payout has later repayments; reverse them first.";
+            }
+        }
+        $cleared = app(LoanDebtClearance::class)->nonLoanSettlements($loan);
+        foreach ($cleared['salary_advance_payments'] as $payment) {
+            if (($blocker = app(SalaryAdvanceService::class)->paymentReversalBlocker($payment, withLoanDisbursement: true)) !== null) {
+                return 'Salary advance settled by this payout: '.$blocker;
+            }
+        }
+        foreach ($cleared['penalty_payments'] as $payment) {
+            if (($blocker = $this->penaltyPaymentReversalBlocker($payment, withLoanDisbursement: true)) !== null) {
+                return 'Penalty settled by this payout: '.$blocker;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Reversing a disbursement also undoes the other debts its payout settled: each payment is mirrored through its own
+     * reversal, so the Salary Advance, penalty or loan owes again exactly what it owed before.
+     */
+    private function unwindDebtClearance(Loan $loan, string $reason, Employee $employee): void
+    {
+        $note = 'LOAN '.$loan->loan_number.' DISBURSEMENT REVERSED: '.$reason;
+        foreach ($this->clearedLoanDeposits($loan) as $deposit) {
+            $other = Loan::whereKey($deposit->loan_id)->lockForUpdate()->firstOrFail();
+            $deposit = LoanTransaction::whereKey($deposit->id)->lockForUpdate()->firstOrFail();
+            $deposit->setRelation('loan', $other);
+            $this->unwindRepayment($other, $deposit, $this->repaymentEntry($deposit), $note, $employee, toSuspense: false);
+        }
+        $cleared = app(LoanDebtClearance::class)->nonLoanSettlements($loan);
+        foreach ($cleared['salary_advance_payments'] as $payment) {
+            app(SalaryAdvanceService::class)->reversePayment($payment, $note, $employee, withLoanDisbursement: true);
+        }
+        foreach ($cleared['penalty_payments'] as $payment) {
+            $this->reversePenaltyPayment($payment, $note, $employee, withLoanDisbursement: true);
+        }
+        LoanOffset::where('new_loan_id', $loan->id)->whereNull('reversed_at')->update(['reversed_at' => now()]);
+    }
+
+    /**
+     * Repayments this loan's payout made on loans other than the one it tops up (the topped-up loan has its own unwind).
+     *
+     * @return list<LoanTransaction>
+     */
+    private function clearedLoanDeposits(Loan $loan): array
+    {
+        $settled = LoanDisbursement::where('loan_id', $loan->id)->where('status', LoanDisbursement::SUCCESS)->latest('id')->value('debt_settlement');
+        $settled = is_string($settled) ? json_decode($settled, true) : $settled;
+        $ids = collect($settled['settled']['loans'] ?? [])->reject(fn (array $row): bool => (int) $row['loan_id'] === (int) $loan->topup_of_loan_id)->pluck('transaction_id')->all();
+
+        return LoanTransaction::whereIn('id', $ids)->whereNull('reversed_at')->with('loan')->orderByDesc('id')->get()->all();
+    }
+
     private function pendingReversalReason(Model $subject): ?string
     {
         return app(ReversalRequests::class)->pendingFor($subject) !== null ? ReversalRequests::PENDING_MESSAGE : null;
@@ -1596,7 +1697,8 @@ class LoanService
      */
     private function rebuildSchedules(Loan $loan): void
     {
-        $paid = round((float) $loan->transactions()->where('type', 'deposit')->whereNull('reversed_at')
+        // Repayments and approved discounts both fill the schedule (allocateToSchedules), so both rebuild it.
+        $paid = round((float) $loan->transactions()->whereIn('type', ['deposit', LoanTransaction::TYPE_DISCOUNT])->whereNull('reversed_at')
             ->selectRaw('COALESCE(SUM(principal + interest + insurance), 0) v')->value('v'), 2);
 
         foreach ($loan->schedules()->orderBy('id')->lockForUpdate()->get() as $schedule) {

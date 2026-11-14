@@ -27,7 +27,8 @@ class MobileDisbursementFileTest extends TestCase
         $wallet = Customer::factory()->create(['company_id' => $admin->company_id, 'branch_id' => $admin->branch_id, 'first_name' => 'Baraka', 'last_name' => 'Ali', 'payment_method' => 'mno', 'wallet_number' => '255765000111']);
         $pending = Loan::factory()->create(['customer_id' => $customer->id, 'amount_approved' => 100000, 'fee_deduct' => true, 'loan_fee' => 5000, 'status' => LoanStatus::PendingFinance]);
         Loan::factory()->create(['customer_id' => $wallet->id, 'amount_approved' => 50000, 'fee_deduct' => false, 'loan_fee' => 2000, 'status' => LoanStatus::AwaitingDisbursement]);
-        Loan::factory()->create(['customer_id' => $customer->id, 'amount_approved' => 70000, 'status' => LoanStatus::Active]);
+        // Another customer's running loan: already paid out, so not in the file (and not a debt of Asha's).
+        Loan::factory()->create(['customer_id' => Customer::factory()->create(['company_id' => $admin->company_id, 'branch_id' => $admin->branch_id])->id, 'amount_approved' => 70000, 'status' => LoanStatus::Active]);
 
         $rows = $this->rows($this->get('/api/v1/loans/disbursement-file'));
 
